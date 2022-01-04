@@ -65,7 +65,8 @@ struct mctp_pktbuf {
 	/* binding private data */
 	void *msg_binding_private;
         /*id for identifying packets*/
-        uint16_t pkt_id;
+        uint16_t pkt_id;i
+        /*Flexible pointer should be last*/
 	uint8_t data[];
 };
 
