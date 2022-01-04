@@ -88,8 +88,8 @@ struct mctp {
 #define MCTP_MAX_MESSAGE_SIZE 65536
 #endif
 
-static uint16_t bridged_pkt_Id = 0;
-static uint16_t nonbridge_pkt_Id = 0;
+static uint16_t bridged_pkt_id = 0;
+static uint16_t nonbridge_pkt_id = 0;
 
 static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 				  mctp_eid_t src, mctp_eid_t dest, void *msg,
@@ -717,8 +717,8 @@ static int mctp_send_tx_queue(struct mctp_bus *bus)
 		rc = mctp_packet_tx(bus, pkt);
 
 		if (rc < 0) {
-            /*Extracting origin type of the error packet*/
-                pkt_id = pkt->pkt_id;
+        	/*Extracting origin type of the error packet*/
+         	pkt_id = pkt->pkt_id;
 			if (rc == TX_DISABLED_ERR)
 				break;
 			else if (rc == -EPERM) {
@@ -786,10 +786,10 @@ static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
             /*Assuming processing every 1st dis-assembly we need to have
              a new id, and parts of same disassembly should have 
              same id*/
-            if(nonbridge_pkt_Id >= 65536){
-                nonbridge_pkt_Id = 0;
+            if(nonbridge_pkt_id == UINT16_MAX){
+                nonbridge_pkt_id = 0;
             }
-            id = ++nonbridge_pkt_Id;
+            id = ++nonbridge_pkt_id;
         }
         pkt->pkt_id = id;
                 
@@ -850,13 +850,13 @@ static int mctp_message_raw_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 		return -1;
 	}
         
-        /*reseting on reaching maximum range uint16*/
-        if(bridged_pkt_Id >= 65536){
-            bridged_pkt_Id = 0;
-        }
-        /*pkt is bridged, So assuming each packet will be within the prescribed
-          pkt size and each is unique, so every pkt will have new id*/
-        pkt->pkt_id = ++bridged_pkt_Id;
+    /*reseting on reaching maximum range uint16*/
+    if(bridged_pkt_id == UINT16_MAX){
+        bridged_pkt_id = 0;
+    }
+    /*pkt is bridged, So assuming each packet will be within the prescribed
+      pkt size and each is unique, so every pkt will have new id*/
+    pkt->pkt_id = ++bridged_pkt_id;
 
 	if (msg_binding_private) {
 		memcpy(pkt->msg_binding_private, msg_binding_private,
