@@ -235,7 +235,6 @@ int main()
 		msg_binding_private_tests[i].test();
 	}
 
-    /*calling to check the raw Tx data.*/
-    test_mctp_raw_tx();
+
 	return 0;
 }

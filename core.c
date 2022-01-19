@@ -854,6 +854,7 @@ static int mctp_message_raw_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
     if(bridged_pkt_id == UINT16_MAX){
         bridged_pkt_id = 0;
     }
+	
     /*pkt is bridged, So assuming each packet will be within the prescribed
       pkt size and each is unique, so every pkt will have new id*/
     pkt->pkt_id = ++bridged_pkt_id;
