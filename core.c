@@ -69,6 +69,8 @@ struct mctp {
 	/* Endpoint UUID */
 	guid_t uuid;
 	size_t max_message_size;
+     //networkid
+    guid_t networkid;
 };
 
 #ifndef BUILD_ASSERT
@@ -1176,6 +1178,21 @@ int mctp_ctrl_cmd_get_endpoint_uuid(struct mctp *mctp,
 		return -1;
 	response->completion_code = MCTP_CTRL_CC_SUCCESS;
 	response->uuid = mctp->uuid;
+	return 0;
+}
+
+
+/*
+ * @brief Creates control message response for Get Endpoint UUID.
+ * See DSP0236 1.3.0 12.5.
+ */
+int mctp_ctrl_cmd_get_network_id(struct mctp *mctp,
+				    struct mctp_ctrl_resp_get_networkid *response)
+{
+	if (response == NULL)
+		return -1;
+	response->completion_code = MCTP_CTRL_CC_SUCCESS;
+	response->networkid = mctp->networkid;
 	return 0;
 }
 
