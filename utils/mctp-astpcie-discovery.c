@@ -77,6 +77,24 @@ static int discovery_prepare_set_endpoint_id_resp(struct ctx *ctx,
 	return 4;
 }
 
+
+static int discovery_prepare_get_network_id_resp(struct ctx *ctx){
+    
+    struct mctp_ctrl_resp_get_networkid *get_networkid_resp;
+    
+    int rc;
+    
+    mctp_prdebug("Get network ID");
+    
+    get_networkid_resp = (struct mctp_ctrl_resp_get_networkid *)&resp;
+    
+    rc = mctp_ctrl_cmd_get_network_id(ctx->mctp, get_networkid_resp);
+    
+    assert(rc == 0);
+    
+    return 4;
+}
+
 static void discovery_handle_notify_resp(void)
 {
 	mctp_prdebug("Response for Discovery Notify");
@@ -125,6 +143,11 @@ static void rx_control_message(mctp_eid_t src, void *data, void *msg,
 		pkt_prv->routing = PCIE_ROUTE_BY_ID;
 		resp_len += discovery_prepare_get_endpoint_id_resp(ctx);
 		break;
+
+    case MCTP_CTRL_CMD_GET_NETWORK_ID :
+        pkt_prv->routing = PCIE_ROUTE_BY_ID;
+        resp_len += discovery_prepare_get_network_id_resp(ctx);
+        break;
 	case MCTP_CTRL_CMD_SET_ENDPOINT_ID:
 		ctx->discovered = true;
 		ctx->eid = req->data[1];

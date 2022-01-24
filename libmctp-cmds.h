@@ -40,7 +40,6 @@ struct mctp_ctrl_cmd_get_eid {
 struct mctp_ctrl_cmd_get_uuid {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 } __attribute__((__packed__));
-
 struct mctp_ctrl_cmd_get_mctp_ver_support {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 	uint8_t msg_type_number;
@@ -228,6 +227,12 @@ struct mctp_ctrl_resp_set_eid {
 	uint8_t eid_pool_size;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_resp_get_networkid {
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
+	guid_t networkid;
+} __attribute__((__packed__));
+
 struct mctp_ctrl_resp_discovery_notify {
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	uint8_t completion_code;
@@ -393,6 +398,9 @@ int mctp_ctrl_cmd_get_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 				  bool bus_owner,
 				  struct mctp_ctrl_resp_get_eid *response);
 
+int mctp_ctrl_cmd_get_network_id(struct mctp *mctp,
+				    struct mctp_ctrl_resp_get_networkid *response);
+					
 int mctp_ctrl_cmd_get_vdm_support(
 	struct mctp *mctp, mctp_eid_t src_eid,
 	struct mctp_ctrl_resp_get_vdm_support *response);
