@@ -40,9 +40,11 @@ struct mctp_ctrl_cmd_get_eid {
 struct mctp_ctrl_cmd_get_uuid {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 } __attribute__((__packed__));
+
 struct mctp_ctrl_cmd_get_networkid {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 } __attribute__((__packed__));
+
 struct mctp_ctrl_cmd_get_mctp_ver_support {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 	uint8_t msg_type_number;
