@@ -248,15 +248,6 @@ struct mctp_ctrl_resp_set_eid {
 	uint8_t eid_pool_size;
 } __attribute__((__packed__));
 
-struct mctp_ctrl_resp_allocate_eids {
-	struct mctp_ctrl_msg_hdr ctrl_hdr;
-	uint8_t completion_code;
-	mctp_ctrl_cmd_allocate_eids_resp_op operation : 2;
-	uint8_t : 6;
-	uint8_t eid_pool_size;
-	uint8_t first_eid;
-} __attribute__((__packed__));
-
 struct mctp_ctrl_resp_discovery_notify {
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	uint8_t completion_code;

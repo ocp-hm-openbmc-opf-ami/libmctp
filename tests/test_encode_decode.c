@@ -152,6 +152,8 @@ int main(int argc, char *argv[])
 	test_encode_ctrl_cmd_req_update_routing_info();
 	test_encode_ctrl_cmd_rsp_get_routing_table();
 	test_allocate_eid_pool_encode(allocate_eids, 2, 9);
+
+	/*Negation Cases*/
 	test_negation_allocate_eid_pool_encode(allocate_eids, 2, 9);
 
 	return EXIT_SUCCESS;
