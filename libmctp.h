@@ -125,6 +125,7 @@ typedef void (*mctp_raw_rx_cb)(void *data, void *msg, size_t len,
 
 int mctp_set_rx_all(struct mctp *mctp, mctp_rx_fn fn, void *data);
 int mctp_set_rx_raw(struct mctp *mctp, mctp_raw_rx_cb fn);
+int mctp_set_bridging_callback(struct mctp *mctp, mctp_raw_rx_cb fn);
 
 /* Format MCTP packet from arguments and send. This will include adding headers
  * and assmebling if needed.

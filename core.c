@@ -362,6 +362,11 @@ int mctp_set_rx_raw(struct mctp *mctp, mctp_raw_rx_cb fn)
 	return 0;
 }
 
+int mctp_set_bridging_callback(struct mctp *mctp, mctp_raw_rx_cb fn){
+    mctp->message_rx_raw = fn;
+	return 0;
+}
+
 static struct mctp_bus *find_bus_for_eid(struct mctp *mctp, mctp_eid_t dest
 					 __attribute__((unused)))
 {
