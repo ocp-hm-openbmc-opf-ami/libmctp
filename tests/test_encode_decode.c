@@ -124,10 +124,9 @@ test_allocate_eid_pool_encode(mctp_ctrl_cmd_allocate_eids_op operation,
 	assert(cmd_allocate_eid.first_eid == first_eid);
 }
 
-static void
-test_negation_allocate_eid_pool_encode(mctp_ctrl_cmd_allocate_eids_op operation,
-				       const uint8_t eid_pool_size,
-				       const uint8_t first_eid)
+
+static void test_negation_allocate_eid_pool_encode(mctp_ctrl_cmd_allocate_eids_op operation, 
+		const uint8_t eid_pool_size,const uint8_t first_eid)
 {
 	bool ret;
 	uint8_t sample_eid = 10;
