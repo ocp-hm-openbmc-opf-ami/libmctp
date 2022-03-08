@@ -88,8 +88,8 @@ struct mctp {
 #define MCTP_MAX_MESSAGE_SIZE 65536
 #endif
 
-static uint16_t bridged_pkt_id = 0;
-static uint16_t nonbridge_pkt_id = 0;
+/*Counter for initializing Id for bridged packets*/
+static uint16_t bridged_pkt_id = 1;
 
 static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 				  mctp_eid_t src, mctp_eid_t dest, void *msg,
@@ -687,11 +687,20 @@ static void flush_message(struct mctp_bus *bus, uint16_t id)
 		bus->tx_queue_head = pkt->next;
 
 		//If EOM of the message is reached then stop flushing
-		if (mctp_pktbuf_hdr(pkt)->flags_seq_tag & MCTP_HDR_FLAG_EOM) {
+		/*
+             if non bridged packet and EOM reached, then flush
+             only the related packets w.r.t to non-bridged.
+             for bridged the id will be non zero, hence this section
+             will not execute.
+             */
+		if (!id &&
+		    (mctp_pktbuf_hdr(pkt)->flags_seq_tag & MCTP_HDR_FLAG_EOM)) {
 			mctp_pktbuf_free(pkt);
 			break;
 		} else {
-			/*Deleting related packets*/
+			/*
+                 deleting on the bridged packets
+                 */
 			if (pkt->pkt_id == id) {
 				mctp_pktbuf_free(pkt);
 			}
@@ -711,13 +720,17 @@ static int mctp_send_tx_queue(struct mctp_bus *bus)
 {
 	struct mctp_pktbuf *pkt;
 	int rc = 0;
-        uint8_t pkt_id = 0;
+	uint8_t pkt_id = 0;
 	while ((pkt = bus->tx_queue_head)) {
 		rc = mctp_packet_tx(bus, pkt);
 
 		if (rc < 0) {
-			/*Extracting origin type of the error packet*/
+			/*
+                id is Zero for non-bridged packet, non-zero 
+                for bridged packet
+                */
 			pkt_id = pkt->pkt_id;
+
 			if (rc == TX_DISABLED_ERR)
 				break;
 			else if (rc == -EPERM) {
@@ -760,7 +773,7 @@ static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 	size_t max_payload_len, payload_len, p;
 	struct mctp_pktbuf *pkt;
 	struct mctp_hdr *hdr;
-	int i, id = 0;
+	int i;
 
 	max_payload_len = bus->binding->pkt_size - sizeof(*hdr);
 
@@ -782,16 +795,15 @@ static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 			return -1;
 		}
 
-		if (p == 0) {
-			/*Assuming processing every 1st dis-assembly we need to have
-             a new id, and parts of same disassembly should have 
-             same id*/
-			if (nonbridge_pkt_Id >= 65536) {
-				nonbridge_pkt_Id = 0;
-			}
-			id = ++nonbridge_pkt_Id;
-		}
-		pkt->pkt_id = id;
+		/*
+            For non bridged packets the packet id will be kept zero.
+            also assuming the non bridged packets can be different size 
+            as opposed to bridged packets which are practically 
+            unique and same in size
+            as a way of differentiation from bridged/non-bridged pkt.
+             */
+		pkt->pkt_id = 0;
+
 		hdr = mctp_pktbuf_hdr(pkt);
 
 		/* store binding specific private data */
@@ -840,20 +852,21 @@ static int mctp_message_raw_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 	struct mctp_pktbuf *pkt;
 	struct mctp_hdr *hdr;
 
-
 	pkt = mctp_pktbuf_alloc(bus->binding, msg_len);
+
 	if (!pkt) {
 		mctp_prerr("Not enough memory to allocate MCTP packet");
 		return -1;
 	}
 
 	/*reseting on reaching maximum range uint16*/
-	if (bridged_pkt_Id >= 65536) {
-		bridged_pkt_Id = 0;
+	if (bridged_pkt_id == UINT16_MAX) {
+		bridged_pkt_id = 1;
 	}
 	/*pkt is bridged, So assuming each packet will be within the prescribed
-          pkt size and each is unique, so every pkt will have new id*/
-	pkt->pkt_id = ++bridged_pkt_Id;
+          pkt size and each is unique, so every pkt will have new id
+         */
+	pkt->pkt_id = bridged_pkt_id++;
 
 	if (msg_binding_private) {
 		memcpy(pkt->msg_binding_private, msg_binding_private,
