@@ -786,10 +786,10 @@ static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 			/*Assuming processing every 1st dis-assembly we need to have
              a new id, and parts of same disassembly should have 
              same id*/
-			if (nonbridge_pkt_Id >= 65536) {
-				nonbridge_pkt_Id = 0;
+			if (nonbridge_pkt_id >= 65536) {
+				nonbridge_pkt_id = 0;
 			}
-			id = ++nonbridge_pkt_Id;
+			id = ++nonbridge_pkt_id;
 		}
 		pkt->pkt_id = id;
 		hdr = mctp_pktbuf_hdr(pkt);
@@ -848,12 +848,12 @@ static int mctp_message_raw_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 	}
 
 	/*reseting on reaching maximum range uint16*/
-	if (bridged_pkt_Id >= 65536) {
-		bridged_pkt_Id = 0;
+	if (bridged_pkt_id >= 65536) {
+		bridged_pkt_id = 0;
 	}
 	/*pkt is bridged, So assuming each packet will be within the prescribed
           pkt size and each is unique, so every pkt will have new id*/
-	pkt->pkt_id = ++bridged_pkt_Id;
+	pkt->pkt_id = ++bridged_pkt_id;
 
 	if (msg_binding_private) {
 		memcpy(pkt->msg_binding_private, msg_binding_private,
