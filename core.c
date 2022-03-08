@@ -88,8 +88,8 @@ struct mctp {
 #define MCTP_MAX_MESSAGE_SIZE 65536
 #endif
 
-static uint16_t bridged_pkt_Id = 0;
-static uint16_t nonbridge_pkt_Id = 0;
+static uint16_t bridged_pkt_id = 0;
+static uint16_t nonbridge_pkt_id = 0;
 
 static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 				  mctp_eid_t src, mctp_eid_t dest, void *msg,
@@ -711,7 +711,7 @@ static int mctp_send_tx_queue(struct mctp_bus *bus)
 {
 	struct mctp_pktbuf *pkt;
 	int rc = 0;
-	uint8_t pkt_id = 0;
+        uint8_t pkt_id = 0;
 	while ((pkt = bus->tx_queue_head)) {
 		rc = mctp_packet_tx(bus, pkt);
 
@@ -792,7 +792,6 @@ static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 			id = ++nonbridge_pkt_Id;
 		}
 		pkt->pkt_id = id;
-
 		hdr = mctp_pktbuf_hdr(pkt);
 
 		/* store binding specific private data */
@@ -841,8 +840,8 @@ static int mctp_message_raw_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 	struct mctp_pktbuf *pkt;
 	struct mctp_hdr *hdr;
 
-	pkt = mctp_pktbuf_alloc(bus->binding, msg_len);
 
+	pkt = mctp_pktbuf_alloc(bus->binding, msg_len);
 	if (!pkt) {
 		mctp_prerr("Not enough memory to allocate MCTP packet");
 		return -1;
