@@ -64,11 +64,11 @@ struct mctp_pktbuf {
 	struct mctp_pktbuf *next;
 	/* binding private data */
 	void *msg_binding_private;
-        /*id for identifying packets*/
-        uint16_t pkt_id;
+	/*id for identifying packets*/
+	uint16_t pkt_id;
 	uint8_t data[];
-    /*id for bridge or Non Bridge packet*/
-    uint16_t pkt_id;
+	/*id for bridge or Non Bridge packet*/
+	uint16_t pkt_id;
 };
 
 struct mctp_pktbuf *mctp_pktbuf_alloc(struct mctp_binding *hw, size_t len);
