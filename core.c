@@ -685,17 +685,18 @@ static void flush_message(struct mctp_bus *bus, uint16_t id)
 
 	while ((pkt = bus->tx_queue_head)) {
 		bus->tx_queue_head = pkt->next;
-
-		//If EOM of the message is reached then stop flushing
-		if (mctp_pktbuf_hdr(pkt)->flags_seq_tag & MCTP_HDR_FLAG_EOM) {
-			mctp_pktbuf_free(pkt);
-			break;
-		} else {
-			/*Deleting related packets*/
-			if (pkt->pkt_id == id) {
-				mctp_pktbuf_free(pkt);
-			}
-		}
+                
+        //If EOM of the message is reached then stop flushing
+        if (mctp_pktbuf_hdr(pkt)->flags_seq_tag & MCTP_HDR_FLAG_EOM) {
+                mctp_pktbuf_free(pkt);
+                break;
+        }
+        else{
+            /*Deleting related packets*/
+            if(pkt->pkt_id == id){
+                mctp_pktbuf_free(pkt);
+            }
+        }
 	}
 }
 
@@ -711,7 +712,7 @@ static int mctp_send_tx_queue(struct mctp_bus *bus)
 {
 	struct mctp_pktbuf *pkt;
 	int rc = 0;
-	uint8_t pkt_id = 0;
+        uint8_t pkt_id = 0;
 	while ((pkt = bus->tx_queue_head)) {
 		rc = mctp_packet_tx(bus, pkt);
 
