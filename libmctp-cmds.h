@@ -26,11 +26,31 @@ typedef enum {
 	set_discovered_flag
 } mctp_ctrl_cmd_set_eid_op;
 
+typedef enum {
+	allocate_eids,
+	force_allocation,
+	get_allocation_info,
+	reserved
+} mctp_ctrl_cmd_allocate_eids_op;
+
+typedef enum {
+	allocation_accepted,
+	allocation_rejected,
+} mctp_ctrl_cmd_allocate_eids_resp_op;
+
 struct mctp_ctrl_cmd_set_eid {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 	mctp_ctrl_cmd_set_eid_op operation : 2;
 	uint8_t : 6;
 	uint8_t eid;
+} __attribute__((__packed__));
+
+struct mctp_ctrl_cmd_allocate_eids {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+	mctp_ctrl_cmd_allocate_eids_op operation : 2;
+	uint8_t : 6;
+	uint8_t eid_pool_size;
+	uint8_t first_eid;
 } __attribute__((__packed__));
 
 struct mctp_ctrl_cmd_get_eid {
@@ -389,6 +409,10 @@ bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
 	struct get_routing_table_entry_with_address *entries,
 	uint8_t no_of_entries, size_t *resp_size);
 
+bool mctp_encode_ctrl_cmd_allocate_eids(
+	struct mctp_ctrl_cmd_allocate_eids *set_eid_cmd, uint8_t rq_dgram_inst,
+	mctp_ctrl_cmd_allocate_eids_op op, uint8_t pool_size, uint8_t eid);
+
 void mctp_set_uuid(struct mctp *mctp, guid_t uuid);
 
 bool mctp_is_mctp_ctrl_msg(void *buf, size_t len);
@@ -403,9 +427,13 @@ int mctp_ctrl_cmd_get_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 				  bool bus_owner,
 				  struct mctp_ctrl_resp_get_eid *response);
 
+bool mctp_encode_ctrl_cmd_get_networkid(
+	struct mctp_ctrl_cmd_get_networkid *get_networkid_cmd,
+	uint8_t rq_dgram_inst);
+
 int mctp_ctrl_cmd_get_network_id(struct mctp *mctp,
-				    struct mctp_ctrl_resp_get_networkid *response);
-					
+				 struct mctp_ctrl_resp_get_networkid *response);
+
 int mctp_ctrl_cmd_get_vdm_support(
 	struct mctp *mctp, mctp_eid_t src_eid,
 	struct mctp_ctrl_resp_get_vdm_support *response);

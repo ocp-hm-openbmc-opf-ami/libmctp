@@ -69,8 +69,8 @@ struct mctp {
 	/* Endpoint UUID */
 	guid_t uuid;
 	size_t max_message_size;
-     //networkid
-    guid_t networkid;
+	//networkid
+	guid_t networkid;
 };
 
 #ifndef BUILD_ASSERT
@@ -972,6 +972,18 @@ bool mctp_encode_ctrl_cmd_get_uuid(struct mctp_ctrl_cmd_get_uuid *get_uuid_cmd,
 	return true;
 }
 
+bool mctp_encode_ctrl_cmd_get_networkid(
+	struct mctp_ctrl_cmd_get_networkid *get_networkid_cmd,
+	uint8_t rq_dgram_inst)
+{
+	if (!get_networkid_cmd)
+		return false;
+
+	encode_ctrl_cmd_header(&get_networkid_cmd->ctrl_msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_NETWORK_ID);
+	return true;
+}
+
 bool mctp_encode_ctrl_cmd_get_ver_support(
 	struct mctp_ctrl_cmd_get_mctp_ver_support *mctp_ver_support_cmd,
 	uint8_t rq_dgram_inst, uint8_t msg_type_number)
@@ -1035,6 +1047,22 @@ bool mctp_encode_ctrl_cmd_get_routing_table(
 			       rq_dgram_inst,
 			       MCTP_CTRL_CMD_GET_ROUTING_TABLE_ENTRIES);
 	get_routing_table_cmd->entry_handle = entry_handle;
+	return true;
+}
+
+bool mctp_encode_ctrl_cmd_allocate_eids(
+	struct mctp_ctrl_cmd_allocate_eids *allocate_eids_cmd,
+	uint8_t rq_dgram_inst, mctp_ctrl_cmd_allocate_eids_op op,
+	uint8_t pool_size, uint8_t eid)
+{
+	if (!allocate_eids_cmd)
+		return false;
+
+	encode_ctrl_cmd_header(&allocate_eids_cmd->ctrl_msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS);
+	allocate_eids_cmd->operation = op;
+	allocate_eids_cmd->eid_pool_size = pool_size;
+	allocate_eids_cmd->first_eid = eid;
 	return true;
 }
 
@@ -1181,13 +1209,12 @@ int mctp_ctrl_cmd_get_endpoint_uuid(struct mctp *mctp,
 	return 0;
 }
 
-
 /*
  * @brief Creates control message response for Get Endpoint UUID.
  * See DSP0236 1.3.0 12.5.
  */
 int mctp_ctrl_cmd_get_network_id(struct mctp *mctp,
-				    struct mctp_ctrl_resp_get_networkid *response)
+				 struct mctp_ctrl_resp_get_networkid *response)
 {
 	if (response == NULL)
 		return -1;
