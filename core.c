@@ -801,7 +801,7 @@ static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
             as opposed to bridged packets which are practically 
             unique and same in size
             as a way of differentiation from bridged/non-bridged pkt.
-             */
+            */
 		pkt->pkt_id = 0;
 
 		hdr = mctp_pktbuf_hdr(pkt);
