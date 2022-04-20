@@ -69,7 +69,7 @@ struct mctp {
 	/* Endpoint UUID */
 	guid_t uuid;
 	size_t max_message_size;
-	//networkid
+	/* NetworkId */
 	guid_t networkid;
 };
 
@@ -972,9 +972,8 @@ bool mctp_encode_ctrl_cmd_get_uuid(struct mctp_ctrl_cmd_get_uuid *get_uuid_cmd,
 	return true;
 }
 
-bool mctp_encode_ctrl_cmd_get_networkid(
-	struct mctp_ctrl_cmd_get_networkid *get_networkid_cmd,
-	uint8_t rq_dgram_inst)
+bool mctp_encode_ctrl_cmd_get_networkid(struct mctp_ctrl_cmd_get_networkid *get_networkid_cmd,
+				   uint8_t rq_dgram_inst)
 {
 	if (!get_networkid_cmd)
 		return false;
