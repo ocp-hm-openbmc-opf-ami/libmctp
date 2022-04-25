@@ -1239,7 +1239,8 @@ int mctp_ctrl_cmd_get_vdm_support(
 bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
 	struct mctp_ctrl_resp_get_routing_table *resp,
 	struct get_routing_table_entry_with_address *entries,
-	uint8_t no_of_entries, size_t *resp_size)
+	uint8_t no_of_entries, size_t *resp_size,
+	const uint8_t next_entry_handle)
 {
 	uint8_t *cur_entry;
 	uint16_t i;
@@ -1253,7 +1254,7 @@ bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
 	*  So next entry handle will be 0xFF to indicate that
 	*  there is no more entries
 	*/
-	resp->next_entry_handle = 0xFF;
+	resp->next_entry_handle = next_entry_handle;
 	resp->number_of_entries = no_of_entries;
 	cur_entry = (uint8_t *)resp->entries;
 

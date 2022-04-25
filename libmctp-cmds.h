@@ -403,7 +403,8 @@ bool mctp_encode_ctrl_cmd_routing_information_update(
 bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
 	struct mctp_ctrl_resp_get_routing_table *resp,
 	struct get_routing_table_entry_with_address *entries,
-	uint8_t no_of_entries, size_t *resp_size);
+	uint8_t no_of_entries, size_t *resp_size,
+	const uint8_t next_entry_handle);
 
 bool mctp_encode_ctrl_cmd_query_hop(
 	struct mctp_ctrl_cmd_query_hop *query_hop_cmd, uint8_t rq_dgram_inst,

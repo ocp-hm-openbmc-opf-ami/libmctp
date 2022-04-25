@@ -76,7 +76,7 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 
 	size_t new_size = 0;
 	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 1,
-							  &new_size));
+							  &new_size, 0xFF));
 
 	size_t exp_new_size =
 		sizeof(struct mctp_ctrl_resp_get_routing_table) +
@@ -89,49 +89,13 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 	assert(resp.number_of_entries == 0x01);
 
 	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(NULL, entries, 1,
-							   &new_size));
+							   &new_size, 0xFF));
 	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, NULL, 1,
-							   &new_size));
+							   &new_size, 0xFF));
 	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 1,
-							   NULL));
+							   NULL, 0xFF));
 	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 0,
-							  &new_size));
-}
-
-void test_encode_ctrl_cmd_query_hop(void)
-{
-	struct mctp_ctrl_cmd_query_hop cmd_query_hop;
-	uint8_t sample_eid = 8;
-	uint8_t instance_id = 0x01;
-	assert(mctp_encode_ctrl_cmd_query_hop(
-		&cmd_query_hop, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
-		sample_eid, MCTP_CTRL_HDR_MSG_TYPE));
-
-	assert(cmd_query_hop.ctrl_msg_hdr.command_code ==
-	       MCTP_CTRL_CMD_QUERY_HOP);
-
-	assert(cmd_query_hop.ctrl_msg_hdr.rq_dgram_inst ==
-	       (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST));
-
-	assert(cmd_query_hop.ctrl_msg_hdr.ic_msg_type ==
-	       MCTP_CTRL_HDR_MSG_TYPE);
-
-	assert(cmd_query_hop.target_eid == sample_eid);
-	assert(cmd_query_hop.mctp_ctrl_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
-}
-
-/*Negative Test cases for the commands*/
-
-static void test_negative_encode_ctrl_cmd_query_hop()
-{
-	uint8_t sample_eid = 8;
-	uint8_t instance_id = 0x01;
-	struct mctp_ctrl_cmd_query_hop *query_hop = NULL;
-	bool rc = true;
-	rc = mctp_encode_ctrl_cmd_query_hop(
-		query_hop, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
-		sample_eid, MCTP_CTRL_HDR_MSG_TYPE);
-	assert(!rc);
+							  &new_size, 0xFF));
 }
 
 static void test_allocate_eid_pool_encode()
