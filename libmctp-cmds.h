@@ -152,7 +152,7 @@ struct mctp_ctrl_cmd_query_hop {
 #define MCTP_SET_EID_REJECTED 0x1
 
 /* MCTP Physical Transport Binding identifiers
- * See DSP0239 v1.7.0 Table 3.
+ * See DSP0239 v1.9.0 Table 3.
  */
 #define MCTP_BINDING_RESERVED 0x00
 #define MCTP_BINDING_SMBUS 0x01
@@ -160,7 +160,8 @@ struct mctp_ctrl_cmd_query_hop {
 #define MCTP_BINDING_USB 0x03
 #define MCTP_BINDING_KCS 0x04
 #define MCTP_BINDING_SERIAL 0x05
-#define MCTP_BINDING_VEDNOR 0x06
+#define MCTP_BINDING_I3C 0x06
+#define MCTP_BINDING_VENDOR_DEFINED 0xFF
 
 #define MCTP_GET_VDM_SUPPORT_PCIE_FORMAT_ID 0x00
 #define MCTP_GET_VDM_SUPPORT_IANA_FORMAT_ID 0x01
