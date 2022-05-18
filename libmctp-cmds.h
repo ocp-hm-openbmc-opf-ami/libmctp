@@ -61,6 +61,10 @@ struct mctp_ctrl_cmd_get_uuid {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_cmd_get_networkid_req {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+} __attribute__((__packed__));
+
 struct mctp_ctrl_cmd_get_mctp_ver_support {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 	uint8_t msg_type_number;
@@ -374,6 +378,10 @@ bool mctp_encode_ctrl_cmd_get_eid(struct mctp_ctrl_cmd_get_eid *get_eid_cmd,
 
 bool mctp_encode_ctrl_cmd_get_uuid(struct mctp_ctrl_cmd_get_uuid *get_uuid_cmd,
 				   uint8_t rq_dgram_inst);
+
+bool mctp_encode_ctrl_cmd_get_networkid_req(
+	struct mctp_ctrl_cmd_get_networkid_req *get_networkid_cmd,
+	uint8_t rq_dgram_inst);
 
 bool mctp_encode_ctrl_cmd_get_ver_support(
 	struct mctp_ctrl_cmd_get_mctp_ver_support *mctp_ver_support_cmd,
