@@ -69,6 +69,8 @@ struct mctp {
 	/* Endpoint UUID */
 	guid_t uuid;
 	size_t max_message_size;
+	/* Network ID */
+	guid_t network_id;
 };
 
 #ifndef BUILD_ASSERT
@@ -968,6 +970,33 @@ bool mctp_encode_ctrl_cmd_get_uuid(struct mctp_ctrl_cmd_get_uuid *get_uuid_cmd,
 	encode_ctrl_cmd_header(&get_uuid_cmd->ctrl_msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_GET_ENDPOINT_UUID);
 	return true;
+}
+
+bool mctp_decode_ctrl_cmd_network_id_req(void *request,
+					struct mctp_ctrl_msg_hdr *hdr)
+{
+	if (!request || hdr == NULL)
+		return false;
+	
+	struct mctp_ctrl_cmd_get_networkid_req* data = request;
+	*hdr = data->ctrl_msg_hdr;
+
+	return true;
+}
+
+int mctp_decode_ctrl_cmd_network_id_resp(void *response,
+					struct mctp_ctrl_msg_hdr *hdr,
+					uint8_t *completion_code,guid_t *network_id)
+{
+	if (!response ||completion_code==NULL || network_id ==NULL)
+		return -1;
+
+	struct mctp_ctrl_cmd_network_id_resp* data = response;
+	*hdr = data->ctrl_hdr;
+    *completion_code = data->completion_code;
+	*network_id =  data->network_id;
+
+	return 0;
 }
 
 bool mctp_encode_ctrl_cmd_get_ver_support(
