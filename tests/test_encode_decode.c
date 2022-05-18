@@ -180,16 +180,17 @@ static void test_encode_ctrl_cmd_get_networkid_req(void)
 {
 	struct mctp_ctrl_cmd_get_networkid_req cmd_get_networkid;
 	uint8_t instance_id = 0x01;
-	
+
 	assert(mctp_encode_ctrl_cmd_get_networkid_req(
-		&cmd_get_networkid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST)));
+		&cmd_get_networkid,
+		(instance_id | MCTP_CTRL_HDR_FLAG_REQUEST)));
 
 	assert(cmd_get_networkid.ctrl_msg_hdr.command_code ==
 	       MCTP_CTRL_CMD_GET_NETWORK_ID);
 	assert(cmd_get_networkid.ctrl_msg_hdr.rq_dgram_inst ==
 	       (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST));
-	assert(cmd_get_networkid.ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
-	
+	assert(cmd_get_networkid.ctrl_msg_hdr.ic_msg_type ==
+	       MCTP_CTRL_HDR_MSG_TYPE);
 }
 
 static void test_negation_encode_ctrl_cmd_get_networkid_req()
@@ -203,6 +204,32 @@ static void test_negation_encode_ctrl_cmd_get_networkid_req()
 	assert(!ret);
 }
 
+static void test_decode_ctrl_cmd_network_id_req(void)
+{
+	struct mctp_ctrl_cmd_get_networkid_req cmd_network_id;
+	struct mctp_ctrl_msg_hdr hdr;
+
+	assert(mctp_decode_ctrl_cmd_network_id_req(&cmd_network_id, &hdr));
+}
+
+static void test_decode_ctrl_cmd_network_id_resp(void)
+{
+	int ret = 0;
+	struct mctp_ctrl_cmd_network_id_resp cmd_network_id_resp;
+	struct mctp_ctrl_msg_hdr hdr;
+	struct mctp mctp;
+	mctp.network_id.canonical.data1 = 10;
+	cmd_network_id_resp.completion_code = MCTP_CTRL_CC_SUCCESS;
+
+	uint8_t completion_code;
+	ret = mctp_decode_ctrl_cmd_network_id_resp(
+		&cmd_network_id_resp, &hdr, &completion_code, &mctp.network_id);
+	assert(!ret);
+	assert(completion_code == cmd_network_id_resp.completion_code);
+	assert(mctp.network_id.canonical.data1 ==
+	       cmd_network_id_resp.network_id.canonical.data1);
+}
+
 int main(int argc, char *argv[])
 {
 	test_get_eid_encode();
@@ -211,6 +238,8 @@ int main(int argc, char *argv[])
 	test_encode_ctrl_cmd_query_hop();
 	test_allocate_eid_pool_encode();
 	test_encode_ctrl_cmd_get_networkid_req();
+	test_decode_ctrl_cmd_network_id_req();
+	test_decode_ctrl_cmd_network_id_resp();
 	/*Negative test cases */
 	test_negative_encode_ctrl_cmd_query_hop();
 	test_negation_allocate_eid_pool_encode();
