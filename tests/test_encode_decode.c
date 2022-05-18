@@ -176,6 +176,33 @@ static void test_negation_allocate_eid_pool_encode()
 	assert(ret == false);
 }
 
+static void test_encode_ctrl_cmd_get_networkid_req(void)
+{
+	struct mctp_ctrl_cmd_get_networkid_req cmd_get_networkid;
+	uint8_t instance_id = 0x01;
+	
+	assert(mctp_encode_ctrl_cmd_get_networkid_req(
+		&cmd_get_networkid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST)));
+
+	assert(cmd_get_networkid.ctrl_msg_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_NETWORK_ID);
+	assert(cmd_get_networkid.ctrl_msg_hdr.rq_dgram_inst ==
+	       (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST));
+	assert(cmd_get_networkid.ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	
+}
+
+static void test_negation_encode_ctrl_cmd_get_networkid_req()
+{
+	bool ret = true;
+	uint8_t instance_id = 0x01;
+
+	ret = mctp_encode_ctrl_cmd_get_networkid_req(
+		NULL, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST));
+
+	assert(!ret);
+}
+
 int main(int argc, char *argv[])
 {
 	test_get_eid_encode();
@@ -183,9 +210,10 @@ int main(int argc, char *argv[])
 	test_encode_ctrl_cmd_rsp_get_routing_table();
 	test_encode_ctrl_cmd_query_hop();
 	test_allocate_eid_pool_encode();
+	test_encode_ctrl_cmd_get_networkid_req();
 	/*Negative test cases */
 	test_negative_encode_ctrl_cmd_query_hop();
 	test_negation_allocate_eid_pool_encode();
-
+	test_negation_encode_ctrl_cmd_get_networkid_req();
 	return EXIT_SUCCESS;
 }
