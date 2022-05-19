@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "libmctp-cmds.h"
+#include "libmctp.h"
 
 static void test_get_eid_encode()
 {
@@ -120,6 +121,33 @@ void test_encode_ctrl_cmd_query_hop(void)
 	assert(cmd_query_hop.mctp_ctrl_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
 }
 
+static void test_mctp_encode_ctrl_cmd_get_network_id_resp(void)
+{
+	bool rc = false;
+	struct mctp *mctp;
+	mctp = mctp_init();
+	guid_t networkid;
+	guid_t retrieved_networkid;
+	networkid.canonical.data1 = 10;
+	struct mctp_ctrl_get_networkid_resp response;
+
+	rc = mctp_set_networkid(mctp, &networkid);
+	assert(rc);
+
+	rc = mctp_get_networkid(mctp, &retrieved_networkid);
+	assert(rc);
+	assert(networkid.canonical.data1 ==
+	       retrieved_networkid.canonical.data1);
+
+	bool ret = false;
+	ret = mctp_encode_ctrl_cmd_get_network_id_resp(&response, &networkid);
+	assert(ret);
+	assert(response.completion_code == MCTP_CTRL_CC_SUCCESS);
+	assert(response.networkid.canonical.data1 == networkid.canonical.data1);
+
+	mctp_destroy(mctp);
+}
+
 /*Negative Test cases for the commands*/
 
 static void test_negative_encode_ctrl_cmd_query_hop()
@@ -180,16 +208,17 @@ static void test_encode_ctrl_cmd_get_networkid_req(void)
 {
 	struct mctp_ctrl_cmd_get_networkid_req cmd_get_networkid;
 	uint8_t instance_id = 0x01;
-	
+
 	assert(mctp_encode_ctrl_cmd_get_networkid_req(
-		&cmd_get_networkid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST)));
+		&cmd_get_networkid,
+		(instance_id | MCTP_CTRL_HDR_FLAG_REQUEST)));
 
 	assert(cmd_get_networkid.ctrl_msg_hdr.command_code ==
 	       MCTP_CTRL_CMD_GET_NETWORK_ID);
 	assert(cmd_get_networkid.ctrl_msg_hdr.rq_dgram_inst ==
 	       (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST));
-	assert(cmd_get_networkid.ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
-	
+	assert(cmd_get_networkid.ctrl_msg_hdr.ic_msg_type ==
+	       MCTP_CTRL_HDR_MSG_TYPE);
 }
 
 static void test_negation_encode_ctrl_cmd_get_networkid_req()
@@ -210,6 +239,7 @@ int main(int argc, char *argv[])
 	test_encode_ctrl_cmd_rsp_get_routing_table();
 	test_encode_ctrl_cmd_query_hop();
 	test_allocate_eid_pool_encode();
+	test_mctp_encode_ctrl_cmd_get_network_id_resp();
 	test_encode_ctrl_cmd_get_networkid_req();
 	/*Negative test cases */
 	test_negative_encode_ctrl_cmd_query_hop();

@@ -69,6 +69,7 @@ struct mctp {
 	/* Endpoint UUID */
 	guid_t uuid;
 	size_t max_message_size;
+	guid_t networkid;
 };
 
 #ifndef BUILD_ASSERT
@@ -1278,5 +1279,32 @@ bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
 		cur_entry += current_entry_size;
 	}
 	*resp_size = (size_t)(cur_entry - (uint8_t *)(resp));
+	return true;
+}
+
+bool mctp_set_networkid(struct mctp *mctp, guid_t *network_id)
+{
+	if (mctp == NULL || network_id == NULL)
+		return false;
+	mctp->networkid = *network_id;
+	return true;
+}
+
+bool mctp_get_networkid(struct mctp *mctp, guid_t *network_id)
+{
+	if (mctp == NULL || network_id == NULL)
+		return false;
+	*network_id = mctp->networkid;
+	return true;
+}
+
+bool mctp_encode_ctrl_cmd_get_network_id_resp(
+	struct mctp_ctrl_get_networkid_resp *response, guid_t *networkid)
+{
+	if (response == NULL)
+		return false;
+
+	response->completion_code = MCTP_CTRL_CC_SUCCESS;
+	response->networkid = *networkid;
 	return true;
 }

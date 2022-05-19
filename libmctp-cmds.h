@@ -362,6 +362,12 @@ struct version_entry {
 	uint8_t alpha;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_get_networkid_resp {
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
+	guid_t networkid;
+} __attribute__((__packed__));
+
 bool mctp_ctrl_handle_msg(struct mctp *mctp, struct mctp_bus *bus,
 			  mctp_eid_t src, mctp_eid_t dest, void *buffer,
 			  size_t length, bool tag_owner, uint8_t tag,
@@ -439,6 +445,13 @@ int mctp_ctrl_cmd_get_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 int mctp_ctrl_cmd_get_vdm_support(
 	struct mctp *mctp, mctp_eid_t src_eid,
 	struct mctp_ctrl_resp_get_vdm_support *response);
+
+bool mctp_set_networkid(struct mctp *mctp, guid_t *network_id);
+
+bool mctp_get_networkid(struct mctp *mctp, guid_t *network_id);
+
+bool mctp_encode_ctrl_cmd_get_network_id_resp(
+	struct mctp_ctrl_get_networkid_resp *response, guid_t *networkid);
 
 #ifdef __cplusplus
 }
