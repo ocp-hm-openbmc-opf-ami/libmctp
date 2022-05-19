@@ -972,6 +972,18 @@ bool mctp_encode_ctrl_cmd_get_uuid(struct mctp_ctrl_cmd_get_uuid *get_uuid_cmd,
 	return true;
 }
 
+bool mctp_encode_ctrl_cmd_get_networkid_req(
+	struct mctp_ctrl_cmd_get_networkid_req *get_networkid_cmd,
+	uint8_t rq_dgram_inst)
+{
+	if (!get_networkid_cmd)
+		return false;
+
+	encode_ctrl_cmd_header(&get_networkid_cmd->ctrl_msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_NETWORK_ID);
+	return true;
+}
+
 bool mctp_decode_ctrl_cmd_network_id_req(void *request,
 					 struct mctp_ctrl_msg_hdr *hdr)
 {
