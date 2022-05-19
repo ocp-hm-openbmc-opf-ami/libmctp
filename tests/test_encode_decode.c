@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "libmctp-cmds.h"
+#include "core.c"
 
 static void test_get_eid_encode()
 {
@@ -208,8 +209,14 @@ static void test_decode_ctrl_cmd_network_id_req(void)
 {
 	struct mctp_ctrl_cmd_get_networkid_req cmd_network_id;
 	struct mctp_ctrl_msg_hdr hdr;
+	cmd_network_id.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	cmd_network_id.ctrl_msg_hdr.rq_dgram_inst = 10;
+	cmd_network_id.ctrl_msg_hdr.command_code = 20;
 
 	assert(mctp_decode_ctrl_cmd_network_id_req(&cmd_network_id, &hdr));
+	assert(cmd_network_id.ctrl_msg_hdr.ic_msg_type == hdr.ic_msg_type);
+	assert(cmd_network_id.ctrl_msg_hdr.rq_dgram_inst == hdr.rq_dgram_inst);
+	assert(cmd_network_id.ctrl_msg_hdr.command_code == hdr.command_code);
 }
 
 static void test_decode_ctrl_cmd_network_id_resp(void)
@@ -218,8 +225,12 @@ static void test_decode_ctrl_cmd_network_id_resp(void)
 	struct mctp_ctrl_cmd_network_id_resp cmd_network_id_resp;
 	struct mctp_ctrl_msg_hdr hdr;
 	struct mctp mctp;
+
 	mctp.network_id.canonical.data1 = 10;
 	cmd_network_id_resp.completion_code = MCTP_CTRL_CC_SUCCESS;
+	cmd_network_id_resp.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	cmd_network_id_resp.ctrl_msg_hdr.rq_dgram_inst = 10;
+	cmd_network_id_resp.ctrl_msg_hdr.command_code = 20;
 
 	uint8_t completion_code;
 	ret = mctp_decode_ctrl_cmd_network_id_resp(
@@ -228,6 +239,11 @@ static void test_decode_ctrl_cmd_network_id_resp(void)
 	assert(completion_code == cmd_network_id_resp.completion_code);
 	assert(mctp.network_id.canonical.data1 ==
 	       cmd_network_id_resp.network_id.canonical.data1);
+	assert(cmd_network_id_resp.ctrl_msg_hdr.ic_msg_type == hdr.ic_msg_type);
+	assert(cmd_network_id_resp.ctrl_msg_hdr.rq_dgram_inst ==
+	       hdr.rq_dgram_inst);
+	assert(cmd_network_id_resp.ctrl_msg_hdr.command_code ==
+	       hdr.command_code);
 }
 
 int main(int argc, char *argv[])

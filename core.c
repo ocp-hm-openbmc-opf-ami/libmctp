@@ -987,8 +987,8 @@ bool mctp_encode_ctrl_cmd_get_networkid_req(
 bool mctp_decode_ctrl_cmd_network_id_req(void *request,
 					 struct mctp_ctrl_msg_hdr *hdr)
 {
-	if (!request || hdr == NULL)
-		return false;
+	if (request == NULL || hdr == NULL)
+		OR if (!request || !hdr) return false;
 
 	struct mctp_ctrl_cmd_get_networkid_req *data = request;
 	*hdr = data->ctrl_msg_hdr;
@@ -1005,7 +1005,7 @@ int mctp_decode_ctrl_cmd_network_id_resp(void *response,
 		return -1;
 
 	struct mctp_ctrl_cmd_network_id_resp *data = response;
-	*hdr = data->ctrl_hdr;
+	*hdr = data->ctrl_msg_hdr;
 	*completion_code = data->completion_code;
 	*network_id = data->network_id;
 
