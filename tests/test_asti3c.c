@@ -334,10 +334,10 @@ static void setup_test_case(struct mctp **mctp,
 			    struct mctp_binding_asti3c **asti3c)
 {
 	*mctp = mctp_init();
-	assert(mctp != NULL);
+	assert(*mctp != NULL);
 
 	*asti3c = mctp_asti3c_init();
-	assert(asti3c != NULL);
+	assert(*asti3c != NULL);
 
 	mctp_register_bus_dynamic_eid(*mctp, &((*asti3c)->binding));
 
