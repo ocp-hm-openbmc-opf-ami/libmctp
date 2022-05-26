@@ -934,6 +934,14 @@ static void encode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
 	mctp_ctrl_hdr->command_code = cmd_code;
 }
 
+static void decode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
+				   uint8_t rq_dgram_inst, uint8_t cmd_code)
+{
+	mctp_ctrl_hdr->ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	mctp_ctrl_hdr->rq_dgram_inst = rq_dgram_inst;
+	mctp_ctrl_hdr->command_code = cmd_code;
+}
+
 bool mctp_encode_ctrl_cmd_set_eid(struct mctp_ctrl_cmd_set_eid *set_eid_cmd,
 				  uint8_t rq_dgram_inst,
 				  mctp_ctrl_cmd_set_eid_op op, uint8_t eid)
@@ -1234,6 +1242,32 @@ int mctp_ctrl_cmd_get_vdm_support(
 	response->completion_code = MCTP_CTRL_CC_SUCCESS;
 	/* no more capabiliy sets (default) */
 	return 0;
+}
+
+bool mctp_decode_ctrl_cmd_resolve_eid_req(
+	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
+	uint8_t rq_dgram_inst, uint8_t target_eid)
+{
+	if (!resolve_eid_cmd)
+		return false;
+
+	decode_ctrl_cmd_header(&resolve_eid_cmd->ctrl_msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+	resolve_eid_cmd->target_eid = target_eid;
+	return true;
+}
+
+bool mctp_decode_ctrl_cmd_resolve_eid_resp(
+	struct mctp_ctrl_resolve_eid_resp *response,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr,uint8_t bridge_eid)
+{
+	if (response == NULL || ctrl_hdr == NULL)
+                return false;
+        decode_ctrl_cmd_header(&response->ctrl_msg_hdr, ctrl_hdr->rq_dgram_inst,
+                               ctrl_hdr->command_code);
+        response->completion_code = MCTP_CTRL_CC_SUCCESS;
+        response->bridge_eid = bridge_eid;
+        return true;
 }
 
 bool mctp_encode_ctrl_cmd_rsp_get_routing_table(

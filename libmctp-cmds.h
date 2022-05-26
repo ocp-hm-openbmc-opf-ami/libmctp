@@ -358,6 +358,18 @@ struct version_entry {
 	uint8_t alpha;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_cmd_resolve_eid_req {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+	uint8_t target_eid;
+} __attribute__((__packed__));
+
+struct mctp_ctrl_resolve_eid_resp {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+	uint8_t completion_code;
+	uint8_t bridge_eid;
+	uint8_t phy_addr[0];
+} __attribute__((__packed__));
+
 bool mctp_ctrl_handle_msg(struct mctp *mctp, struct mctp_bus *bus,
 			  mctp_eid_t src, mctp_eid_t dest, void *buffer,
 			  size_t length, bool tag_owner, uint8_t tag,
@@ -431,6 +443,14 @@ int mctp_ctrl_cmd_get_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 int mctp_ctrl_cmd_get_vdm_support(
 	struct mctp *mctp, mctp_eid_t src_eid,
 	struct mctp_ctrl_resp_get_vdm_support *response);
+
+bool mctp_decode_ctrl_cmd_resolve_eid_req(
+	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
+	uint8_t rq_dgram_inst, uint8_t target_eid);
+
+bool mctp_decode_ctrl_cmd_resolve_eid_resp(
+	struct mctp_ctrl_resolve_eid_resp *response,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr,uint8_t bridge_eid);
 
 #ifdef __cplusplus
 }

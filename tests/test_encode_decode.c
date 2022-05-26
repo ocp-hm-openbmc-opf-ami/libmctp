@@ -98,6 +98,49 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 							  &new_size));
 }
 
+static void test_decode_ctrl_cmd_resolve_eid_req()
+{
+	const uint8_t target_eid = 9;
+	const uint8_t instance_id = 0x01;
+	struct mctp_ctrl_cmd_resolve_eid_req cmd_resolve_eid;
+
+	assert(mctp_decode_ctrl_cmd_resolve_eid_req(
+		&cmd_resolve_eid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
+		target_eid));
+
+	assert(cmd_resolve_eid.ctrl_msg_hdr.command_code ==
+	       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+	assert(cmd_resolve_eid.ctrl_msg_hdr.rq_dgram_inst ==
+	       (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST));
+	assert(cmd_resolve_eid.ctrl_msg_hdr.ic_msg_type ==
+	       MCTP_CTRL_HDR_MSG_TYPE);
+
+	assert(cmd_resolve_eid.target_eid == target_eid);
+}
+
+static void test_decode_ctrl_cmd_resolve_eid_resp()
+{
+        bool ret;
+        struct mctp_ctrl_resolve_eid_resp response;
+        struct mctp_ctrl_msg_hdr ctrl_hdr;
+        ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+        uint8_t expected_instance_id = 0x01;
+        uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+        ctrl_hdr.rq_dgram_inst = rq_d_inst;
+        ctrl_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+        uint8_t bridge_eid = 10;
+
+        ret = mctp_decode_ctrl_cmd_resolve_eid_resp(&response, &ctrl_hdr,
+                                                    bridge_eid);
+
+        assert(ret == true);
+        assert(response.ctrl_msg_hdr.command_code ==
+               MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+        assert(response.ctrl_msg_hdr.rq_dgram_inst == rq_d_inst);
+        assert(response.ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+        assert(response.bridge_eid == bridge_eid);
+}
+
 void test_encode_ctrl_cmd_query_hop(void)
 {
 	struct mctp_ctrl_cmd_query_hop cmd_query_hop;
@@ -132,6 +175,28 @@ static void test_negative_encode_ctrl_cmd_query_hop()
 		query_hop, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
 		sample_eid, MCTP_CTRL_HDR_MSG_TYPE);
 	assert(!rc);
+}
+
+static void test_negative_decode_ctrl_cmd_resolve_eid_req()
+{
+	bool ret;
+	const uint8_t target_eid = 9;
+	const uint8_t instance_id = 0x01;
+
+	ret = mctp_decode_ctrl_cmd_resolve_eid_req(
+		NULL, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), target_eid);
+
+	assert(ret == false);
+}
+
+static void test_negative_decode_ctrl_cmd_resolve_eid_resp()
+{
+        bool ret;
+        const uint8_t size = 10;
+
+        ret = mctp_decode_ctrl_cmd_resolve_eid_resp(NULL, NULL, size);
+
+        assert(ret == false);
 }
 
 static void test_allocate_eid_pool_encode()
@@ -181,10 +246,15 @@ int main(int argc, char *argv[])
 	test_get_eid_encode();
 	test_encode_ctrl_cmd_req_update_routing_info();
 	test_encode_ctrl_cmd_rsp_get_routing_table();
+	test_decode_ctrl_cmd_resolve_eid_req();
+	test_decode_ctrl_cmd_resolve_eid_resp();
+
 	test_encode_ctrl_cmd_query_hop();
 	test_allocate_eid_pool_encode();
 	/*Negative test cases */
 	test_negative_encode_ctrl_cmd_query_hop();
+	test_negative_decode_ctrl_cmd_resolve_eid_req();
+	test_negative_decode_ctrl_cmd_resolve_eid_resp();
 	test_negation_allocate_eid_pool_encode();
 
 	return EXIT_SUCCESS;
