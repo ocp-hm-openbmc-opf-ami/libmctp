@@ -1049,22 +1049,6 @@ bool mctp_encode_ctrl_cmd_get_routing_table(
 	return true;
 }
 
-bool mctp_encode_ctrl_cmd_allocate_eids(
-	struct mctp_ctrl_cmd_allocate_eids *allocate_eids_cmd,
-	uint8_t rq_dgram_inst, mctp_ctrl_cmd_allocate_eids_op op,
-	uint8_t pool_size, uint8_t eid)
-{
-	if (!allocate_eids_cmd)
-		return false;
-
-	encode_ctrl_cmd_header(&allocate_eids_cmd->ctrl_msg_hdr, rq_dgram_inst,
-			       MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS);
-	allocate_eids_cmd->operation = op;
-	allocate_eids_cmd->eid_pool_size = pool_size;
-	allocate_eids_cmd->first_eid = eid;
-	return true;
-}
-
 bool mctp_encode_ctrl_cmd_routing_information_update(
 	struct mctp_ctrl_cmd_routing_info_update *routing_info_update_cmd,
 	uint8_t rq_dgram_inst,
@@ -1171,6 +1155,7 @@ bool mctp_encode_ctrl_cmd_query_hop(
 	query_hop_cmd->target_eid = eid;
 	return true;
 }
+
 /*
  * @brief Retrieves a byte of medium-specific data from the binding.
  * See DSP0236 1.3.0 12.4 (byte 4).
@@ -1282,6 +1267,90 @@ bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
 	return true;
 }
 
+static void decode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
+				   uint8_t *ic_msg_type, uint8_t *rq_dgram_inst,
+				   uint8_t *cmd_code)
+{
+	if (mctp_ctrl_hdr == NULL || ic_msg_type == NULL ||
+	    rq_dgram_inst == NULL || cmd_code == NULL)
+		return;
+	*ic_msg_type = mctp_ctrl_hdr->ic_msg_type;
+	*rq_dgram_inst = mctp_ctrl_hdr->rq_dgram_inst;
+	*cmd_code = mctp_ctrl_hdr->command_code;
+}
+
+bool mctp_encode_ctrl_cmd_allocate_endpoint_id_req(
+	struct mctp_ctrl_cmd_allocate_eids_req *allocate_eids_cmd,
+	uint8_t rq_dgram_inst, mctp_ctrl_cmd_allocate_eids_req_op op,
+	uint8_t pool_size, uint8_t starting_eid)
+{
+	if (!allocate_eids_cmd)
+		return false;
+
+	encode_ctrl_cmd_header(&allocate_eids_cmd->ctrl_msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS);
+	allocate_eids_cmd->operation = op;
+	allocate_eids_cmd->eid_pool_size = pool_size;
+	allocate_eids_cmd->first_eid = starting_eid;
+	return true;
+}
+
+bool mctp_encode_ctrl_cmd_allocate_endpoint_id_resp(
+	struct mctp_ctrl_cmd_allocate_eids_resp *response,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr,
+	mctp_ctrl_cmd_allocate_eids_resp_op op, uint8_t eid_pool_size,
+	uint8_t first_eid)
+{
+	if (response == NULL || ctrl_hdr == NULL)
+		return false;
+	encode_ctrl_cmd_header(&response->ctrl_hdr, ctrl_hdr->rq_dgram_inst,
+			       ctrl_hdr->command_code);
+	response->completion_code = MCTP_CTRL_CC_SUCCESS;
+	response->operation = op;
+	response->eid_pool_size = eid_pool_size;
+	response->first_eid = first_eid;
+
+	return true;
+}
+
+bool mctp_decode_ctrl_cmd_allocate_endpoint_id_req(
+	struct mctp_ctrl_cmd_allocate_eids_req *request, uint8_t *ic_msg_type,
+	uint8_t *rq_dgram_inst, uint8_t *command_code,
+	mctp_ctrl_cmd_allocate_eids_req_op *op, uint8_t *eid_pool_size,
+	uint8_t *first_eid)
+{
+	if (request == NULL || ic_msg_type == NULL || rq_dgram_inst == NULL ||
+	    command_code == NULL || op == NULL || eid_pool_size == NULL ||
+	    first_eid == NULL)
+		return false;
+	decode_ctrl_cmd_header(&request->ctrl_msg_hdr, ic_msg_type,
+			       rq_dgram_inst, command_code);
+	*op = request->operation;
+	*eid_pool_size = request->eid_pool_size;
+	*first_eid = request->first_eid;
+
+	return true;
+}
+
+bool mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
+	struct mctp_ctrl_cmd_allocate_eids_resp *response, uint8_t *ic_msg_type,
+	uint8_t *rq_dgram_inst, uint8_t *command_code, uint8_t *cc,
+	mctp_ctrl_cmd_allocate_eids_resp_op *op, uint8_t *eid_pool_size,
+	uint8_t *first_eid)
+{
+	if (response == NULL || ic_msg_type == NULL || rq_dgram_inst == NULL ||
+	    command_code == NULL || cc == NULL || op == NULL ||
+	    eid_pool_size == NULL || first_eid == NULL)
+		return false;
+	decode_ctrl_cmd_header(&response->ctrl_hdr, ic_msg_type, rq_dgram_inst,
+			       command_code);
+	*cc = response->completion_code;
+	*op = response->operation;
+	*eid_pool_size = response->eid_pool_size;
+	*first_eid = response->first_eid;
+
+	return true;
+}
 bool mctp_set_networkid(struct mctp *mctp, guid_t *network_id)
 {
 	if (mctp == NULL || network_id == NULL)

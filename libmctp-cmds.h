@@ -31,7 +31,7 @@ typedef enum {
 	force_allocation,
 	get_allocation_info,
 	reserved
-} mctp_ctrl_cmd_allocate_eids_op;
+} mctp_ctrl_cmd_allocate_eids_req_op;
 
 typedef enum {
 	allocation_accepted,
@@ -45,9 +45,9 @@ struct mctp_ctrl_cmd_set_eid {
 	uint8_t eid;
 } __attribute__((__packed__));
 
-struct mctp_ctrl_cmd_allocate_eids {
+struct mctp_ctrl_cmd_allocate_eids_req {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
-	mctp_ctrl_cmd_allocate_eids_op operation : 2;
+	mctp_ctrl_cmd_allocate_eids_req_op operation : 2;
 	uint8_t : 6;
 	uint8_t eid_pool_size;
 	uint8_t first_eid;
@@ -288,6 +288,15 @@ struct mctp_ctrl_resp_routing_info_update {
 	uint8_t completion_code;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_cmd_allocate_eids_resp {
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
+	mctp_ctrl_cmd_allocate_eids_resp_op operation : 2;
+	uint8_t : 6;
+	uint8_t eid_pool_size;
+	uint8_t first_eid;
+} __attribute__((__packed__));
+
 struct mctp_ctrl_cmd_routing_info_update {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 	uint8_t count;
@@ -424,10 +433,6 @@ bool mctp_encode_ctrl_cmd_query_hop(
 	struct mctp_ctrl_cmd_query_hop *query_hop_cmd, uint8_t rq_dgram_inst,
 	const uint8_t eid, const uint8_t mctp_ctrl_msg_type);
 
-bool mctp_encode_ctrl_cmd_allocate_eids(
-	struct mctp_ctrl_cmd_allocate_eids *set_eid_cmd, uint8_t rq_dgram_inst,
-	mctp_ctrl_cmd_allocate_eids_op op, uint8_t pool_size, uint8_t eid);
-
 void mctp_set_uuid(struct mctp *mctp, guid_t uuid);
 
 bool mctp_is_mctp_ctrl_msg(void *buf, size_t len);
@@ -445,6 +450,30 @@ int mctp_ctrl_cmd_get_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 int mctp_ctrl_cmd_get_vdm_support(
 	struct mctp *mctp, mctp_eid_t src_eid,
 	struct mctp_ctrl_resp_get_vdm_support *response);
+
+/*Allocate EID encode and decode APIs*/
+bool mctp_encode_ctrl_cmd_allocate_endpoint_id_req(
+	struct mctp_ctrl_cmd_allocate_eids_req *set_eid_cmd,
+	uint8_t rq_dgram_inst, mctp_ctrl_cmd_allocate_eids_req_op op,
+	uint8_t pool_size, uint8_t starting_eid);
+
+bool mctp_encode_ctrl_cmd_allocate_endpoint_id_resp(
+	struct mctp_ctrl_cmd_allocate_eids_resp *response,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr,
+	mctp_ctrl_cmd_allocate_eids_resp_op op, uint8_t eid_pool_size,
+	uint8_t first_eid);
+
+bool mctp_decode_ctrl_cmd_allocate_endpoint_id_req(
+	struct mctp_ctrl_cmd_allocate_eids_req *request, uint8_t *ic_msg_type,
+	uint8_t *rq_dgram_inst, uint8_t *command_code,
+	mctp_ctrl_cmd_allocate_eids_req_op *op, uint8_t *eid_pool_size,
+	uint8_t *first_eid);
+
+bool mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
+	struct mctp_ctrl_cmd_allocate_eids_resp *response, uint8_t *ic_msg_type,
+	uint8_t *rq_dgram_inst, uint8_t *command_code, uint8_t *cc,
+	mctp_ctrl_cmd_allocate_eids_resp_op *op, uint8_t *eid_pool_size,
+	uint8_t *first_eid);
 
 bool mctp_set_networkid(struct mctp *mctp, guid_t *network_id);
 

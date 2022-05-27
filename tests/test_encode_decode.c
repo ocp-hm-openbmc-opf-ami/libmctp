@@ -162,19 +162,19 @@ static void test_negative_encode_ctrl_cmd_query_hop()
 	assert(!rc);
 }
 
-static void test_allocate_eid_pool_encode()
+static void test_allocate_eid_pool_encode_req()
 {
 	bool ret;
 	const uint8_t first_eid = 9;
 	const uint8_t eid_pool_size = 10;
 	uint8_t expected_instance_id = 0x01;
-	mctp_ctrl_cmd_allocate_eids_op operation = allocate_eids;
-	struct mctp_ctrl_cmd_allocate_eids cmd_allocate_eid;
+	mctp_ctrl_cmd_allocate_eids_req_op operation = allocate_eids;
+	struct mctp_ctrl_cmd_allocate_eids_req cmd_allocate_eid;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 
-	ret = mctp_encode_ctrl_cmd_allocate_eids(&cmd_allocate_eid, rq_d_inst,
-						 operation, eid_pool_size,
-						 first_eid);
+	ret = mctp_encode_ctrl_cmd_allocate_endpoint_id_req(
+		&cmd_allocate_eid, rq_d_inst, operation, eid_pool_size,
+		first_eid);
 	assert(ret == true);
 	assert(cmd_allocate_eid.ctrl_msg_hdr.command_code ==
 	       MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS);
@@ -188,19 +188,174 @@ static void test_allocate_eid_pool_encode()
 	assert(cmd_allocate_eid.first_eid == first_eid);
 }
 
-static void test_negation_allocate_eid_pool_encode()
+static void test_allocate_eid_pool_encode_resp()
+{
+	bool ret;
+	struct mctp_ctrl_cmd_allocate_eids_resp response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	ctrl_hdr.command_code = MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS;
+	mctp_ctrl_cmd_allocate_eids_resp_op op = allocation_accepted;
+	uint8_t eid_pool_size = 10;
+	uint8_t first_eid = 9;
+
+	ret = mctp_encode_ctrl_cmd_allocate_endpoint_id_resp(
+		&response, &ctrl_hdr, op, eid_pool_size, first_eid);
+
+	assert(ret == true);
+
+	assert(response.ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS);
+	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(response.operation == op);
+	assert(response.eid_pool_size == eid_pool_size);
+	assert(response.first_eid == first_eid);
+}
+
+static void test_negation_allocate_eid_pool_encode_req()
 {
 	bool ret;
 	uint8_t sample_eid = 10;
 	const uint8_t eid_pool_size = 10;
 	uint8_t expected_instance_id = 0x01;
-	mctp_ctrl_cmd_allocate_eids_op operation = allocate_eids;
+	mctp_ctrl_cmd_allocate_eids_req_op operation = allocate_eids;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
-	struct mctp_ctrl_cmd_allocate_eids *cmd_allocate_eid = NULL;
+	struct mctp_ctrl_cmd_allocate_eids_req *cmd_allocate_eid = NULL;
 
-	ret = mctp_encode_ctrl_cmd_allocate_eids(cmd_allocate_eid, rq_d_inst,
-						 operation, eid_pool_size,
-						 sample_eid);
+	ret = mctp_encode_ctrl_cmd_allocate_endpoint_id_req(
+		cmd_allocate_eid, rq_d_inst, operation, eid_pool_size,
+		sample_eid);
+	assert(ret == false);
+}
+
+static void test_negation_allocate_eid_pool_encode_resp()
+{
+	bool ret;
+	struct mctp_ctrl_cmd_allocate_eids_resp *response = NULL;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	ctrl_hdr.command_code = MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS;
+	mctp_ctrl_cmd_allocate_eids_resp_op op = allocation_accepted;
+	uint8_t eid_pool_size = 10;
+	uint8_t first_eid = 9;
+
+	ret = mctp_encode_ctrl_cmd_allocate_endpoint_id_resp(
+		response, &ctrl_hdr, op, eid_pool_size, first_eid);
+	assert(ret == false);
+}
+
+static void test_allocate_eid_pool_decode_req()
+{
+	int ret;
+	struct mctp_ctrl_cmd_allocate_eids_req request;
+	request.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS;
+	request.operation = allocation_accepted;
+	request.eid_pool_size = 10;
+	request.first_eid = 9;
+
+	uint8_t ic_msg_type;
+	uint8_t rq_dgram_inst;
+	uint8_t command_code;
+	mctp_ctrl_cmd_allocate_eids_req_op op;
+	uint8_t eid_pool_size;
+	uint8_t first_eid;
+
+	ret = mctp_decode_ctrl_cmd_allocate_endpoint_id_req(
+		&request, &ic_msg_type, &rq_dgram_inst, &command_code, &op,
+		&eid_pool_size, &first_eid);
+
+	assert(ret == true);
+	assert(ic_msg_type == request.ctrl_msg_hdr.ic_msg_type);
+	assert(rq_dgram_inst == request.ctrl_msg_hdr.rq_dgram_inst);
+	assert(command_code == request.ctrl_msg_hdr.command_code);
+	assert(op == request.operation);
+	assert(eid_pool_size == request.eid_pool_size);
+	assert(first_eid == request.first_eid);
+}
+
+static void test_negation_allocate_eid_pool_decode_req()
+{
+	int ret;
+	struct mctp_ctrl_cmd_allocate_eids_req *request = NULL;
+
+	uint8_t ic_msg_type;
+	uint8_t rq_dgram_inst;
+	uint8_t command_code;
+	mctp_ctrl_cmd_allocate_eids_req_op op;
+	uint8_t eid_pool_size;
+	uint8_t first_eid;
+
+	ret = mctp_decode_ctrl_cmd_allocate_endpoint_id_req(
+		request, &ic_msg_type, &rq_dgram_inst, &command_code, &op,
+		&eid_pool_size, &first_eid);
+
+	assert(ret == false);
+}
+
+static void test_allocate_eid_pool_decode_resp()
+{
+	int ret;
+	struct mctp_ctrl_cmd_allocate_eids_resp response;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS;
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	response.operation = allocation_accepted;
+	response.eid_pool_size = 10;
+	response.first_eid = 9;
+
+	uint8_t ic_msg_type;
+	uint8_t rq_dgram_inst;
+	uint8_t command_code;
+	uint8_t cc;
+	mctp_ctrl_cmd_allocate_eids_resp_op op;
+	uint8_t eid_pool_size;
+	uint8_t first_eid;
+
+	ret = mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
+		&response, &ic_msg_type, &rq_dgram_inst, &command_code, &cc,
+		&op, &eid_pool_size, &first_eid);
+
+	assert(ret == true);
+	assert(ic_msg_type == response.ctrl_hdr.ic_msg_type);
+	assert(rq_dgram_inst == response.ctrl_hdr.rq_dgram_inst);
+	assert(command_code == response.ctrl_hdr.command_code);
+	assert(cc == response.completion_code);
+	assert(op == response.operation);
+	assert(eid_pool_size == response.eid_pool_size);
+	assert(first_eid == response.first_eid);
+}
+
+static void test_negation_allocate_eid_pool_decode_resp()
+{
+	int ret;
+	struct mctp_ctrl_cmd_allocate_eids_resp *response = NULL;
+
+	uint8_t ic_msg_type;
+	uint8_t rq_dgram_inst;
+	uint8_t command_code;
+	uint8_t cc;
+	mctp_ctrl_cmd_allocate_eids_resp_op op;
+	uint8_t eid_pool_size;
+	uint8_t first_eid;
+
+	ret = mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
+		response, &ic_msg_type, &rq_dgram_inst, &command_code, &cc, &op,
+		&eid_pool_size, &first_eid);
+
 	assert(ret == false);
 }
 
@@ -238,12 +393,18 @@ int main(int argc, char *argv[])
 	test_encode_ctrl_cmd_req_update_routing_info();
 	test_encode_ctrl_cmd_rsp_get_routing_table();
 	test_encode_ctrl_cmd_query_hop();
-	test_allocate_eid_pool_encode();
+	test_allocate_eid_pool_encode_req();
+	test_allocate_eid_pool_encode_resp();
+	test_allocate_eid_pool_decode_req();
+	test_allocate_eid_pool_decode_resp();
 	test_mctp_encode_ctrl_cmd_get_network_id_resp();
 	test_encode_ctrl_cmd_get_networkid_req();
 	/*Negative test cases */
+	test_negation_allocate_eid_pool_encode_req();
+	test_negation_allocate_eid_pool_encode_resp();
+	test_negation_allocate_eid_pool_decode_req();
+	test_negation_allocate_eid_pool_decode_resp();
 	test_negative_encode_ctrl_cmd_query_hop();
-	test_negation_allocate_eid_pool_encode();
 	test_negation_encode_ctrl_cmd_get_networkid_req();
 	return EXIT_SUCCESS;
 }
