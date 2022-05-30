@@ -364,6 +364,11 @@ struct mctp_ctrl_resp_get_mctp_ver_support {
 	uint8_t number_of_entries;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_resp_completion_code {
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
+} __attribute__((__packed__));
+
 struct version_entry {
 	uint8_t major;
 	uint8_t minor;
@@ -450,6 +455,9 @@ int mctp_ctrl_cmd_get_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 int mctp_ctrl_cmd_get_vdm_support(
 	struct mctp *mctp, mctp_eid_t src_eid,
 	struct mctp_ctrl_resp_get_vdm_support *response);
+
+bool encode_cc_only_response(uint8_t cc,
+			     struct mctp_ctrl_resp_completion_code *response);
 
 /*Allocate EID encode and decode APIs*/
 bool mctp_encode_ctrl_cmd_allocate_endpoint_id_req(

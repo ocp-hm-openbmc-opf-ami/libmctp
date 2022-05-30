@@ -1267,6 +1267,15 @@ bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
 	return true;
 }
 
+bool encode_cc_only_response(uint8_t cc,
+			     struct mctp_ctrl_resp_completion_code *response)
+{
+	if (response == NULL)
+		return false;
+	response->completion_code = cc;
+	return true;
+}
+
 static void decode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
 				   uint8_t *ic_msg_type, uint8_t *rq_dgram_inst,
 				   uint8_t *cmd_code)
@@ -1351,6 +1360,7 @@ bool mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
 
 	return true;
 }
+
 bool mctp_set_networkid(struct mctp *mctp, guid_t *network_id)
 {
 	if (mctp == NULL || network_id == NULL)

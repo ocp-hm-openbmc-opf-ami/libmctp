@@ -7,6 +7,8 @@
 #include "libmctp-cmds.h"
 #include "libmctp.h"
 
+#define COMPLETION_CODE 5
+
 static void test_get_eid_encode()
 {
 	bool ret;
@@ -359,6 +361,19 @@ static void test_negation_allocate_eid_pool_decode_resp()
 	assert(ret == false);
 }
 
+void test_check_encode_cc_only_response()
+{
+	struct mctp_ctrl_resp_completion_code response;
+	assert((encode_cc_only_response(COMPLETION_CODE, &response)));
+	assert(response.completion_code == COMPLETION_CODE);
+}
+
+void test_negative_encode_cc_only_response()
+{
+	struct mctp_ctrl_resp_completion_code *response = NULL;
+	assert(!(encode_cc_only_response(COMPLETION_CODE, response)));
+}
+
 static void test_encode_ctrl_cmd_get_networkid_req(void)
 {
 	struct mctp_ctrl_cmd_get_networkid_req cmd_get_networkid;
@@ -393,6 +408,7 @@ int main(int argc, char *argv[])
 	test_encode_ctrl_cmd_req_update_routing_info();
 	test_encode_ctrl_cmd_rsp_get_routing_table();
 	test_encode_ctrl_cmd_query_hop();
+	test_check_encode_cc_only_response();
 	test_allocate_eid_pool_encode_req();
 	test_allocate_eid_pool_encode_resp();
 	test_allocate_eid_pool_decode_req();
@@ -406,5 +422,6 @@ int main(int argc, char *argv[])
 	test_negation_allocate_eid_pool_decode_resp();
 	test_negative_encode_ctrl_cmd_query_hop();
 	test_negation_encode_ctrl_cmd_get_networkid_req();
+	test_negative_encode_cc_only_response();
 	return EXIT_SUCCESS;
 }
