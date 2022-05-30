@@ -80,6 +80,12 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 	size_t new_size = 0;
 	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 1,
 							  &new_size));
+	uint8_t next_entry_handle = 0xFF;
+	assert(mctp_encode_ctrl_cmd_get_routing_table_resp(
+		&resp, entries, 1, &new_size, next_entry_handle));
+	next_entry_handle = 0x01;
+	assert(mctp_encode_ctrl_cmd_get_routing_table_resp(
+		&resp, entries, 1, &new_size, next_entry_handle));
 
 	size_t exp_new_size =
 		sizeof(struct mctp_ctrl_resp_get_routing_table) +
@@ -99,6 +105,27 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 							   NULL));
 	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 0,
 							  &new_size));
+	next_entry_handle = 0xFF;
+
+	assert(!mctp_encode_ctrl_cmd_get_routing_table_resp(
+		NULL, entries, 1, &new_size, next_entry_handle));
+	assert(!mctp_encode_ctrl_cmd_get_routing_table_resp(
+		&resp, NULL, 1, &new_size, next_entry_handle));
+	assert(!mctp_encode_ctrl_cmd_get_routing_table_resp(
+		&resp, entries, 1, NULL, next_entry_handle));
+	assert(mctp_encode_ctrl_cmd_get_routing_table_resp(
+		&resp, entries, 0, &new_size, next_entry_handle));
+
+	next_entry_handle = 0x01;
+
+	assert(!mctp_encode_ctrl_cmd_get_routing_table_resp(
+		NULL, entries, 1, &new_size, next_entry_handle));
+	assert(!mctp_encode_ctrl_cmd_get_routing_table_resp(
+		&resp, NULL, 1, &new_size, next_entry_handle));
+	assert(!mctp_encode_ctrl_cmd_get_routing_table_resp(
+		&resp, entries, 1, NULL, next_entry_handle));
+	assert(mctp_encode_ctrl_cmd_get_routing_table_resp(
+		&resp, entries, 0, &new_size, next_entry_handle));
 }
 
 void test_encode_ctrl_cmd_query_hop(void)

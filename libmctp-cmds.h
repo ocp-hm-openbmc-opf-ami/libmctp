@@ -434,6 +434,12 @@ bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
 	struct get_routing_table_entry_with_address *entries,
 	uint8_t no_of_entries, size_t *resp_size);
 
+bool mctp_encode_ctrl_cmd_get_routing_table_resp(
+	struct mctp_ctrl_resp_get_routing_table *resp,
+	struct get_routing_table_entry_with_address *entries,
+	uint8_t no_of_entries, size_t *resp_size,
+	const uint8_t next_entry_handle);
+
 bool mctp_encode_ctrl_cmd_query_hop(
 	struct mctp_ctrl_cmd_query_hop *query_hop_cmd, uint8_t rq_dgram_inst,
 	const uint8_t eid, const uint8_t mctp_ctrl_msg_type);
