@@ -80,10 +80,10 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 	size_t new_size = 0;
 	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 1,
 							  &new_size));
-	uint8_t next_entry_handle = 0xFF;
+	uint8_t next_entry_handle = 0x01;
 	assert(mctp_encode_ctrl_cmd_get_routing_table_resp(
 		&resp, entries, 1, &new_size, next_entry_handle));
-	next_entry_handle = 0x01;
+	next_entry_handle = 0xFF;
 	assert(mctp_encode_ctrl_cmd_get_routing_table_resp(
 		&resp, entries, 1, &new_size, next_entry_handle));
 
