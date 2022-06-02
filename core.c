@@ -1142,8 +1142,9 @@ int mctp_ctrl_cmd_set_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 }
 
 bool mctp_encode_ctrl_cmd_query_hop(
-	struct mctp_ctrl_cmd_query_hop *query_hop_cmd, uint8_t rq_dgram_inst,
-	const uint8_t eid, const uint8_t mctp_ctrl_msg_type)
+	struct mctp_ctrl_cmd_query_hop_req *query_hop_cmd,
+	uint8_t rq_dgram_inst, const uint8_t eid,
+	const uint8_t mctp_ctrl_msg_type)
 {
 	if (!query_hop_cmd) {
 		return false;
@@ -1297,8 +1298,8 @@ bool mctp_encode_ctrl_cmd_get_routing_table_resp(
 		memcpy(cur_entry, entries + i, current_entry_size);
 		cur_entry += current_entry_size;
 	}
-  *resp_size = (size_t)(cur_entry - (uint8_t *)(resp));
-  return true;
+	*resp_size = (size_t)(cur_entry - (uint8_t *)(resp));
+	return true;
 }
 
 bool encode_cc_only_response(uint8_t cc,
@@ -1419,5 +1420,29 @@ bool mctp_encode_ctrl_cmd_get_network_id_resp(
 
 	response->completion_code = MCTP_CTRL_CC_SUCCESS;
 	response->networkid = *networkid;
+	return true;
+}
+
+bool mctp_decode_ctrl_cmd_query_hop_req(const void *request, size_t req_size,
+					struct mctp_ctrl_msg_hdr *hdr,
+					uint8_t *eid,
+					uint8_t *mctp_ctrl_msg_type)
+{
+	if (request == NULL || hdr == NULL || eid == NULL ||
+	    mctp_ctrl_msg_type == NULL)
+		return false;
+
+	if (req_size != sizeof(struct mctp_ctrl_cmd_query_hop_req))
+		return false;
+
+	const struct mctp_ctrl_cmd_query_hop_req *data = request;
+
+	if (data->ctrl_msg_hdr.command_code != MCTP_CTRL_CMD_QUERY_HOP)
+		return false;
+
+	*hdr = data->ctrl_msg_hdr;
+	*eid = data->target_eid;
+	*mctp_ctrl_msg_type = data->mctp_ctrl_msg_type;
+
 	return true;
 }

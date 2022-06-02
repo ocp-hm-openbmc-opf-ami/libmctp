@@ -88,7 +88,7 @@ struct mctp_ctrl_cmd_get_routing_table {
 	uint8_t entry_handle;
 } __attribute__((__packed__));
 
-struct mctp_ctrl_cmd_query_hop {
+struct mctp_ctrl_cmd_query_hop_req {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 	uint8_t target_eid;
 	uint8_t mctp_ctrl_msg_type;
@@ -441,8 +441,9 @@ bool mctp_encode_ctrl_cmd_get_routing_table_resp(
 	const uint8_t next_entry_handle);
 
 bool mctp_encode_ctrl_cmd_query_hop(
-	struct mctp_ctrl_cmd_query_hop *query_hop_cmd, uint8_t rq_dgram_inst,
-	const uint8_t eid, const uint8_t mctp_ctrl_msg_type);
+	struct mctp_ctrl_cmd_query_hop_req *query_hop_cmd,
+	uint8_t rq_dgram_inst, const uint8_t eid,
+	const uint8_t mctp_ctrl_msg_type);
 
 void mctp_set_uuid(struct mctp *mctp, guid_t uuid);
 
@@ -495,6 +496,11 @@ bool mctp_get_networkid(struct mctp *mctp, guid_t *network_id);
 
 bool mctp_encode_ctrl_cmd_get_network_id_resp(
 	struct mctp_ctrl_get_networkid_resp *response, guid_t *networkid);
+
+bool mctp_decode_ctrl_cmd_query_hop_req(const void *request, size_t req_size,
+					struct mctp_ctrl_msg_hdr *hdr,
+					uint8_t *eid,
+					uint8_t *mctp_ctrl_msg_type);
 
 #ifdef __cplusplus
 }
