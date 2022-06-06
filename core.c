@@ -543,13 +543,13 @@ void mctp_bus_rx(struct mctp_binding *binding, struct mctp_pktbuf *pkt)
 	void *p;
 	int rc;
 
+ 	if (!pkt) {
+ 		mctp_prerr("%s: pkt is a NULL pointer.", __func__);
+ 		return;
+ 	}
 	if (!bus) {
 		mctp_prerr("%s: bus is a NULL pointer.", __func__);
-		return;
-	}
-	if (!pkt) {
-		mctp_prerr("%s: pkt is a NULL pointer.", __func__);
-		return;
+		goto out;
 	}
 
 	hdr = mctp_pktbuf_hdr(pkt);
