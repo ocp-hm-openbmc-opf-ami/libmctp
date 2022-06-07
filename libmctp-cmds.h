@@ -171,6 +171,9 @@ struct mctp_ctrl_cmd_query_hop_req {
 #define MCTP_GET_VDM_SUPPORT_IANA_FORMAT_ID 0x01
 #define MCTP_GET_VDM_SUPPORT_NO_MORE_CAP_SET 0xFF
 
+#define MIN_RESP_LENGTH                                                        \
+	(sizeof(struct mctp_ctrl_msg_hdr) + sizeof(MCTP_CTRL_CC_SUCCESS))
+
 typedef union {
 	struct {
 		uint32_t data0;
@@ -242,7 +245,6 @@ struct mctp_ctrl_resp_get_eid {
 	mctp_eid_t eid;
 	uint8_t eid_type;
 	uint8_t medium_data;
-
 } __attribute__((__packed__));
 
 struct mctp_ctrl_resp_get_uuid {
@@ -382,6 +384,15 @@ struct mctp_ctrl_get_networkid_resp {
 	guid_t networkid;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_cmd_query_hop_resp {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+	uint8_t completion_code;
+	uint8_t next_bridge_eid;
+	uint8_t mctp_ctrl_msg_type;
+	uint16_t max_incoming_size;
+	uint16_t max_outgoing_size;
+} __attribute__((__packed__));
+
 bool mctp_ctrl_handle_msg(struct mctp *mctp, struct mctp_bus *bus,
 			  mctp_eid_t src, mctp_eid_t dest, void *buffer,
 			  size_t length, bool tag_owner, uint8_t tag,
@@ -440,7 +451,7 @@ bool mctp_encode_ctrl_cmd_get_routing_table_resp(
 	uint8_t no_of_entries, size_t *resp_size,
 	const uint8_t next_entry_handle);
 
-bool mctp_encode_ctrl_cmd_query_hop(
+bool mctp_encode_ctrl_cmd_query_hop_req(
 	struct mctp_ctrl_cmd_query_hop_req *query_hop_cmd,
 	uint8_t rq_dgram_inst, const uint8_t eid,
 	const uint8_t mctp_ctrl_msg_type);
@@ -496,6 +507,12 @@ bool mctp_get_networkid(struct mctp *mctp, guid_t *network_id);
 
 bool mctp_encode_ctrl_cmd_get_network_id_resp(
 	struct mctp_ctrl_get_networkid_resp *response, guid_t *networkid);
+
+bool mctp_decode_ctrl_cmd_get_query_hop_resp(
+	const void *response, size_t resp_size, struct mctp_ctrl_msg_hdr *hdr,
+	uint8_t *completion_code, uint8_t *next_bridge_eid,
+	uint8_t *mctp_ctrl_msg_type, uint16_t *max_incoming_size,
+	uint16_t *max_outgoing_size);
 
 bool mctp_decode_ctrl_cmd_query_hop_req(const void *request, size_t req_size,
 					struct mctp_ctrl_msg_hdr *hdr,

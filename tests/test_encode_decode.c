@@ -134,7 +134,7 @@ void test_encode_ctrl_cmd_query_hop(void)
 	struct mctp_ctrl_cmd_query_hop_req cmd_query_hop;
 	uint8_t sample_eid = 8;
 	uint8_t instance_id = 0x01;
-	assert(mctp_encode_ctrl_cmd_query_hop(
+	assert(mctp_encode_ctrl_cmd_query_hop_req(
 		&cmd_query_hop, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
 		sample_eid, MCTP_CTRL_HDR_MSG_TYPE));
 
@@ -178,6 +178,39 @@ static void test_mctp_encode_ctrl_cmd_get_network_id_resp(void)
 	mctp_destroy(mctp);
 }
 
+static void test_decode_ctrl_cmd_query_hop_resp(void)
+{
+	bool ret = false;
+	struct mctp_ctrl_cmd_query_hop_resp cmd_query_hop_resp;
+	struct mctp_ctrl_msg_hdr hdr;
+	cmd_query_hop_resp.completion_code = MCTP_CTRL_CC_SUCCESS;
+	cmd_query_hop_resp.next_bridge_eid = 10;
+	cmd_query_hop_resp.mctp_ctrl_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	cmd_query_hop_resp.max_incoming_size = 8;
+	cmd_query_hop_resp.max_outgoing_size = 8;
+	cmd_query_hop_resp.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_QUERY_HOP;
+
+	uint8_t completion_code;
+	uint8_t next_bridge_eid;
+	uint8_t mctp_ctrl_msg_type;
+	uint16_t max_incoming_size;
+	uint16_t max_outgoing_size;
+
+	ret = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), &hdr,
+		&completion_code, &next_bridge_eid, &mctp_ctrl_msg_type,
+		&max_incoming_size, &max_outgoing_size);
+
+	assert(ret);
+	assert(memcmp(&cmd_query_hop_resp.ctrl_msg_hdr, &hdr,
+		      sizeof(struct mctp_ctrl_msg_hdr)) == 0);
+	assert(completion_code == cmd_query_hop_resp.completion_code);
+	assert(next_bridge_eid == cmd_query_hop_resp.next_bridge_eid);
+	assert(mctp_ctrl_msg_type == cmd_query_hop_resp.mctp_ctrl_msg_type);
+	assert(max_incoming_size == cmd_query_hop_resp.max_incoming_size);
+	assert(max_outgoing_size == cmd_query_hop_resp.max_outgoing_size);
+}
+
 static void test_decode_ctrl_cmd_query_hop_req(void)
 {
 	struct mctp_ctrl_cmd_query_hop_req cmd_query_hop;
@@ -205,7 +238,7 @@ static void test_negative_encode_ctrl_cmd_query_hop()
 	uint8_t instance_id = 0x01;
 	struct mctp_ctrl_cmd_query_hop_req *query_hop = NULL;
 	bool rc = true;
-	rc = mctp_encode_ctrl_cmd_query_hop(
+	rc = mctp_encode_ctrl_cmd_query_hop_req(
 		query_hop, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
 		sample_eid, MCTP_CTRL_HDR_MSG_TYPE);
 	assert(!rc);
@@ -449,6 +482,86 @@ static void test_negation_encode_ctrl_cmd_get_networkid_req()
 	assert(!ret);
 }
 
+static void test_negative_decode_ctrl_cmd_query_hop_resp()
+{
+	bool rc = true;
+	struct mctp_ctrl_cmd_query_hop_resp cmd_query_hop_resp;
+	struct mctp_ctrl_msg_hdr hdr;
+	uint8_t completion_code;
+	uint8_t next_bridge_eid;
+	uint8_t mctp_ctrl_msg_type;
+	uint16_t max_incoming_size;
+	uint16_t max_outgoing_size;
+
+	cmd_query_hop_resp.completion_code = MCTP_CTRL_CC_SUCCESS;
+	cmd_query_hop_resp.next_bridge_eid = 10;
+	cmd_query_hop_resp.mctp_ctrl_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	cmd_query_hop_resp.max_incoming_size = 8;
+	cmd_query_hop_resp.max_outgoing_size = 8;
+
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		NULL, sizeof(cmd_query_hop_resp), &hdr, &completion_code,
+		&next_bridge_eid, &mctp_ctrl_msg_type, &max_incoming_size,
+		&max_outgoing_size);
+	assert(!rc);
+
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, 0, &hdr, &completion_code,
+		&next_bridge_eid, &mctp_ctrl_msg_type, &max_incoming_size,
+		&max_outgoing_size);
+	assert(!rc);
+
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), NULL,
+		&completion_code, &next_bridge_eid, &mctp_ctrl_msg_type,
+		&max_incoming_size, &max_outgoing_size);
+	assert(!rc);
+
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), &hdr, NULL,
+		&next_bridge_eid, &mctp_ctrl_msg_type, &max_incoming_size,
+		&max_outgoing_size);
+	assert(!rc);
+
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), &hdr,
+		&completion_code, NULL, &mctp_ctrl_msg_type, &max_incoming_size,
+		&max_outgoing_size);
+	assert(!rc);
+
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), &hdr,
+		&completion_code, &next_bridge_eid, NULL, &max_incoming_size,
+		&max_outgoing_size);
+	assert(!rc);
+
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), &hdr,
+		&completion_code, &next_bridge_eid, &mctp_ctrl_msg_type, NULL,
+		&max_outgoing_size);
+	assert(!rc);
+
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), &hdr,
+		&completion_code, &next_bridge_eid, &mctp_ctrl_msg_type,
+		&max_incoming_size, NULL);
+	assert(!rc);
+
+	cmd_query_hop_resp.completion_code = MCTP_CTRL_CC_ERROR;
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), &hdr,
+		&completion_code, &next_bridge_eid, &mctp_ctrl_msg_type,
+		&max_incoming_size, &max_outgoing_size);
+	assert(!rc);
+
+	cmd_query_hop_resp.mctp_ctrl_msg_type = MCTP_CTRL_CMD_RESERVED;
+	rc = mctp_decode_ctrl_cmd_get_query_hop_resp(
+		&cmd_query_hop_resp, sizeof(cmd_query_hop_resp), &hdr,
+		&completion_code, &next_bridge_eid, &mctp_ctrl_msg_type,
+		&max_incoming_size, &max_outgoing_size);
+	assert(!rc);
+}
+
 static void test_negative_decode_ctrl_cmd_query_hop_req()
 {
 	bool ret = true;
@@ -497,7 +610,9 @@ int main(int argc, char *argv[])
 	test_allocate_eid_pool_decode_resp();
 	test_mctp_encode_ctrl_cmd_get_network_id_resp();
 	test_encode_ctrl_cmd_get_networkid_req();
+	test_decode_ctrl_cmd_query_hop_resp();
 	test_decode_ctrl_cmd_query_hop_req();
+
 	/*Negative test cases */
 	test_negation_allocate_eid_pool_encode_req();
 	test_negation_allocate_eid_pool_encode_resp();
@@ -505,6 +620,7 @@ int main(int argc, char *argv[])
 	test_negation_allocate_eid_pool_decode_resp();
 	test_negative_encode_ctrl_cmd_query_hop();
 	test_negation_encode_ctrl_cmd_get_networkid_req();
+	test_negative_decode_ctrl_cmd_query_hop_resp();
 	test_negative_decode_ctrl_cmd_query_hop_req();
 	test_negative_encode_cc_only_response();
 

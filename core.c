@@ -1141,7 +1141,7 @@ int mctp_ctrl_cmd_set_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 	return 0;
 }
 
-bool mctp_encode_ctrl_cmd_query_hop(
+bool mctp_encode_ctrl_cmd_query_hop_req(
 	struct mctp_ctrl_cmd_query_hop_req *query_hop_cmd,
 	uint8_t rq_dgram_inst, const uint8_t eid,
 	const uint8_t mctp_ctrl_msg_type)
@@ -1443,6 +1443,42 @@ bool mctp_decode_ctrl_cmd_query_hop_req(const void *request, size_t req_size,
 	*hdr = data->ctrl_msg_hdr;
 	*eid = data->target_eid;
 	*mctp_ctrl_msg_type = data->mctp_ctrl_msg_type;
+
+	return true;
+}
+
+bool mctp_decode_ctrl_cmd_get_query_hop_resp(
+	const void *response, size_t resp_size, struct mctp_ctrl_msg_hdr *hdr,
+	uint8_t *completion_code, uint8_t *next_bridge_eid,
+	uint8_t *mctp_ctrl_msg_type, uint16_t *max_incoming_size,
+	uint16_t *max_outgoing_size)
+{
+	if (response == NULL || hdr == NULL || completion_code == NULL ||
+	    next_bridge_eid == NULL || mctp_ctrl_msg_type == NULL ||
+	    max_incoming_size == NULL || max_outgoing_size == NULL)
+		return false;
+
+	if (resp_size < MIN_RESP_LENGTH)
+		return false;
+
+	const struct mctp_ctrl_cmd_query_hop_resp *data = response;
+
+	if (data->ctrl_msg_hdr.command_code != MCTP_CTRL_CMD_QUERY_HOP)
+		return false;
+
+	*hdr = data->ctrl_msg_hdr;
+	*completion_code = data->completion_code;
+
+	if (data->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return false;
+
+	if (resp_size != sizeof(struct mctp_ctrl_cmd_query_hop_resp))
+		return false;
+
+	*next_bridge_eid = data->next_bridge_eid;
+	*mctp_ctrl_msg_type = data->mctp_ctrl_msg_type;
+	*max_incoming_size = data->max_incoming_size;
+	*max_outgoing_size = data->max_outgoing_size;
 
 	return true;
 }
