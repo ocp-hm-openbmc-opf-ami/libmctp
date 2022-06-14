@@ -19,6 +19,17 @@ struct mctp_ctrl_msg_hdr {
 	uint8_t command_code;
 } __attribute__((__packed__));
 
+typedef union {
+	struct {
+		uint32_t data0;
+		uint16_t data1;
+		uint16_t data2;
+		uint16_t data3;
+		uint8_t data4[6];
+	} __attribute__((__packed__)) canonical;
+	uint8_t raw[16];
+} guid_t;
+
 typedef enum {
 	set_eid,
 	force_eid,
@@ -59,6 +70,12 @@ struct mctp_ctrl_cmd_get_eid {
 
 struct mctp_ctrl_cmd_get_uuid {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+} __attribute__((__packed__));
+
+struct mctp_ctrl_cmd_resolve_uuid_req {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+	guid_t req_uuid;
+	uint8_t entry_handle;
 } __attribute__((__packed__));
 
 struct mctp_ctrl_cmd_get_networkid_req {
@@ -175,17 +192,6 @@ struct mctp_ctrl_cmd_query_hop_req {
 
 #define MIN_RESP_LENGTH                                                        \
 	(sizeof(struct mctp_ctrl_msg_hdr) + sizeof(MCTP_CTRL_CC_SUCCESS))
-
-typedef union {
-	struct {
-		uint32_t data0;
-		uint16_t data1;
-		uint16_t data2;
-		uint16_t data3;
-		uint8_t data4[6];
-	} __attribute__((__packed__)) canonical;
-	uint8_t raw[16];
-} guid_t;
 
 #define MCTP_ENDPOINT_TYPE_SHIFT 4
 #define MCTP_ENDPOINT_TYPE_MASK 0x3
@@ -411,6 +417,10 @@ bool mctp_encode_ctrl_cmd_get_eid(struct mctp_ctrl_cmd_get_eid *get_eid_cmd,
 
 bool mctp_encode_ctrl_cmd_get_uuid(struct mctp_ctrl_cmd_get_uuid *get_uuid_cmd,
 				   uint8_t rq_dgram_inst);
+
+bool mctp_encode_ctrl_cmd_resolve_uuid_req(
+	struct mctp_ctrl_cmd_resolve_uuid_req *res_uuid_cmd,
+	uint8_t rq_dgram_inst, guid_t *req_uuid, uint8_t handle);
 
 bool mctp_encode_ctrl_cmd_get_networkid_req(
 	struct mctp_ctrl_cmd_get_networkid_req *get_networkid_cmd,

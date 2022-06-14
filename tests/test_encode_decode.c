@@ -129,6 +129,54 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 		&resp, entries, 0, &new_size, next_entry_handle));
 }
 
+static void test_encode_ctrl_cmd_resolve_uuid_req(void)
+{
+	bool ret;
+
+	/* 16 byte UUID */
+	char sample_uuid[16] = "61a3";
+
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	guid_t test_uuid;
+
+	/*doing memcpy of string literal*/
+	memcpy(&test_uuid.raw, sample_uuid, sizeof(guid_t));
+
+	struct mctp_ctrl_cmd_resolve_uuid_req cmd_res_uuid;
+
+	ret = mctp_encode_ctrl_cmd_resolve_uuid_req(&cmd_res_uuid, rq_d_inst,
+						    &test_uuid, 0x00);
+
+	assert(ret == true);
+	assert(cmd_res_uuid.ctrl_msg_hdr.command_code ==
+	       MCTP_CTRL_CMD_RESOLVE_UUID);
+	assert(cmd_res_uuid.ctrl_msg_hdr.rq_dgram_inst == rq_d_inst);
+	assert(cmd_res_uuid.ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+
+	assert(memcmp(cmd_res_uuid.req_uuid.raw, test_uuid.raw,
+		      sizeof(guid_t)) == 0);
+	assert(cmd_res_uuid.entry_handle == 0x00);
+}
+
+static void test_negation_encode_ctrl_cmd_resolve_uuid_req(void)
+{
+	bool ret;
+
+	/* UUID is in RFC4122 format. Ex: 61a3 */
+	char sample_uuid[16] = "61a3";
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	guid_t test_uuid;
+
+	/*doing memcpy of string literal*/
+	memcpy(&test_uuid.raw, sample_uuid, sizeof(guid_t));
+
+	ret = mctp_encode_ctrl_cmd_resolve_uuid_req(NULL, rq_d_inst, &test_uuid,
+						    0x00);
+	assert(ret == false);
+}
+
 void test_encode_ctrl_cmd_query_hop(void)
 {
 	struct mctp_ctrl_cmd_query_hop_req cmd_query_hop;
@@ -713,6 +761,7 @@ int main(int argc, char *argv[])
 	test_get_eid_encode();
 	test_encode_ctrl_cmd_req_update_routing_info();
 	test_encode_ctrl_cmd_rsp_get_routing_table();
+	test_encode_ctrl_cmd_resolve_uuid_req();
 	test_encode_ctrl_cmd_query_hop();
 	test_check_encode_cc_only_response();
 	test_allocate_eid_pool_encode_req();
@@ -727,6 +776,8 @@ int main(int argc, char *argv[])
 	test_decode_ctrl_cmd_query_hop_req();
 
 	/*Negative test cases */
+
+	test_negation_encode_ctrl_cmd_resolve_uuid_req();
 	test_negation_allocate_eid_pool_encode_req();
 	test_negation_allocate_eid_pool_encode_resp();
 	test_negation_allocate_eid_pool_decode_req();

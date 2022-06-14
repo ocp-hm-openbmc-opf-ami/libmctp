@@ -971,6 +971,21 @@ bool mctp_encode_ctrl_cmd_get_uuid(struct mctp_ctrl_cmd_get_uuid *get_uuid_cmd,
 	return true;
 }
 
+bool mctp_encode_ctrl_cmd_resolve_uuid_req(
+	struct mctp_ctrl_cmd_resolve_uuid_req *resolve_uuid_cmd,
+	uint8_t rq_dgram_inst, guid_t *req_uuid, uint8_t handle)
+{
+	if (!resolve_uuid_cmd || !req_uuid)
+		return false;
+
+	encode_ctrl_cmd_header(&resolve_uuid_cmd->ctrl_msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_RESOLVE_UUID);
+	resolve_uuid_cmd->req_uuid = *req_uuid;
+	resolve_uuid_cmd->entry_handle = handle;
+
+	return true;
+}
+
 bool mctp_encode_ctrl_cmd_get_networkid_req(
 	struct mctp_ctrl_cmd_get_networkid_req *get_networkid_cmd,
 	uint8_t rq_dgram_inst)
