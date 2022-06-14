@@ -482,6 +482,117 @@ static void test_negation_encode_ctrl_cmd_get_networkid_req()
 	assert(!ret);
 }
 
+static void test_decode_ctrl_cmd_network_id_req(void)
+{
+	bool ret = true;
+	struct mctp_ctrl_cmd_get_networkid_req cmd_network_id;
+	struct mctp_ctrl_msg_hdr hdr;
+	cmd_network_id.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	cmd_network_id.ctrl_msg_hdr.rq_dgram_inst = 10;
+	cmd_network_id.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_GET_NETWORK_ID;
+
+	ret = mctp_decode_ctrl_cmd_network_id_req(&cmd_network_id,
+						  sizeof(cmd_network_id), &hdr);
+	assert(ret);
+	assert(memcmp(&cmd_network_id.ctrl_msg_hdr, &hdr,
+		      sizeof(struct mctp_ctrl_msg_hdr)) == 0);
+}
+
+static void test_decode_ctrl_cmd_network_id_resp(void)
+{
+	bool ret = true;
+	struct mctp_ctrl_get_networkid_resp cmd_network_id_resp;
+	struct mctp_ctrl_msg_hdr hdr;
+	guid_t network_id;
+
+	network_id.canonical.data1 = 10;
+	cmd_network_id_resp.completion_code = MCTP_CTRL_CC_SUCCESS;
+	cmd_network_id_resp.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	cmd_network_id_resp.ctrl_hdr.rq_dgram_inst = 10;
+	cmd_network_id_resp.ctrl_hdr.command_code =
+		MCTP_CTRL_CMD_GET_NETWORK_ID;
+
+	uint8_t completion_code;
+	ret = mctp_decode_ctrl_cmd_network_id_resp(&cmd_network_id_resp,
+						   sizeof(cmd_network_id_resp),
+						   &hdr, &completion_code,
+						   &network_id);
+	assert(ret);
+	assert(memcmp(&cmd_network_id_resp.ctrl_hdr, &hdr,
+		      sizeof(struct mctp_ctrl_msg_hdr)) == 0);
+	assert(completion_code == cmd_network_id_resp.completion_code);
+	assert(network_id.canonical.data1 ==
+	       cmd_network_id_resp.networkid.canonical.data1);
+}
+
+static void test_negative_decode_ctrl_cmd_network_id_req(void)
+{
+	struct mctp_ctrl_cmd_get_networkid_req cmd_network_id;
+	struct mctp_ctrl_msg_hdr hdr;
+	cmd_network_id.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	cmd_network_id.ctrl_msg_hdr.rq_dgram_inst = 10;
+	cmd_network_id.ctrl_msg_hdr.command_code =
+		MCTP_CTRL_CMD_GET_NETWORK_ID;
+	bool ret = true;
+
+	ret = mctp_decode_ctrl_cmd_network_id_req(NULL, sizeof(cmd_network_id),
+						  &hdr);
+	assert(!ret);
+	ret = mctp_decode_ctrl_cmd_network_id_req(&cmd_network_id, 8, &hdr);
+	assert(!ret);
+	ret = mctp_decode_ctrl_cmd_network_id_req(&cmd_network_id,
+						  sizeof(cmd_network_id), NULL);
+	assert(!ret);
+	cmd_network_id.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
+	ret = mctp_decode_ctrl_cmd_network_id_req(&cmd_network_id,
+						  sizeof(cmd_network_id), &hdr);
+	assert(!ret);
+}
+
+static void test_negative_decode_ctrl_cmd_network_id_resp(void)
+{
+	bool ret = true;
+	struct mctp_ctrl_get_networkid_resp cmd_network_id_resp;
+	struct mctp_ctrl_msg_hdr hdr;
+	guid_t network_id;
+
+	network_id.canonical.data1 = 10;
+	cmd_network_id_resp.completion_code = MCTP_CTRL_CC_ERROR;
+	cmd_network_id_resp.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	cmd_network_id_resp.ctrl_hdr.rq_dgram_inst = 10;
+	cmd_network_id_resp.ctrl_hdr.command_code =
+		MCTP_CTRL_CMD_GET_NETWORK_ID;
+	uint8_t completion_code;
+	ret = mctp_decode_ctrl_cmd_network_id_resp(NULL,
+						   sizeof(cmd_network_id_resp),
+						   &hdr, &completion_code,
+						   &network_id);
+	assert(ret == false);
+	ret = mctp_decode_ctrl_cmd_network_id_resp(
+		&cmd_network_id_resp, 10, &hdr, &completion_code, &network_id);
+	assert(ret == false);
+	ret = mctp_decode_ctrl_cmd_network_id_resp(&cmd_network_id_resp,
+						   sizeof(cmd_network_id_resp),
+						   NULL, &completion_code,
+						   &network_id);
+	assert(ret == false);
+	ret = mctp_decode_ctrl_cmd_network_id_resp(&cmd_network_id_resp,
+						   sizeof(cmd_network_id_resp),
+						   &hdr, NULL, &network_id);
+	assert(ret == false);
+	ret = mctp_decode_ctrl_cmd_network_id_resp(&cmd_network_id_resp,
+						   sizeof(cmd_network_id_resp),
+						   &hdr, &completion_code,
+						   NULL);
+	assert(!ret);
+	cmd_network_id_resp.ctrl_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
+	ret = mctp_decode_ctrl_cmd_network_id_resp(&cmd_network_id_resp,
+						   sizeof(cmd_network_id_resp),
+						   &hdr, &completion_code,
+						   &network_id);
+	assert(!ret);
+}
+
 static void test_negative_decode_ctrl_cmd_query_hop_resp()
 {
 	bool rc = true;
@@ -610,6 +721,8 @@ int main(int argc, char *argv[])
 	test_allocate_eid_pool_decode_resp();
 	test_mctp_encode_ctrl_cmd_get_network_id_resp();
 	test_encode_ctrl_cmd_get_networkid_req();
+	test_decode_ctrl_cmd_network_id_req();
+	test_decode_ctrl_cmd_network_id_resp();
 	test_decode_ctrl_cmd_query_hop_resp();
 	test_decode_ctrl_cmd_query_hop_req();
 
@@ -620,9 +733,10 @@ int main(int argc, char *argv[])
 	test_negation_allocate_eid_pool_decode_resp();
 	test_negative_encode_ctrl_cmd_query_hop();
 	test_negation_encode_ctrl_cmd_get_networkid_req();
+	test_negative_decode_ctrl_cmd_network_id_req();
+	test_negative_decode_ctrl_cmd_network_id_resp();
 	test_negative_decode_ctrl_cmd_query_hop_resp();
 	test_negative_decode_ctrl_cmd_query_hop_req();
 	test_negative_encode_cc_only_response();
-
 	return EXIT_SUCCESS;
 }

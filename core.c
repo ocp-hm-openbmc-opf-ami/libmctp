@@ -543,10 +543,10 @@ void mctp_bus_rx(struct mctp_binding *binding, struct mctp_pktbuf *pkt)
 	void *p;
 	int rc;
 
- 	if (!pkt) {
- 		mctp_prerr("%s: pkt is a NULL pointer.", __func__);
- 		return;
- 	}
+	if (!pkt) {
+		mctp_prerr("%s: pkt is a NULL pointer.", __func__);
+		return;
+	}
 	if (!bus) {
 		mctp_prerr("%s: bus is a NULL pointer.", __func__);
 		goto out;
@@ -980,6 +980,56 @@ bool mctp_encode_ctrl_cmd_get_networkid_req(
 
 	encode_ctrl_cmd_header(&get_networkid_cmd->ctrl_msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_GET_NETWORK_ID);
+	return true;
+}
+
+bool mctp_decode_ctrl_cmd_network_id_req(void *request, size_t request_size,
+					 struct mctp_ctrl_msg_hdr *hdr)
+{
+	if (request == NULL || hdr == NULL)
+		return false;
+
+	if (request_size != sizeof(struct mctp_ctrl_cmd_get_networkid_req))
+		return false;
+
+	struct mctp_ctrl_cmd_get_networkid_req *data = request;
+
+	if (data->ctrl_msg_hdr.command_code != MCTP_CTRL_CMD_GET_NETWORK_ID)
+		return false;
+
+	*hdr = data->ctrl_msg_hdr;
+
+	return true;
+}
+
+bool mctp_decode_ctrl_cmd_network_id_resp(void *response, size_t response_size,
+					  struct mctp_ctrl_msg_hdr *hdr,
+					  uint8_t *completion_code,
+					  guid_t *networkid)
+{
+	if (response == NULL || completion_code == NULL || networkid == NULL ||
+	    hdr == NULL)
+		return false;
+
+	if (response_size < MIN_RESP_LENGTH)
+		return false;
+
+	struct mctp_ctrl_get_networkid_resp *data = response;
+
+	if (data->ctrl_hdr.command_code != MCTP_CTRL_CMD_GET_NETWORK_ID)
+		return false;
+
+	*hdr = data->ctrl_hdr;
+	*completion_code = data->completion_code;
+
+	if (data->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return false;
+
+	if (response_size != sizeof(struct mctp_ctrl_get_networkid_resp))
+		return false;
+
+	*networkid = data->networkid;
+
 	return true;
 }
 

@@ -98,6 +98,8 @@ struct mctp_ctrl_cmd_query_hop_req {
 #define MCTP_CTRL_HDR_FLAG_REQUEST (1 << 7)
 #define MCTP_CTRL_HDR_FLAG_DGRAM (1 << 6)
 #define MCTP_CTRL_HDR_INSTANCE_ID_MASK 0x1F
+#define MIN_RESP_LENGTH                                                        \
+	(sizeof(struct mctp_ctrl_msg_hdr) + sizeof(MCTP_CTRL_CC_SUCCESS))
 
 /*
  * MCTP Control Command IDs
@@ -413,6 +415,14 @@ bool mctp_encode_ctrl_cmd_get_uuid(struct mctp_ctrl_cmd_get_uuid *get_uuid_cmd,
 bool mctp_encode_ctrl_cmd_get_networkid_req(
 	struct mctp_ctrl_cmd_get_networkid_req *get_networkid_cmd,
 	uint8_t rq_dgram_inst);
+
+bool mctp_decode_ctrl_cmd_network_id_req(void *request, size_t request_size,
+					 struct mctp_ctrl_msg_hdr *hdr);
+
+bool mctp_decode_ctrl_cmd_network_id_resp(void *response, size_t response_size,
+					  struct mctp_ctrl_msg_hdr *hdr,
+					  uint8_t *completion_code,
+					  guid_t *networkid);
 
 bool mctp_encode_ctrl_cmd_get_ver_support(
 	struct mctp_ctrl_cmd_get_mctp_ver_support *mctp_ver_support_cmd,
