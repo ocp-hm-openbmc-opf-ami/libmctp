@@ -1150,6 +1150,19 @@ bool mctp_encode_ctrl_cmd_routing_information_update(
 	return true;
 }
 
+bool mctp_encode_ctrl_cmd_resolve_eid_req(
+	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
+	uint8_t rq_dgram_inst, uint8_t target_eid)
+{
+	if (!resolve_eid_cmd)
+		return false;
+
+	encode_ctrl_cmd_header(&resolve_eid_cmd->ctrl_msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+	resolve_eid_cmd->target_eid = target_eid;
+	return true;
+}
+
 static inline mctp_eid_t mctp_bus_get_eid(struct mctp_bus *bus)
 {
 	return bus->eid;

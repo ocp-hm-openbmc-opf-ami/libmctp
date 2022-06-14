@@ -129,6 +129,40 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 		&resp, entries, 0, &new_size, next_entry_handle));
 }
 
+static void test_encode_ctrl_cmd_resolve_eid_req()
+{
+	const uint8_t target_eid = 9;
+	const uint8_t instance_id = 0x01;
+	struct mctp_ctrl_cmd_resolve_eid_req cmd_resolve_eid;
+
+	assert(mctp_encode_ctrl_cmd_resolve_eid_req(
+		&cmd_resolve_eid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
+		target_eid));
+
+	assert(cmd_resolve_eid.ctrl_msg_hdr.command_code ==
+	       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+	assert(cmd_resolve_eid.ctrl_msg_hdr.rq_dgram_inst ==
+	       (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST));
+	assert(cmd_resolve_eid.ctrl_msg_hdr.ic_msg_type ==
+	       MCTP_CTRL_HDR_MSG_TYPE);
+
+	assert(cmd_resolve_eid.target_eid == target_eid);
+}
+
+static void test_negation_encode_ctrl_cmd_resolve_eid_req()
+{
+	bool ret;
+	struct mctp_ctrl_cmd_resolve_eid_req *cmd_resolve_eid = NULL;
+	const uint8_t target_eid = 9;
+	const uint8_t instance_id = 0x01;
+
+	ret = mctp_encode_ctrl_cmd_resolve_eid_req(
+		cmd_resolve_eid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
+		target_eid);
+  
+  assert(ret == false);
+}
+
 static void test_encode_ctrl_cmd_resolve_uuid_req(void)
 {
 	bool ret;
@@ -761,6 +795,7 @@ int main(int argc, char *argv[])
 	test_get_eid_encode();
 	test_encode_ctrl_cmd_req_update_routing_info();
 	test_encode_ctrl_cmd_rsp_get_routing_table();
+	test_encode_ctrl_cmd_resolve_eid_req();
 	test_encode_ctrl_cmd_resolve_uuid_req();
 	test_encode_ctrl_cmd_query_hop();
 	test_check_encode_cc_only_response();
@@ -776,7 +811,7 @@ int main(int argc, char *argv[])
 	test_decode_ctrl_cmd_query_hop_req();
 
 	/*Negative test cases */
-
+	test_negation_encode_ctrl_cmd_resolve_eid_req();
 	test_negation_encode_ctrl_cmd_resolve_uuid_req();
 	test_negation_allocate_eid_pool_encode_req();
 	test_negation_allocate_eid_pool_encode_resp();
