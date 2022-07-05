@@ -49,8 +49,8 @@ AC_DEFINE([MCTP_DEFAULT_ALLOC], [1],
     [Define to populate allocation functions to defaults (malloc/free)])
 
 # Enable all bindings. AC_ARG_ENABLE in future.
-AM_CONDITIONAL([LIBMCTP_BINDING_serial], [true])
-AM_CONDITIONAL([LIBMCTP_BINDING_astlpc], [true])
+AM_CONDITIONAL([LIBMCTP_BINDING_serial], [false])
+AM_CONDITIONAL([LIBMCTP_BINDING_astlpc], [false])
 AM_CONDITIONAL([LIBMCTP_BINDING_astpcie], [true])
 AM_CONDITIONAL([LIBMCTP_BINDING_smbus], [true])
 AM_CONDITIONAL([LIBMCTP_BINDING_asti3c], [true])
