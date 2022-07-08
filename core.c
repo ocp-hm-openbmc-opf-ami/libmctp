@@ -1373,6 +1373,10 @@ bool mctp_encode_ctrl_cmd_get_routing_table_resp(
 			sizeof(struct get_routing_table_entry_with_address) +
 			entries[i].routing_info.phys_address_size -
 			MAX_PHYSICAL_ADDRESS_SIZE;
+		entries[i].routing_info.entry_type =
+			(entries[i].routing_info.entry_type &
+			 MCTP_ROUTING_ENTRY_TYPE_MASK)
+			<< MCTP_ROUTING_ENTRY_TYPE_SHIFT;
 		memcpy(cur_entry, entries + i, current_entry_size);
 		cur_entry += current_entry_size;
 	}
