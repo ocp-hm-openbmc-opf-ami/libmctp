@@ -74,6 +74,7 @@ add_executable (mctp_astpcie_register_type utils/mctp-astpcie-register-type.c)
 target_link_libraries (mctp_astpcie_register_type mctp_intel)
 
 add_executable (test_asti3c tests/test_asti3c.c)
+set_source_files_properties(tests/test_asti3c.c PROPERTIES COMPILE_FLAGS "-Wno-maybe-uninitialized")
 target_link_libraries (test_asti3c mctp_intel)
 add_test (NAME asti3c COMMAND test_asti3c)
 
