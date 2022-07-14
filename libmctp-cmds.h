@@ -397,6 +397,18 @@ struct mctp_ctrl_get_networkid_resp {
 	guid_t networkid;
 } __attribute__((__packed__));
 
+struct variable_field {
+	uint8_t *data;
+	size_t data_size;
+} __attribute__((__packed__));
+
+struct mctp_ctrl_cmd_resolve_eid_resp {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+	uint8_t completion_code;
+	uint8_t bridge_eid;
+	uint8_t physical_address[0];
+} __attribute__((__packed__));
+
 struct mctp_ctrl_cmd_query_hop_resp {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 	uint8_t completion_code;
@@ -536,6 +548,15 @@ bool mctp_get_networkid(struct mctp *mctp, guid_t *network_id);
 
 bool mctp_encode_ctrl_cmd_get_network_id_resp(
 	struct mctp_ctrl_get_networkid_resp *response, guid_t *networkid);
+
+bool mctp_decode_ctrl_cmd_resolve_eid_req(
+	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *target_eid);
+
+bool mctp_decode_ctrl_cmd_resolve_eid_resp(
+	struct mctp_ctrl_cmd_resolve_eid_resp *response, size_t resp_size,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *completion_code,
+	uint8_t *bridge_eid, struct variable_field *address);
 
 bool mctp_decode_ctrl_cmd_get_query_hop_resp(
 	const void *response, size_t resp_size, struct mctp_ctrl_msg_hdr *hdr,
