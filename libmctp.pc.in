@@ -6,5 +6,5 @@ includedir=@includedir@
 Name: libmctp
 Description: MCTP protocol implementation
 Version: @VERSION@
-Libs: -L${libdir} -lmctp
+Libs: -L${libdir} -l:libmctp_intel.a
 Cflags: -I${includedir}

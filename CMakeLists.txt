@@ -80,3 +80,10 @@ add_test (NAME asti3c COMMAND test_asti3c)
 
 install (TARGETS mctp_intel DESTINATION lib)
 install (FILES libmctp.h libmctp-cmds.h libmctp-vdpci.h libmctp-smbus.h libmctp-astpcie.h libmctp-msgtypes.h libmctp-asti3c.h DESTINATION include)
+
+configure_file(
+    ${PROJECT_SOURCE_DIR}/libmctp.pc.in
+    ${PROJECT_BINARY_DIR}/libmctp.pc
+)
+INSTALL(FILES ${CMAKE_BINARY_DIR}/libmctp.pc
+        DESTINATION lib/pkgconfig)
