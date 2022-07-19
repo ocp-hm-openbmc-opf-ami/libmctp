@@ -1325,6 +1325,25 @@ int mctp_ctrl_cmd_get_vdm_support(
 	return 0;
 }
 
+/*
+ * @brief resolve the EID accordingly to the provided policy and creates response.
+ * See DSP0236 1.3.0 12.3
+ */
+bool mctp_encode_ctrl_cmd_resolve_eid_resp(
+	struct mctp_ctrl_cmd_resolve_eid_resp *response, uint8_t rq_dgram_inst,
+	uint8_t bridge_eid, struct variable_field *address)
+{
+	if (response == NULL || address == NULL)
+		return false;
+
+	encode_ctrl_cmd_header(&response->ctrl_msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+	response->completion_code = MCTP_CTRL_CC_SUCCESS;
+	response->bridge_eid = bridge_eid;
+	memcpy(response->physical_address, address->data, address->data_size);
+	return true;
+}
+
 bool mctp_decode_ctrl_cmd_resolve_eid_req(
 	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
 	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *target_eid)

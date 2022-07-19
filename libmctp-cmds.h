@@ -515,6 +515,10 @@ int mctp_ctrl_cmd_get_vdm_support(
 	struct mctp *mctp, mctp_eid_t src_eid,
 	struct mctp_ctrl_resp_get_vdm_support *response);
 
+bool mctp_encode_ctrl_cmd_resolve_eid_resp(
+	struct mctp_ctrl_cmd_resolve_eid_resp *response, uint8_t rq_dgram_inst,
+	uint8_t bridge_eid, struct variable_field *address);
+
 bool encode_cc_only_response(uint8_t cc,
 			     struct mctp_ctrl_resp_completion_code *response);
 

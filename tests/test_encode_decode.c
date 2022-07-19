@@ -207,20 +207,6 @@ static void test_encode_ctrl_cmd_resolve_eid_req()
 	assert(cmd_resolve_eid.target_eid == target_eid);
 }
 
-static void test_negation_encode_ctrl_cmd_resolve_eid_req()
-{
-	bool ret;
-	struct mctp_ctrl_cmd_resolve_eid_req *cmd_resolve_eid = NULL;
-	const uint8_t target_eid = 9;
-	const uint8_t instance_id = 0x01;
-
-	ret = mctp_encode_ctrl_cmd_resolve_eid_req(
-		cmd_resolve_eid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
-		target_eid);
-
-	assert(ret == false);
-}
-
 static void test_encode_ctrl_cmd_resolve_uuid_req(void)
 {
 	bool ret;
@@ -289,6 +275,35 @@ void test_encode_ctrl_cmd_query_hop(void)
 
 	assert(cmd_query_hop.target_eid == sample_eid);
 	assert(cmd_query_hop.mctp_ctrl_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+}
+
+static void test_mctp_encode_ctrl_cmd_resolve_eid_resp()
+{
+	bool ret;
+	uint8_t phy_address[] = { 10, 12, 13 };
+	struct mctp_ctrl_cmd_resolve_eid_resp *response;
+	struct variable_field address;
+	address.data = phy_address;
+	address.data_size = sizeof(phy_address);
+	response = (struct mctp_ctrl_cmd_resolve_eid_resp *)malloc(
+		sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) +
+		sizeof(phy_address));
+	const uint8_t instance_id = 0x01;
+	uint8_t rq_d_inst = instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	const uint8_t bridge_eid = 10;
+
+	ret = mctp_encode_ctrl_cmd_resolve_eid_resp(response, rq_d_inst,
+						    bridge_eid, &address);
+	assert(ret == true);
+	assert(response->ctrl_msg_hdr.command_code ==
+	       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+	assert(response->ctrl_msg_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response->ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(response->bridge_eid == bridge_eid);
+	assert(response->completion_code == MCTP_CTRL_CC_SUCCESS);
+	assert(!memcmp(response->physical_address, address.data,
+		       address.data_size));
+	free(response);
 }
 
 static void test_mctp_encode_ctrl_cmd_get_network_id_resp(void)
@@ -371,6 +386,20 @@ static void test_decode_ctrl_cmd_query_hop_req(void)
 }
 
 /*Negative Test cases for the commands*/
+
+static void test_negation_encode_ctrl_cmd_resolve_eid_req()
+{
+	bool ret;
+	struct mctp_ctrl_cmd_resolve_eid_req *cmd_resolve_eid = NULL;
+	const uint8_t target_eid = 9;
+	const uint8_t instance_id = 0x01;
+
+	ret = mctp_encode_ctrl_cmd_resolve_eid_req(
+		cmd_resolve_eid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
+		target_eid);
+
+	assert(ret == false);
+}
 
 static void test_negative_decode_ctrl_cmd_resolve_eid_req()
 {
@@ -464,6 +493,26 @@ static void test_negative_encode_ctrl_cmd_query_hop()
 		query_hop, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
 		sample_eid, MCTP_CTRL_HDR_MSG_TYPE);
 	assert(!rc);
+}
+
+static void test_negation_encode_ctrl_cmd_resolve_eid_resp()
+{
+	bool ret;
+	struct mctp_ctrl_cmd_resolve_eid_resp response;
+	uint8_t phy_address[] = { 10, 12, 13 };
+	struct variable_field address;
+	address.data = phy_address;
+	address.data_size = sizeof(phy_address);
+	const uint8_t instance_id = 0x01;
+	const uint8_t bridge_eid = 10;
+	ret = mctp_encode_ctrl_cmd_resolve_eid_resp(
+		NULL, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), bridge_eid,
+		&address);
+	assert(ret == false);
+	ret = mctp_encode_ctrl_cmd_resolve_eid_resp(
+		&response, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
+		bridge_eid, NULL);
+	assert(ret == false);
 }
 
 static void test_allocate_eid_pool_encode_req()
@@ -939,6 +988,7 @@ int main(int argc, char *argv[])
 	test_encode_ctrl_cmd_resolve_eid_req();
 	test_encode_ctrl_cmd_resolve_uuid_req();
 	test_encode_ctrl_cmd_query_hop();
+	test_mctp_encode_ctrl_cmd_resolve_eid_resp();
 	test_check_encode_cc_only_response();
 	test_allocate_eid_pool_encode_req();
 	test_allocate_eid_pool_encode_resp();
@@ -961,6 +1011,7 @@ int main(int argc, char *argv[])
 	test_negation_allocate_eid_pool_decode_req();
 	test_negation_allocate_eid_pool_decode_resp();
 	test_negative_encode_ctrl_cmd_query_hop();
+	test_negation_encode_ctrl_cmd_resolve_eid_resp();
 	test_negation_encode_ctrl_cmd_get_networkid_req();
 	test_negative_decode_ctrl_cmd_network_id_req();
 	test_negative_decode_ctrl_cmd_network_id_resp();
