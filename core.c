@@ -1539,6 +1539,20 @@ bool mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
 	return true;
 }
 
+bool mctp_encode_ctrl_cmd_get_uuid_resp(struct mctp_ctrl_resp_get_uuid *response,
+					struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					const guid_t *uuid)
+{
+	if (response == NULL || ctrl_hdr == NULL || uuid == NULL)
+		return false;
+	encode_ctrl_cmd_header(&response->ctrl_hdr, ctrl_hdr->rq_dgram_inst,
+			       ctrl_hdr->command_code);
+	response->completion_code = MCTP_CTRL_CC_SUCCESS;
+	response->uuid = *uuid;
+
+	return true;
+}
+
 bool mctp_set_networkid(struct mctp *mctp, guid_t *network_id)
 {
 	if (mctp == NULL || network_id == NULL)

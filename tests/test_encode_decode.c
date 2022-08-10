@@ -990,6 +990,57 @@ static void test_negative_decode_ctrl_cmd_query_hop_req()
 	assert(!ret);
 }
 
+static void test_get_uuid_encode_resp()
+{
+	bool ret;
+	struct mctp_ctrl_resp_get_uuid response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_UUID;
+	/* 16 byte UUID */
+	char sample_uuid[16] = "61a3";
+	guid_t test_uuid;
+
+	/*doing memcpy of string literal*/
+	memcpy(&test_uuid.raw, sample_uuid, sizeof(guid_t));
+
+	ret = mctp_encode_ctrl_cmd_get_uuid_resp(&response, &ctrl_hdr,
+						 &test_uuid);
+
+	assert(ret == true);
+
+	assert(response.ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_ENDPOINT_UUID);
+	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(memcmp(response.uuid.raw, test_uuid.raw, sizeof(guid_t)) == 0);
+}
+
+static void test_negation_get_uuid_encode_resp()
+{
+	bool ret;
+	struct mctp_ctrl_resp_get_uuid *response = NULL;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_UUID;
+	guid_t test_uuid;
+
+	ret = mctp_encode_ctrl_cmd_get_uuid_resp(response, &ctrl_hdr,
+						 &test_uuid);
+	assert(ret == false);
+	struct mctp_ctrl_resp_get_uuid response1;
+	ret = mctp_encode_ctrl_cmd_get_uuid_resp(&response1, NULL, &test_uuid);
+	assert(ret == false);
+	ret = mctp_encode_ctrl_cmd_get_uuid_resp(&response1, &ctrl_hdr, NULL);
+	assert(ret == false);
+}
+
 int main(int argc, char *argv[])
 {
 	test_get_eid_encode();
@@ -1012,6 +1063,7 @@ int main(int argc, char *argv[])
 	test_decode_ctrl_cmd_network_id_resp();
 	test_decode_ctrl_cmd_query_hop_resp();
 	test_decode_ctrl_cmd_query_hop_req();
+	test_get_uuid_encode_resp();
 
 	/*Negative test cases */
 	test_negative_decode_ctrl_cmd_resolve_eid_req();
@@ -1030,5 +1082,6 @@ int main(int argc, char *argv[])
 	test_negative_decode_ctrl_cmd_query_hop_resp();
 	test_negative_decode_ctrl_cmd_query_hop_req();
 	test_negative_encode_cc_only_response();
+	test_negation_get_uuid_encode_resp();
 	return EXIT_SUCCESS;
 }

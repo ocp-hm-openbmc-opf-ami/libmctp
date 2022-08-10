@@ -545,6 +545,9 @@ bool mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
 	uint8_t *rq_dgram_inst, uint8_t *command_code, uint8_t *cc,
 	mctp_ctrl_cmd_allocate_eids_resp_op *op, uint8_t *eid_pool_size,
 	uint8_t *first_eid);
+bool mctp_encode_ctrl_cmd_get_uuid_resp(struct mctp_ctrl_resp_get_uuid *response,
+					struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					const guid_t *uuid);
 
 bool mctp_set_networkid(struct mctp *mctp, guid_t *network_id);
 
