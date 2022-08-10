@@ -343,6 +343,8 @@ static void test_decode_ctrl_cmd_query_hop_resp(void)
 	cmd_query_hop_resp.mctp_ctrl_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	cmd_query_hop_resp.max_incoming_size = 8;
 	cmd_query_hop_resp.max_outgoing_size = 8;
+	cmd_query_hop_resp.ctrl_msg_hdr.ic_msg_type = 0x00;
+	cmd_query_hop_resp.ctrl_msg_hdr.rq_dgram_inst = 0x00;
 	cmd_query_hop_resp.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_QUERY_HOP;
 
 	uint8_t completion_code;
@@ -364,6 +366,8 @@ static void test_decode_ctrl_cmd_query_hop_resp(void)
 	assert(mctp_ctrl_msg_type == cmd_query_hop_resp.mctp_ctrl_msg_type);
 	assert(max_incoming_size == cmd_query_hop_resp.max_incoming_size);
 	assert(max_outgoing_size == cmd_query_hop_resp.max_outgoing_size);
+	assert(hdr.ic_msg_type == cmd_query_hop_resp.ctrl_msg_hdr.ic_msg_type);
+	assert(hdr.rq_dgram_inst == cmd_query_hop_resp.ctrl_msg_hdr.rq_dgram_inst);
 }
 
 static void test_decode_ctrl_cmd_query_hop_req(void)
