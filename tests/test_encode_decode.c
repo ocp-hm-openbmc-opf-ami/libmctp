@@ -260,6 +260,14 @@ void test_encode_ctrl_cmd_query_hop(void)
 	struct mctp_ctrl_cmd_query_hop_req cmd_query_hop;
 	uint8_t sample_eid = 8;
 	uint8_t instance_id = 0x01;
+
+	/* Initialise with wrong value */
+	cmd_query_hop.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
+	cmd_query_hop.ctrl_msg_hdr.rq_dgram_inst = 0x00;
+	cmd_query_hop.ctrl_msg_hdr.ic_msg_type = 0x01;
+	cmd_query_hop.target_eid = sample_eid + 1;
+	cmd_query_hop.mctp_ctrl_msg_type = 0x01;
+
 	assert(mctp_encode_ctrl_cmd_query_hop_req(
 		&cmd_query_hop, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
 		sample_eid, MCTP_CTRL_HDR_MSG_TYPE));
