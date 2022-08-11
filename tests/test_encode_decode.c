@@ -79,8 +79,6 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 	struct mctp_ctrl_resp_get_routing_table resp;
 
 	size_t new_size = 0;
-	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 1,
-							  &new_size));
 	uint8_t next_entry_handle = 0x01;
 	assert(mctp_encode_ctrl_cmd_get_routing_table_resp(
 		&resp, entries, 1, &new_size, next_entry_handle));
@@ -98,14 +96,6 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 	assert(resp.next_entry_handle == 0xFF);
 	assert(resp.number_of_entries == 0x01);
 
-	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(NULL, entries, 1,
-							   &new_size));
-	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, NULL, 1,
-							   &new_size));
-	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 1,
-							   NULL));
-	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 0,
-							  &new_size));
 	next_entry_handle = 0xFF;
 
 	assert(!mctp_encode_ctrl_cmd_get_routing_table_resp(
