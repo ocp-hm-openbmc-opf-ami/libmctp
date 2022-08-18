@@ -1390,39 +1390,6 @@ bool mctp_decode_ctrl_cmd_resolve_eid_resp(
 	return true;
 }
 
-bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
-	struct mctp_ctrl_resp_get_routing_table *resp,
-	struct get_routing_table_entry_with_address *entries,
-	uint8_t no_of_entries, size_t *resp_size)
-{
-	uint8_t *cur_entry;
-	uint16_t i;
-
-	if (!resp || !entries || !resp_size)
-		return false;
-
-	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
-
-	/* All entries will be enclosed in a single response.
-	*  So next entry handle will be 0xFF to indicate that
-	*  there is no more entries
-	*/
-	resp->next_entry_handle = 0xFF;
-	resp->number_of_entries = no_of_entries;
-	cur_entry = (uint8_t *)resp->entries;
-
-	for (i = 0; i < no_of_entries; i++) {
-		size_t current_entry_size =
-			sizeof(struct get_routing_table_entry_with_address) +
-			entries[i].routing_info.phys_address_size -
-			MAX_PHYSICAL_ADDRESS_SIZE;
-		memcpy(cur_entry, entries + i, current_entry_size);
-		cur_entry += current_entry_size;
-	}
-	*resp_size = (size_t)(cur_entry - (uint8_t *)(resp));
-	return true;
-}
-
 bool mctp_encode_ctrl_cmd_get_routing_table_resp(
 	struct mctp_ctrl_resp_get_routing_table *resp,
 	struct get_routing_table_entry_with_address *entries,
@@ -1535,6 +1502,20 @@ bool mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
 	*op = response->operation;
 	*eid_pool_size = response->eid_pool_size;
 	*first_eid = response->first_eid;
+
+	return true;
+}
+
+bool mctp_encode_ctrl_cmd_get_uuid_resp(struct mctp_ctrl_resp_get_uuid *response,
+					struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					const guid_t *uuid)
+{
+	if (response == NULL || ctrl_hdr == NULL || uuid == NULL)
+		return false;
+	encode_ctrl_cmd_header(&response->ctrl_hdr, ctrl_hdr->rq_dgram_inst,
+			       ctrl_hdr->command_code);
+	response->completion_code = MCTP_CTRL_CC_SUCCESS;
+	response->uuid = *uuid;
 
 	return true;
 }
