@@ -19,6 +19,14 @@ struct mctp_ctrl_msg_hdr {
 	uint8_t command_code;
 } __attribute__((__packed__));
 
+typedef enum {
+	ENCODE_SUCCESS = 0,
+	DECODE_SUCCESS,
+	CC_ERROR,
+	INPUT_ERROR,
+	GENERIC_ERROR
+} encode_decode_api_return_code;
+
 typedef union {
 	struct {
 		uint32_t data0;
@@ -572,6 +580,23 @@ bool mctp_decode_ctrl_cmd_query_hop_req(const void *request, size_t req_size,
 					struct mctp_ctrl_msg_hdr *hdr,
 					uint8_t *eid,
 					uint8_t *mctp_ctrl_msg_type);
+
+encode_decode_api_return_code mctp_encode_ctrl_cmd_resolve_eid_resp_new(
+	struct mctp_ctrl_cmd_resolve_eid_resp *response, uint8_t rq_dgram_inst,
+	uint8_t bridge_eid, struct variable_field *address);
+
+encode_decode_api_return_code mctp_encode_ctrl_cmd_resolve_eid_req_new(
+	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
+	uint8_t rq_dgram_inst, uint8_t target_eid);
+
+encode_decode_api_return_code mctp_decode_ctrl_cmd_resolve_eid_req_new(
+	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *target_eid);
+
+encode_decode_api_return_code mctp_decode_ctrl_cmd_resolve_eid_resp_new(
+	struct mctp_ctrl_cmd_resolve_eid_resp *response, size_t resp_size,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *completion_code,
+	uint8_t *bridge_eid, struct variable_field *address);
 
 #ifdef __cplusplus
 }

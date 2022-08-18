@@ -153,6 +153,32 @@ static void test_decode_ctrl_cmd_resolve_eid_req()
 	assert(target_eid == cmd_resolve_eid.target_eid);
 }
 
+static void test_decode_ctrl_cmd_resolve_eid_req_new()
+{
+	encode_decode_api_return_code ret;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct mctp_ctrl_cmd_resolve_eid_req cmd_resolve_eid;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	cmd_resolve_eid.ctrl_msg_hdr.command_code =
+		MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+	cmd_resolve_eid.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
+	cmd_resolve_eid.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t target_eid = 10;
+	cmd_resolve_eid.target_eid = 0;
+
+	ret = (mctp_decode_ctrl_cmd_resolve_eid_req_new(
+		&cmd_resolve_eid, &ctrl_hdr, &target_eid));
+	assert(ret == DECODE_SUCCESS);
+	assert(ctrl_hdr.command_code ==
+	       cmd_resolve_eid.ctrl_msg_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst ==
+	       cmd_resolve_eid.ctrl_msg_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type ==
+	       cmd_resolve_eid.ctrl_msg_hdr.ic_msg_type);
+	assert(target_eid == cmd_resolve_eid.target_eid);
+}
+
 static void test_decode_ctrl_cmd_resolve_eid_resp()
 {
 	bool ret;
@@ -187,6 +213,39 @@ static void test_decode_ctrl_cmd_resolve_eid_resp()
 		       sizeof(struct mctp_ctrl_cmd_resolve_eid_resp));
 }
 
+static void test_decode_ctrl_cmd_resolve_eid_resp_new()
+{
+	encode_decode_api_return_code ret;
+	uint8_t packed_packet[] = { 0,
+				    1,
+				    (uint8_t)MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID,
+				    (uint8_t)MCTP_CTRL_CC_SUCCESS,
+				    10,
+				    12 };
+	struct mctp_ctrl_cmd_resolve_eid_resp *response =
+		(struct mctp_ctrl_cmd_resolve_eid_resp *)packed_packet;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct variable_field address;
+	uint8_t completion_code;
+	uint8_t bridge_eid;
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(
+		response, sizeof(packed_packet), &ctrl_hdr, &completion_code,
+		&bridge_eid, &address);
+	assert(ret == DECODE_SUCCESS);
+	assert(ctrl_hdr.command_code == response->ctrl_msg_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == response->ctrl_msg_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == response->ctrl_msg_hdr.ic_msg_type);
+	assert(completion_code == response->completion_code);
+	assert(bridge_eid == response->bridge_eid);
+	assert(!memcmp(address.data,
+		       (uint8_t *)response +
+			       sizeof(struct mctp_ctrl_cmd_resolve_eid_resp),
+		       address.data_size));
+	assert(address.data_size ==
+	       sizeof(packed_packet) -
+		       sizeof(struct mctp_ctrl_cmd_resolve_eid_resp));
+}
+
 static void test_encode_ctrl_cmd_resolve_eid_req()
 {
 	const uint8_t target_eid = 9;
@@ -197,6 +256,27 @@ static void test_encode_ctrl_cmd_resolve_eid_req()
 		&cmd_resolve_eid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
 		target_eid));
 
+	assert(cmd_resolve_eid.ctrl_msg_hdr.command_code ==
+	       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+	assert(cmd_resolve_eid.ctrl_msg_hdr.rq_dgram_inst ==
+	       (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST));
+	assert(cmd_resolve_eid.ctrl_msg_hdr.ic_msg_type ==
+	       MCTP_CTRL_HDR_MSG_TYPE);
+
+	assert(cmd_resolve_eid.target_eid == target_eid);
+}
+
+static void test_encode_ctrl_cmd_resolve_eid_req_new()
+{
+	encode_decode_api_return_code ret;
+	const uint8_t target_eid = 9;
+	const uint8_t instance_id = 0x01;
+	struct mctp_ctrl_cmd_resolve_eid_req cmd_resolve_eid;
+
+	ret = mctp_encode_ctrl_cmd_resolve_eid_req_new(
+		&cmd_resolve_eid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
+		target_eid);
+	assert(ret == ENCODE_SUCCESS);
 	assert(cmd_resolve_eid.ctrl_msg_hdr.command_code ==
 	       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
 	assert(cmd_resolve_eid.ctrl_msg_hdr.rq_dgram_inst ==
@@ -306,6 +386,35 @@ static void test_mctp_encode_ctrl_cmd_resolve_eid_resp()
 	free(response);
 }
 
+static void test_mctp_encode_ctrl_cmd_resolve_eid_resp_new()
+{
+	encode_decode_api_return_code ret;
+	uint8_t phy_address[] = { 10, 12, 13 };
+	struct mctp_ctrl_cmd_resolve_eid_resp *response;
+	struct variable_field address;
+	address.data = phy_address;
+	address.data_size = sizeof(phy_address);
+	response = (struct mctp_ctrl_cmd_resolve_eid_resp *)malloc(
+		sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) +
+		sizeof(phy_address));
+	const uint8_t instance_id = 0x01;
+	uint8_t rq_d_inst = instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	const uint8_t bridge_eid = 10;
+
+	ret = mctp_encode_ctrl_cmd_resolve_eid_resp_new(response, rq_d_inst,
+							bridge_eid, &address);
+	assert(ret == ENCODE_SUCCESS);
+	assert(response->ctrl_msg_hdr.command_code ==
+	       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
+	assert(response->ctrl_msg_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response->ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(response->bridge_eid == bridge_eid);
+	assert(response->completion_code == MCTP_CTRL_CC_SUCCESS);
+	assert(!memcmp(response->physical_address, address.data,
+		       address.data_size));
+	free(response);
+}
+
 static void test_mctp_encode_ctrl_cmd_get_network_id_resp(void)
 {
 	bool rc = false;
@@ -401,6 +510,20 @@ static void test_negation_encode_ctrl_cmd_resolve_eid_req()
 	assert(ret == false);
 }
 
+static void test_negation_encode_ctrl_cmd_resolve_eid_req_new()
+{
+	encode_decode_api_return_code ret;
+	struct mctp_ctrl_cmd_resolve_eid_req *cmd_resolve_eid = NULL;
+	const uint8_t target_eid = 9;
+	const uint8_t instance_id = 0x01;
+
+	ret = mctp_encode_ctrl_cmd_resolve_eid_req_new(
+		cmd_resolve_eid, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
+		target_eid);
+
+	assert(ret == INPUT_ERROR);
+}
+
 static void test_negative_decode_ctrl_cmd_resolve_eid_req()
 {
 	bool ret;
@@ -422,6 +545,29 @@ static void test_negative_decode_ctrl_cmd_resolve_eid_req()
 	ret = mctp_decode_ctrl_cmd_resolve_eid_req(&cmd_resolve_eid, &ctrl_hdr,
 						   &target_eid);
 	assert(ret == false);
+}
+
+static void test_negative_decode_ctrl_cmd_resolve_eid_req_new()
+{
+	encode_decode_api_return_code ret;
+	struct mctp_ctrl_cmd_resolve_eid_req cmd_resolve_eid;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t target_eid;
+	cmd_resolve_eid.ctrl_msg_hdr.command_code =
+		MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+	ret = mctp_decode_ctrl_cmd_resolve_eid_req_new(NULL, &ctrl_hdr,
+						       &target_eid);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_ctrl_cmd_resolve_eid_req_new(&cmd_resolve_eid, NULL,
+						       &target_eid);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_ctrl_cmd_resolve_eid_req_new(&cmd_resolve_eid,
+						       &ctrl_hdr, NULL);
+	assert(ret == INPUT_ERROR);
+	cmd_resolve_eid.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESERVED;
+	ret = mctp_decode_ctrl_cmd_resolve_eid_req_new(&cmd_resolve_eid,
+						       &ctrl_hdr, &target_eid);
+	assert(ret == GENERIC_ERROR);
 }
 
 static void test_negative_decode_ctrl_cmd_resolve_eid_resp()
@@ -483,6 +629,61 @@ static void test_negative_decode_ctrl_cmd_resolve_eid_resp()
 	assert(ret == false);
 }
 
+static void test_negative_decode_ctrl_cmd_resolve_eid_resp_new()
+{
+	encode_decode_api_return_code ret;
+	uint8_t packed_packet[] = { 0,
+				    1,
+				    (uint8_t)MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID,
+				    (uint8_t)MCTP_CTRL_CC_SUCCESS,
+				    10,
+				    12 };
+	struct mctp_ctrl_cmd_resolve_eid_resp *response =
+		(struct mctp_ctrl_cmd_resolve_eid_resp *)packed_packet;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct variable_field address;
+	uint8_t bridge_eid;
+	uint8_t completion_code;
+	response->completion_code = MCTP_CTRL_CC_SUCCESS;
+	response->ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(
+		NULL, sizeof(packed_packet), &ctrl_hdr, &completion_code,
+		&bridge_eid, &address);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(response, 0, &ctrl_hdr,
+							&completion_code,
+							&bridge_eid, &address);
+	assert(ret == GENERIC_ERROR);
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(response,
+							sizeof(packed_packet),
+							NULL, &completion_code,
+							&bridge_eid, &address);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(response,
+							sizeof(packed_packet),
+							&ctrl_hdr, NULL,
+							&bridge_eid, &address);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(
+		response, sizeof(packed_packet), &ctrl_hdr, &completion_code,
+		NULL, &address);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(
+		response, sizeof(packed_packet), &ctrl_hdr, &completion_code,
+		&bridge_eid, NULL);
+	assert(ret == INPUT_ERROR);
+	response->completion_code = MCTP_CTRL_CC_ERROR;
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(
+		response, sizeof(packed_packet), &ctrl_hdr, &completion_code,
+		&bridge_eid, &address);
+	assert(ret == CC_ERROR);
+	response->ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESERVED;
+	ret = mctp_decode_ctrl_cmd_resolve_eid_resp_new(
+		response, sizeof(packed_packet), &ctrl_hdr, &completion_code,
+		&bridge_eid, &address);
+	assert(ret == GENERIC_ERROR);
+}
+
 static void test_negative_encode_ctrl_cmd_query_hop()
 {
 	uint8_t sample_eid = 8;
@@ -513,6 +714,26 @@ static void test_negation_encode_ctrl_cmd_resolve_eid_resp()
 		&response, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
 		bridge_eid, NULL);
 	assert(ret == false);
+}
+
+static void test_negation_encode_ctrl_cmd_resolve_eid_resp_new()
+{
+	encode_decode_api_return_code ret;
+	struct mctp_ctrl_cmd_resolve_eid_resp response;
+	uint8_t phy_address[] = { 10, 12, 13 };
+	struct variable_field address;
+	address.data = phy_address;
+	address.data_size = sizeof(phy_address);
+	const uint8_t instance_id = 0x01;
+	const uint8_t bridge_eid = 10;
+	ret = mctp_encode_ctrl_cmd_resolve_eid_resp_new(
+		NULL, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), bridge_eid,
+		&address);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_encode_ctrl_cmd_resolve_eid_resp_new(
+		&response, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
+		bridge_eid, NULL);
+	assert(ret == INPUT_ERROR);
 }
 
 static void test_allocate_eid_pool_encode_req()
@@ -984,11 +1205,15 @@ int main(int argc, char *argv[])
 	test_encode_ctrl_cmd_req_update_routing_info();
 	test_encode_ctrl_cmd_rsp_get_routing_table();
 	test_decode_ctrl_cmd_resolve_eid_req();
+	test_decode_ctrl_cmd_resolve_eid_req_new();
 	test_decode_ctrl_cmd_resolve_eid_resp();
+	test_decode_ctrl_cmd_resolve_eid_resp_new();
 	test_encode_ctrl_cmd_resolve_eid_req();
+	test_encode_ctrl_cmd_resolve_eid_req_new();
 	test_encode_ctrl_cmd_resolve_uuid_req();
 	test_encode_ctrl_cmd_query_hop();
 	test_mctp_encode_ctrl_cmd_resolve_eid_resp();
+	test_mctp_encode_ctrl_cmd_resolve_eid_resp_new();
 	test_check_encode_cc_only_response();
 	test_allocate_eid_pool_encode_req();
 	test_allocate_eid_pool_encode_resp();
@@ -1003,8 +1228,11 @@ int main(int argc, char *argv[])
 
 	/*Negative test cases */
 	test_negative_decode_ctrl_cmd_resolve_eid_req();
+	test_negative_decode_ctrl_cmd_resolve_eid_req_new();
 	test_negative_decode_ctrl_cmd_resolve_eid_resp();
+	test_negative_decode_ctrl_cmd_resolve_eid_resp_new();
 	test_negation_encode_ctrl_cmd_resolve_eid_req();
+	test_negation_encode_ctrl_cmd_resolve_eid_req_new();
 	test_negation_encode_ctrl_cmd_resolve_uuid_req();
 	test_negation_allocate_eid_pool_encode_req();
 	test_negation_allocate_eid_pool_encode_resp();
@@ -1012,6 +1240,7 @@ int main(int argc, char *argv[])
 	test_negation_allocate_eid_pool_decode_resp();
 	test_negative_encode_ctrl_cmd_query_hop();
 	test_negation_encode_ctrl_cmd_resolve_eid_resp();
+	test_negation_encode_ctrl_cmd_resolve_eid_resp_new();
 	test_negation_encode_ctrl_cmd_get_networkid_req();
 	test_negative_decode_ctrl_cmd_network_id_req();
 	test_negative_decode_ctrl_cmd_network_id_resp();
