@@ -79,8 +79,6 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 	struct mctp_ctrl_resp_get_routing_table resp;
 
 	size_t new_size = 0;
-	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 1,
-							  &new_size));
 	uint8_t next_entry_handle = 0x01;
 	assert(mctp_encode_ctrl_cmd_get_routing_table_resp(
 		&resp, entries, 1, &new_size, next_entry_handle));
@@ -98,14 +96,6 @@ static void test_encode_ctrl_cmd_rsp_get_routing_table(void)
 	assert(resp.next_entry_handle == 0xFF);
 	assert(resp.number_of_entries == 0x01);
 
-	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(NULL, entries, 1,
-							   &new_size));
-	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, NULL, 1,
-							   &new_size));
-	assert(!mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 1,
-							   NULL));
-	assert(mctp_encode_ctrl_cmd_rsp_get_routing_table(&resp, entries, 0,
-							  &new_size));
 	next_entry_handle = 0xFF;
 
 	assert(!mctp_encode_ctrl_cmd_get_routing_table_resp(
@@ -340,6 +330,14 @@ void test_encode_ctrl_cmd_query_hop(void)
 	struct mctp_ctrl_cmd_query_hop_req cmd_query_hop;
 	uint8_t sample_eid = 8;
 	uint8_t instance_id = 0x01;
+
+	/* Initialise with wrong value */
+	cmd_query_hop.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
+	cmd_query_hop.ctrl_msg_hdr.rq_dgram_inst = 0x00;
+	cmd_query_hop.ctrl_msg_hdr.ic_msg_type = 0x01;
+	cmd_query_hop.target_eid = sample_eid + 1;
+	cmd_query_hop.mctp_ctrl_msg_type = 0x01;
+
 	assert(mctp_encode_ctrl_cmd_query_hop_req(
 		&cmd_query_hop, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
 		sample_eid, MCTP_CTRL_HDR_MSG_TYPE));
@@ -452,6 +450,8 @@ static void test_decode_ctrl_cmd_query_hop_resp(void)
 	cmd_query_hop_resp.mctp_ctrl_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	cmd_query_hop_resp.max_incoming_size = 8;
 	cmd_query_hop_resp.max_outgoing_size = 8;
+	cmd_query_hop_resp.ctrl_msg_hdr.ic_msg_type = 0x00;
+	cmd_query_hop_resp.ctrl_msg_hdr.rq_dgram_inst = 0x00;
 	cmd_query_hop_resp.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_QUERY_HOP;
 
 	uint8_t completion_code;
@@ -473,6 +473,8 @@ static void test_decode_ctrl_cmd_query_hop_resp(void)
 	assert(mctp_ctrl_msg_type == cmd_query_hop_resp.mctp_ctrl_msg_type);
 	assert(max_incoming_size == cmd_query_hop_resp.max_incoming_size);
 	assert(max_outgoing_size == cmd_query_hop_resp.max_outgoing_size);
+	assert(hdr.ic_msg_type == cmd_query_hop_resp.ctrl_msg_hdr.ic_msg_type);
+	assert(hdr.rq_dgram_inst == cmd_query_hop_resp.ctrl_msg_hdr.rq_dgram_inst);
 }
 
 static void test_decode_ctrl_cmd_query_hop_req(void)
@@ -1199,6 +1201,57 @@ static void test_negative_decode_ctrl_cmd_query_hop_req()
 	assert(!ret);
 }
 
+static void test_get_uuid_encode_resp()
+{
+	bool ret;
+	struct mctp_ctrl_resp_get_uuid response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_UUID;
+	/* 16 byte UUID */
+	char sample_uuid[16] = "61a3";
+	guid_t test_uuid;
+
+	/*doing memcpy of string literal*/
+	memcpy(&test_uuid.raw, sample_uuid, sizeof(guid_t));
+
+	ret = mctp_encode_ctrl_cmd_get_uuid_resp(&response, &ctrl_hdr,
+						 &test_uuid);
+
+	assert(ret == true);
+
+	assert(response.ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_ENDPOINT_UUID);
+	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(memcmp(response.uuid.raw, test_uuid.raw, sizeof(guid_t)) == 0);
+}
+
+static void test_negation_get_uuid_encode_resp()
+{
+	bool ret;
+	struct mctp_ctrl_resp_get_uuid *response = NULL;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_UUID;
+	guid_t test_uuid;
+
+	ret = mctp_encode_ctrl_cmd_get_uuid_resp(response, &ctrl_hdr,
+						 &test_uuid);
+	assert(ret == false);
+	struct mctp_ctrl_resp_get_uuid response1;
+	ret = mctp_encode_ctrl_cmd_get_uuid_resp(&response1, NULL, &test_uuid);
+	assert(ret == false);
+	ret = mctp_encode_ctrl_cmd_get_uuid_resp(&response1, &ctrl_hdr, NULL);
+	assert(ret == false);
+}
+
 int main(int argc, char *argv[])
 {
 	test_get_eid_encode();
@@ -1225,6 +1278,7 @@ int main(int argc, char *argv[])
 	test_decode_ctrl_cmd_network_id_resp();
 	test_decode_ctrl_cmd_query_hop_resp();
 	test_decode_ctrl_cmd_query_hop_req();
+	test_get_uuid_encode_resp();
 
 	/*Negative test cases */
 	test_negative_decode_ctrl_cmd_resolve_eid_req();
@@ -1247,5 +1301,6 @@ int main(int argc, char *argv[])
 	test_negative_decode_ctrl_cmd_query_hop_resp();
 	test_negative_decode_ctrl_cmd_query_hop_req();
 	test_negative_encode_cc_only_response();
+	test_negation_get_uuid_encode_resp();
 	return EXIT_SUCCESS;
 }

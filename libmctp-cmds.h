@@ -485,11 +485,6 @@ bool mctp_encode_ctrl_cmd_routing_information_update(
 	struct get_routing_table_entry_with_address *entries,
 	uint8_t no_of_entries, size_t *new_req_size);
 
-bool mctp_encode_ctrl_cmd_rsp_get_routing_table(
-	struct mctp_ctrl_resp_get_routing_table *resp,
-	struct get_routing_table_entry_with_address *entries,
-	uint8_t no_of_entries, size_t *resp_size);
-
 bool mctp_encode_ctrl_cmd_resolve_eid_req(
 	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
 	uint8_t rq_dgram_inst, uint8_t target_eid);
@@ -553,6 +548,9 @@ bool mctp_decode_ctrl_cmd_allocate_endpoint_id_resp(
 	uint8_t *rq_dgram_inst, uint8_t *command_code, uint8_t *cc,
 	mctp_ctrl_cmd_allocate_eids_resp_op *op, uint8_t *eid_pool_size,
 	uint8_t *first_eid);
+bool mctp_encode_ctrl_cmd_get_uuid_resp(struct mctp_ctrl_resp_get_uuid *response,
+					struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					const guid_t *uuid);
 
 bool mctp_set_networkid(struct mctp *mctp, guid_t *network_id);
 
