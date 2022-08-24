@@ -70,6 +70,22 @@ add_executable (test_encode_decode tests/test_encode_decode.c)
 target_link_libraries (test_encode_decode mctp_intel)
 add_test (NAME encode_decode COMMAND test_encode_decode)
 
+add_executable (test_encode_response tests/test_encode_response.c)
+target_link_libraries (test_encode_response mctp_intel)
+add_test (NAME encode_response COMMAND test_encode_response)
+
+add_executable (test_encode_request tests/test_encode_request.c)
+target_link_libraries (test_encode_request mctp_intel)
+add_test (NAME encode_request COMMAND test_encode_request)
+
+add_executable (test_decode_request tests/test_decode_request.c)
+target_link_libraries (test_decode_request mctp_intel)
+add_test (NAME decode_request COMMAND test_decode_request)
+
+add_executable (test_decode_response tests/test_decode_response.c)
+target_link_libraries (test_decode_response mctp_intel)
+add_test (NAME decode_response COMMAND test_decode_response)
+
 add_executable (mctp_astpcie_register_type utils/mctp-astpcie-register-type.c)
 target_link_libraries (mctp_astpcie_register_type mctp_intel)
 
@@ -79,7 +95,7 @@ target_link_libraries (test_asti3c mctp_intel)
 add_test (NAME asti3c COMMAND test_asti3c)
 
 install (TARGETS mctp_intel DESTINATION lib)
-install (FILES libmctp.h libmctp-cmds.h libmctp-vdpci.h libmctp-smbus.h libmctp-astpcie.h libmctp-msgtypes.h libmctp-asti3c.h DESTINATION include)
+install (FILES libmctp.h libmctp-cmds.h libmctp-encode-request.h libmctp-encode-response.h libmctp-decode-request.h libmctp-decode-response.h libmctp-vdpci.h libmctp-smbus.h libmctp-astpcie.h libmctp-msgtypes.h libmctp-asti3c.h DESTINATION include)
 
 configure_file(
     ${PROJECT_SOURCE_DIR}/libmctp.pc.in

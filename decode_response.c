@@ -1,16 +1,9 @@
 #include <assert.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <linux/errno-base.h>
-
 #include "libmctp.h"
-#include "libmctp-alloc.h"
-#include "libmctp-log.h"
 #include "libmctp-cmds.h"
 
 static void decode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
@@ -25,7 +18,7 @@ static void decode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
 	*cmd_code = mctp_ctrl_hdr->command_code;
 }
 
-encode_decode_api_return_code mctp_decode_ctrl_cmd_resolve_eid_resp_new(
+encode_decode_api_return_code mctp_decode_resolve_eid_resp(
 	struct mctp_ctrl_cmd_resolve_eid_resp *response, size_t resp_size,
 	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *completion_code,
 	uint8_t *bridge_eid, struct variable_field *address)
@@ -33,6 +26,7 @@ encode_decode_api_return_code mctp_decode_ctrl_cmd_resolve_eid_resp_new(
 	if (response == NULL || ctrl_hdr == NULL || bridge_eid == NULL ||
 	    completion_code == NULL || address == NULL)
 		return INPUT_ERROR;
+
 	decode_ctrl_cmd_header(&response->ctrl_msg_hdr, &ctrl_hdr->ic_msg_type,
 			       &ctrl_hdr->rq_dgram_inst,
 			       &ctrl_hdr->command_code);
@@ -51,5 +45,25 @@ encode_decode_api_return_code mctp_decode_ctrl_cmd_resolve_eid_resp_new(
 			sizeof(struct mctp_ctrl_cmd_resolve_eid_resp);
 	address->data_size =
 		resp_size - sizeof(struct mctp_ctrl_cmd_resolve_eid_resp);
+	return DECODE_SUCCESS;
+}
+
+encode_decode_api_return_code mctp_decode_allocate_endpoint_id_resp(
+	struct mctp_ctrl_cmd_allocate_eids_resp *response, uint8_t *ic_msg_type,
+	uint8_t *rq_dgram_inst, uint8_t *command_code, uint8_t *cc,
+	mctp_ctrl_cmd_allocate_eids_resp_op *op, uint8_t *eid_pool_size,
+	uint8_t *first_eid)
+{
+	if (response == NULL || ic_msg_type == NULL || rq_dgram_inst == NULL ||
+	    command_code == NULL || cc == NULL || op == NULL ||
+	    eid_pool_size == NULL || first_eid == NULL)
+		return INPUT_ERROR;
+	decode_ctrl_cmd_header(&response->ctrl_hdr, ic_msg_type, rq_dgram_inst,
+			       command_code);
+	*cc = response->completion_code;
+	*op = response->operation;
+	*eid_pool_size = response->eid_pool_size;
+	*first_eid = response->first_eid;
+
 	return DECODE_SUCCESS;
 }

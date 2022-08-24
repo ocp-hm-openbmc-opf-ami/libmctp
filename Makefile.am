@@ -3,7 +3,7 @@ ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES = libmctp.la
 libmctp_la_SOURCES = core.c encode_request.c encode_response.c decode_request.c decode_response.c alloc.c log.c \
 		     libmctp-alloc.h libmctp-log.h \
-		     libmctp-cmds.h libmctp-vdpci.h
+		     libmctp-cmds.h libmctp-encode-request.h libmctp-encode-response.h libmctp-decode-request.h libmctp-decode-response.h libmctp-vdpci.h
 include_HEADERS = libmctp.h
 
 if LIBMCTP_BINDING_serial
