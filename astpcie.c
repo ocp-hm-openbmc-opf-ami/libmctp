@@ -65,6 +65,17 @@ int mctp_astpcie_set_eid_info_ioctl(struct mctp_binding_astpcie *astpcie,
 		     &set_eid_info);
 }
 
+int mctp_astpcie_set_own_eid_ioctl(struct mctp_binding_astpcie *astpcie,
+				   uint8_t eid)
+{
+	struct aspeed_mctp_set_own_eid set_own_eid_info;
+
+	set_own_eid_info.eid = eid;
+
+	return ioctl(astpcie->fd, ASPEED_MCTP_IOCTL_SET_OWN_EID,
+		     &set_own_eid_info);
+}
+
 static int mctp_astpcie_get_bdf_ioctl(struct mctp_binding_astpcie *astpcie)
 {
 	struct aspeed_mctp_get_bdf bdf;
