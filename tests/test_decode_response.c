@@ -21,7 +21,8 @@ static void test_decode_resolve_eid_resp()
 	struct variable_field address;
 	uint8_t completion_code;
 	uint8_t bridge_eid;
-	ret = mctp_decode_resolve_eid_resp(response, sizeof(packed_packet),
+	struct mctp_msg *resp = (struct mctp_msg *)(response);
+	ret = mctp_decode_resolve_eid_resp(resp, sizeof(packed_packet),
 					   &ctrl_hdr, &completion_code,
 					   &bridge_eid, &address);
 	assert(ret == DECODE_SUCCESS);
@@ -54,39 +55,40 @@ static void test_negative_decode_resolve_eid_resp()
 	struct variable_field address;
 	uint8_t bridge_eid;
 	uint8_t completion_code;
+	struct mctp_msg *resp = (struct mctp_msg *)(response);
 	response->completion_code = MCTP_CTRL_CC_SUCCESS;
 	response->ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+
 	ret = mctp_decode_resolve_eid_resp(NULL, sizeof(packed_packet),
 					   &ctrl_hdr, &completion_code,
 					   &bridge_eid, &address);
 	assert(ret == INPUT_ERROR);
-	ret = mctp_decode_resolve_eid_resp(response, 0, &ctrl_hdr,
+	ret = mctp_decode_resolve_eid_resp(resp, 0, &ctrl_hdr, &completion_code,
+					   &bridge_eid, &address);
+	assert(ret == GENERIC_ERROR);
+	ret = mctp_decode_resolve_eid_resp(resp, sizeof(packed_packet), NULL,
 					   &completion_code, &bridge_eid,
 					   &address);
-	assert(ret == GENERIC_ERROR);
-	ret = mctp_decode_resolve_eid_resp(response, sizeof(packed_packet),
-					   NULL, &completion_code, &bridge_eid,
-					   &address);
 	assert(ret == INPUT_ERROR);
-	ret = mctp_decode_resolve_eid_resp(response, sizeof(packed_packet),
+	ret = mctp_decode_resolve_eid_resp(resp, sizeof(packed_packet),
 					   &ctrl_hdr, NULL, &bridge_eid,
 					   &address);
 	assert(ret == INPUT_ERROR);
-	ret = mctp_decode_resolve_eid_resp(response, sizeof(packed_packet),
+	ret = mctp_decode_resolve_eid_resp(resp, sizeof(packed_packet),
 					   &ctrl_hdr, &completion_code, NULL,
 					   &address);
 	assert(ret == INPUT_ERROR);
-	ret = mctp_decode_resolve_eid_resp(response, sizeof(packed_packet),
+	ret = mctp_decode_resolve_eid_resp(resp, sizeof(packed_packet),
 					   &ctrl_hdr, &completion_code,
 					   &bridge_eid, NULL);
 	assert(ret == INPUT_ERROR);
 	response->completion_code = MCTP_CTRL_CC_ERROR;
-	ret = mctp_decode_resolve_eid_resp(response, sizeof(packed_packet),
+	ret = mctp_decode_resolve_eid_resp(resp, sizeof(packed_packet),
 					   &ctrl_hdr, &completion_code,
 					   &bridge_eid, &address);
 	assert(ret == CC_ERROR);
 	response->ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESERVED;
-	ret = mctp_decode_resolve_eid_resp(response, sizeof(packed_packet),
+	ret = mctp_decode_resolve_eid_resp(resp, sizeof(packed_packet),
 					   &ctrl_hdr, &completion_code,
 					   &bridge_eid, &address);
 	assert(ret == GENERIC_ERROR);
@@ -113,11 +115,12 @@ static void test_decode_allocate_eid_pool_resp()
 	mctp_ctrl_cmd_allocate_eids_resp_op op;
 	uint8_t eid_pool_size;
 	uint8_t first_eid;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
-	ret = mctp_decode_allocate_endpoint_id_resp(&response, &ic_msg_type,
-						    &rq_dgram_inst,
-						    &command_code, &cc, &op,
-						    &eid_pool_size, &first_eid);
+	ret = mctp_decode_allocate_endpoint_id_resp(
+		resp, sizeof(struct mctp_ctrl_cmd_allocate_eids_resp),
+		&ic_msg_type, &rq_dgram_inst, &command_code, &cc, &op,
+		&eid_pool_size, &first_eid);
 
 	assert(ret == DECODE_SUCCESS);
 	assert(ic_msg_type == response.ctrl_hdr.ic_msg_type);
@@ -132,7 +135,7 @@ static void test_decode_allocate_eid_pool_resp()
 static void test_negative_decode_allocate_eid_pool_resp()
 {
 	encode_decode_api_return_code ret;
-	struct mctp_ctrl_cmd_allocate_eids_resp *response = NULL;
+	struct mctp_msg *response = NULL;
 
 	uint8_t ic_msg_type;
 	uint8_t rq_dgram_inst;
@@ -142,12 +145,17 @@ static void test_negative_decode_allocate_eid_pool_resp()
 	uint8_t eid_pool_size;
 	uint8_t first_eid;
 
-	ret = mctp_decode_allocate_endpoint_id_resp(response, &ic_msg_type,
+	ret = mctp_decode_allocate_endpoint_id_resp(
+		response, sizeof(struct mctp_ctrl_cmd_allocate_eids_resp),
+		&ic_msg_type, &rq_dgram_inst, &command_code, &cc, &op,
+		&eid_pool_size, &first_eid);
+	assert(ret == INPUT_ERROR);
+	struct mctp_msg response1;
+	ret = mctp_decode_allocate_endpoint_id_resp(&response1, 0, &ic_msg_type,
 						    &rq_dgram_inst,
 						    &command_code, &cc, &op,
 						    &eid_pool_size, &first_eid);
-
-	assert(ret == INPUT_ERROR);
+	assert(ret == GENERIC_ERROR);
 }
 
 int main(int argc, char *argv[])

@@ -13,31 +13,38 @@ static void encode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
 	mctp_ctrl_hdr->command_code = cmd_code;
 }
 
-encode_decode_api_return_code mctp_encode_resolve_eid_req(
-	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
-	uint8_t rq_dgram_inst, uint8_t target_eid)
+encode_decode_api_return_code
+mctp_encode_resolve_eid_req(struct mctp_msg *request, size_t length,
+			    uint8_t rq_dgram_inst, uint8_t target_eid)
 {
-	if (!resolve_eid_cmd)
+	if (!request)
 		return INPUT_ERROR;
-
-	encode_ctrl_cmd_header(&resolve_eid_cmd->ctrl_msg_hdr, rq_dgram_inst,
+	if (length < sizeof(struct mctp_ctrl_cmd_resolve_eid_req))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
-	resolve_eid_cmd->target_eid = target_eid;
+	struct mctp_ctrl_cmd_resolve_eid_req *req =
+		(struct mctp_ctrl_cmd_resolve_eid_req *)(request);
+	req->target_eid = target_eid;
 	return ENCODE_SUCCESS;
 }
 
-encode_decode_api_return_code mctp_encode_allocate_endpoint_id_req(
-	struct mctp_ctrl_cmd_allocate_eids_req *allocate_eids_cmd,
-	uint8_t rq_dgram_inst, mctp_ctrl_cmd_allocate_eids_req_op op,
-	uint8_t pool_size, uint8_t starting_eid)
+encode_decode_api_return_code
+mctp_encode_allocate_endpoint_id_req(struct mctp_msg *request, size_t length,
+				     uint8_t rq_dgram_inst,
+				     mctp_ctrl_cmd_allocate_eids_req_op op,
+				     uint8_t pool_size, uint8_t starting_eid)
 {
-	if (!allocate_eids_cmd)
+	if (!request)
 		return INPUT_ERROR;
-
-	encode_ctrl_cmd_header(&allocate_eids_cmd->ctrl_msg_hdr, rq_dgram_inst,
+	if (length < sizeof(struct mctp_ctrl_cmd_allocate_eids_req))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS);
-	allocate_eids_cmd->operation = op;
-	allocate_eids_cmd->eid_pool_size = pool_size;
-	allocate_eids_cmd->first_eid = starting_eid;
+	struct mctp_ctrl_cmd_allocate_eids_req *req =
+		(struct mctp_ctrl_cmd_allocate_eids_req *)(request);
+	req->operation = op;
+	req->eid_pool_size = pool_size;
+	req->first_eid = starting_eid;
 	return ENCODE_SUCCESS;
 }

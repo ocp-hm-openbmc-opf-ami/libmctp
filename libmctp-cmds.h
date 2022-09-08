@@ -19,6 +19,11 @@ struct mctp_ctrl_msg_hdr {
 	uint8_t command_code;
 } __attribute__((__packed__));
 
+struct mctp_msg {
+	struct mctp_ctrl_msg_hdr msg_hdr;
+	uint8_t message_ptr[1];
+} __attribute__((__packed__));
+
 typedef enum {
 	ENCODE_SUCCESS = 0,
 	DECODE_SUCCESS,

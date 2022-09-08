@@ -6,14 +6,15 @@
 extern "C" {
 #endif
 
-encode_decode_api_return_code mctp_encode_resolve_eid_req(
-	struct mctp_ctrl_cmd_resolve_eid_req *resolve_eid_cmd,
-	uint8_t rq_dgram_inst, uint8_t target_eid);
+encode_decode_api_return_code
+mctp_encode_resolve_eid_req(struct mctp_msg *request, size_t length,
+			    uint8_t rq_dgram_inst, uint8_t target_eid);
 
-encode_decode_api_return_code mctp_encode_allocate_endpoint_id_req(
-	struct mctp_ctrl_cmd_allocate_eids_req *set_eid_cmd,
-	uint8_t rq_dgram_inst, mctp_ctrl_cmd_allocate_eids_req_op op,
-	uint8_t pool_size, uint8_t starting_eid);
+encode_decode_api_return_code
+mctp_encode_allocate_endpoint_id_req(struct mctp_msg *request, size_t length,
+				     uint8_t rq_dgram_inst,
+				     mctp_ctrl_cmd_allocate_eids_req_op op,
+				     uint8_t pool_size, uint8_t starting_eid);
 
 #ifdef __cplusplus
 }
