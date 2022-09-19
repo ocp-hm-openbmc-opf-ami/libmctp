@@ -17,6 +17,11 @@ encode_decode_api_return_code mctp_decode_allocate_endpoint_id_req(
 	mctp_ctrl_cmd_allocate_eids_req_op *op, uint8_t *eid_pool_size,
 	uint8_t *first_eid);
 
+encode_decode_api_return_code
+mctp_decode_ctrl_cmd_set_eid_req(struct mctp_msg *request, size_t length,
+				 struct mctp_ctrl_msg_hdr *ctrl_hdr,
+				 mctp_ctrl_cmd_set_eid_op *op, uint8_t *eid);
+
 #ifdef __cplusplus
 }
 #endif

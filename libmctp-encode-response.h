@@ -17,6 +17,17 @@ mctp_encode_allocate_endpoint_id_resp(struct mctp_msg *response, size_t length,
 				      mctp_ctrl_cmd_allocate_eids_resp_op op,
 				      uint8_t eid_pool_size, uint8_t first_eid);
 
+encode_decode_api_return_code
+mctp_encode_set_eid_resp(struct mctp_msg *response, size_t length,
+			 struct mctp_ctrl_msg_hdr *ctrl_hdr,
+			 uint8_t eid_pool_size, uint8_t status,
+			 mctp_eid_t eid_set);
+
+encode_decode_api_return_code
+mctp_encode_get_uuid_resp(struct mctp_msg *response, size_t length,
+			  struct mctp_ctrl_msg_hdr *ctrl_hdr,
+			  const guid_t *uuid);
+
 #ifdef __cplusplus
 }
 #endif

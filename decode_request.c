@@ -61,3 +61,21 @@ encode_decode_api_return_code mctp_decode_allocate_endpoint_id_req(
 	*first_eid = req->first_eid;
 	return DECODE_SUCCESS;
 }
+
+encode_decode_api_return_code
+mctp_decode_ctrl_cmd_set_eid_req(struct mctp_msg *request, size_t length,
+				 struct mctp_ctrl_msg_hdr *ctrl_hdr,
+				 mctp_ctrl_cmd_set_eid_op *op, uint8_t *eid)
+{
+	if (request == NULL || ctrl_hdr == NULL || op == NULL || eid == NULL)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_set_eid))
+		return GENERIC_ERROR;
+	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	struct mctp_ctrl_cmd_set_eid *req =
+		(struct mctp_ctrl_cmd_set_eid *)request;
+	*op = req->operation;
+	return DECODE_SUCCESS;
+}

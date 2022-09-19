@@ -72,3 +72,29 @@ encode_decode_api_return_code mctp_decode_allocate_endpoint_id_resp(
 
 	return DECODE_SUCCESS;
 }
+
+encode_decode_api_return_code
+mctp_decode_set_eid_resp(struct mctp_msg *response, size_t length,
+			 struct mctp_ctrl_msg_hdr *ctrl_hdr,
+			 uint8_t *completion_code, uint8_t *eid_pool_size,
+			 uint8_t *status, mctp_eid_t *eid_set)
+{
+	if (response == NULL || ctrl_hdr == NULL || completion_code == NULL ||
+	    eid_pool_size == NULL || status == NULL || eid_set == NULL)
+		return INPUT_ERROR;
+
+	if (length < sizeof(struct mctp_ctrl_resp_set_eid))
+		return GENERIC_ERROR;
+	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	struct mctp_ctrl_resp_set_eid *resp =
+		(struct mctp_ctrl_resp_set_eid *)(response);
+	*completion_code = resp->completion_code;
+	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return CC_ERROR;
+	*eid_pool_size = resp->eid_pool_size;
+	*status = resp->status;
+	*eid_set = resp->eid_set;
+	return DECODE_SUCCESS;
+}

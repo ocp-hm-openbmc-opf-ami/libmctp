@@ -158,13 +158,78 @@ static void test_negative_decode_allocate_eid_pool_resp()
 	assert(ret == GENERIC_ERROR);
 }
 
+static void test_decode_set_eid_resp()
+{
+	encode_decode_api_return_code ret;
+	struct mctp_ctrl_resp_set_eid response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	ctrl_hdr.command_code = MCTP_CTRL_CMD_SET_ENDPOINT_ID;
+	response.eid_pool_size = 9;
+	response.eid_set = 12;
+	response.status = 8;
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	uint8_t eid_pool_size;
+	uint8_t eid_set;
+	uint8_t status;
+	uint8_t completion_code;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_decode_set_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_set_eid),
+				       &ctrl_hdr, &completion_code,
+				       &eid_pool_size, &status, &eid_set);
+	assert(ret == DECODE_SUCCESS);
+
+	assert(ctrl_hdr.command_code == response.ctrl_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == response.ctrl_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == response.ctrl_hdr.ic_msg_type);
+	assert(response.completion_code == completion_code);
+	assert(response.status == status);
+	assert(response.eid_pool_size == eid_pool_size);
+	assert(response.eid_set == eid_set);
+}
+
+static void test_negative_decode_set_eid_resp()
+{
+	encode_decode_api_return_code ret;
+	struct mctp_msg *response = NULL;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	ctrl_hdr.command_code = MCTP_CTRL_CMD_SET_ENDPOINT_ID;
+	uint8_t eid_pool_size;
+	uint8_t eid_set;
+	uint8_t status;
+	uint8_t completion_code;
+
+	ret = mctp_decode_set_eid_resp(response,
+				       sizeof(struct mctp_ctrl_resp_set_eid),
+				       &ctrl_hdr, &completion_code,
+				       &eid_pool_size, &status, &eid_set);
+	assert(ret == INPUT_ERROR);
+	struct mctp_msg response1;
+	ret = mctp_decode_set_eid_resp(&response1, 0, &ctrl_hdr,
+				       &completion_code, &eid_pool_size,
+				       &status, &eid_set);
+	assert(ret == GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_decode_resolve_eid_resp();
 	test_decode_allocate_eid_pool_resp();
+	test_decode_set_eid_resp();
 
 	/*Negative test cases */
 	test_negative_decode_resolve_eid_resp();
 	test_negative_decode_allocate_eid_pool_resp();
+	test_negative_decode_set_eid_resp();
+
 	return EXIT_SUCCESS;
 }

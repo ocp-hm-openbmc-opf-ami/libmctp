@@ -48,3 +48,35 @@ mctp_encode_allocate_endpoint_id_req(struct mctp_msg *request, size_t length,
 	req->first_eid = starting_eid;
 	return ENCODE_SUCCESS;
 }
+
+encode_decode_api_return_code
+mctp_encode_ctrl_cmd_set_eid_req(struct mctp_msg *request, size_t length,
+				 uint8_t rq_dgram_inst,
+				 mctp_ctrl_cmd_set_eid_op op, uint8_t eid)
+{
+	if (!request)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_set_eid))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_SET_ENDPOINT_ID);
+	struct mctp_ctrl_cmd_set_eid *req =
+		(struct mctp_ctrl_cmd_set_eid *)request;
+	req->operation = op;
+	req->eid = eid;
+	return ENCODE_SUCCESS;
+}
+
+encode_decode_api_return_code mctp_encode_get_uuid_req(struct mctp_msg *request,
+						       size_t length,
+						       uint8_t rq_dgram_inst)
+{
+	if (!request)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_uuid))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_ENDPOINT_UUID);
+
+	return ENCODE_SUCCESS;
+}
