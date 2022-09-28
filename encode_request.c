@@ -50,9 +50,9 @@ mctp_encode_allocate_endpoint_id_req(struct mctp_msg *request, size_t length,
 }
 
 encode_decode_api_return_code
-mctp_encode_ctrl_cmd_set_eid_req(struct mctp_msg *request, size_t length,
-				 uint8_t rq_dgram_inst,
-				 mctp_ctrl_cmd_set_eid_op op, uint8_t eid)
+mctp_encode_set_eid_req(struct mctp_msg *request, size_t length,
+			uint8_t rq_dgram_inst, mctp_ctrl_cmd_set_eid_op op,
+			uint8_t eid)
 {
 	if (!request)
 		return INPUT_ERROR;
