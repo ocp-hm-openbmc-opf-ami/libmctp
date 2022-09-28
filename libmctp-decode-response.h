@@ -24,6 +24,11 @@ mctp_decode_set_eid_resp(struct mctp_msg *response, size_t length,
 			 uint8_t *completion_code, uint8_t *eid_pool_size,
 			 uint8_t *status, mctp_eid_t *eid_set);
 
+encode_decode_api_return_code
+mctp_decode_get_networkid_resp(struct mctp_msg *response, size_t length,
+			       struct mctp_ctrl_msg_hdr *ctrl_hdr,
+			       uint8_t *completion_code, guid_t *networkid);
+
 #ifdef __cplusplus
 }
 #endif

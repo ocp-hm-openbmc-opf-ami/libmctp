@@ -98,3 +98,31 @@ mctp_decode_set_eid_resp(struct mctp_msg *response, size_t length,
 	*eid_set = resp->eid_set;
 	return DECODE_SUCCESS;
 }
+
+encode_decode_api_return_code
+mctp_decode_get_networkid_resp(struct mctp_msg *response, size_t length,
+			       struct mctp_ctrl_msg_hdr *ctrl_hdr,
+			       uint8_t *completion_code, guid_t *networkid)
+{
+	if (response == NULL || completion_code == NULL || networkid == NULL ||
+	    ctrl_hdr == NULL)
+		return INPUT_ERROR;
+
+	if (length < MIN_RESP_LENGTH)
+		return GENERIC_ERROR;
+	if (length < sizeof(struct mctp_ctrl_get_networkid_resp))
+		return GENERIC_ERROR;
+	struct mctp_ctrl_get_networkid_resp *resp =
+		(struct mctp_ctrl_get_networkid_resp *)(response);
+
+	if (resp->ctrl_hdr.command_code != MCTP_CTRL_CMD_GET_NETWORK_ID)
+		return GENERIC_ERROR;
+
+	*ctrl_hdr = resp->ctrl_hdr;
+	*completion_code = resp->completion_code;
+	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return CC_ERROR;
+	*networkid = resp->networkid;
+
+	return DECODE_SUCCESS;
+}

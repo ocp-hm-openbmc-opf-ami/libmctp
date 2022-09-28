@@ -28,6 +28,16 @@ mctp_encode_get_uuid_resp(struct mctp_msg *response, size_t length,
 			  struct mctp_ctrl_msg_hdr *ctrl_hdr,
 			  const guid_t *uuid);
 
+encode_decode_api_return_code
+mctp_encode_get_networkid_resp(struct mctp_msg *response, size_t length,
+			       guid_t *networkid);
+
+encode_decode_api_return_code mctp_encode_get_routing_table_resp(
+	struct mctp_msg *response, size_t length,
+	struct get_routing_table_entry_with_address *entries,
+	uint8_t no_of_entries, size_t *resp_size,
+	const uint8_t next_entry_handle);
+
 #ifdef __cplusplus
 }
 #endif

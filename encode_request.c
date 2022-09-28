@@ -80,3 +80,16 @@ encode_decode_api_return_code mctp_encode_get_uuid_req(struct mctp_msg *request,
 
 	return ENCODE_SUCCESS;
 }
+
+encode_decode_api_return_code
+mctp_encode_get_networkid_req(struct mctp_msg *request, size_t length,
+			      uint8_t rq_dgram_inst)
+{
+	if (!request)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_networkid_req))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_NETWORK_ID);
+	return ENCODE_SUCCESS;
+}

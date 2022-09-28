@@ -96,3 +96,57 @@ mctp_encode_get_uuid_resp(struct mctp_msg *response, size_t length,
 
 	return ENCODE_SUCCESS;
 }
+
+encode_decode_api_return_code
+mctp_encode_get_networkid_resp(struct mctp_msg *response, size_t length,
+			       guid_t *networkid)
+{
+	if (response == NULL)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_get_networkid_resp))
+		return GENERIC_ERROR;
+	struct mctp_ctrl_get_networkid_resp *resp =
+		(struct mctp_ctrl_get_networkid_resp *)(response);
+	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	resp->networkid = *networkid;
+
+	return ENCODE_SUCCESS;
+}
+
+encode_decode_api_return_code mctp_encode_get_routing_table_resp(
+	struct mctp_msg *response, size_t length,
+	struct get_routing_table_entry_with_address *entries,
+	uint8_t no_of_entries, size_t *resp_size,
+	const uint8_t next_entry_handle)
+{
+	uint8_t *cur_entry;
+	uint16_t i;
+
+	if (!response || !entries || !resp_size)
+		return INPUT_ERROR;
+
+	if (length < sizeof(struct mctp_ctrl_resp_get_routing_table))
+		return GENERIC_ERROR;
+	struct mctp_ctrl_resp_get_routing_table *resp =
+		(struct mctp_ctrl_resp_get_routing_table *)(response);
+
+	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	/* All entries will be enclosed in a single response.
+	*  So next entry handle will be 0xFF to indicate that
+	*  there is no more entries
+	*/
+	resp->next_entry_handle = next_entry_handle;
+	resp->number_of_entries = no_of_entries;
+	cur_entry = (uint8_t *)resp->entries;
+
+	for (i = 0; i < no_of_entries; i++) {
+		size_t current_entry_size =
+			sizeof(struct get_routing_table_entry_with_address) +
+			entries[i].routing_info.phys_address_size -
+			MAX_PHYSICAL_ADDRESS_SIZE;
+		memcpy(cur_entry, entries + i, current_entry_size);
+		cur_entry += current_entry_size;
+	}
+	*resp_size = (size_t)(cur_entry - (uint8_t *)(resp));
+	return ENCODE_SUCCESS;
+}

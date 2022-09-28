@@ -25,6 +25,10 @@ encode_decode_api_return_code mctp_encode_get_uuid_req(struct mctp_msg *request,
 						       size_t length,
 						       uint8_t rq_dgram_inst);
 
+encode_decode_api_return_code
+mctp_encode_get_networkid_req(struct mctp_msg *request, size_t length,
+			      uint8_t rq_dgram_inst);
+
 #ifdef __cplusplus
 }
 #endif

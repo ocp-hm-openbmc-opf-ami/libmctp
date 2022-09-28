@@ -220,16 +220,85 @@ static void test_negative_decode_set_eid_resp()
 	assert(ret == GENERIC_ERROR);
 }
 
+static void test_decode_get_networkid_resp()
+{
+	encode_decode_api_return_code ret;
+	struct mctp_ctrl_get_networkid_resp response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	guid_t network_id;
+
+	response.networkid.canonical.data1 = 10;
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	response.ctrl_hdr.rq_dgram_inst = 10;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_NETWORK_ID;
+	uint8_t completion_code;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_decode_get_networkid_resp(
+		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
+		&completion_code, &network_id);
+	assert(ret == DECODE_SUCCESS);
+
+	assert(memcmp(&response.ctrl_hdr, &ctrl_hdr,
+		      sizeof(struct mctp_ctrl_msg_hdr)) == 0);
+	assert(completion_code == response.completion_code);
+	assert(network_id.canonical.data1 ==
+	       response.networkid.canonical.data1);
+}
+
+static void test_negative_decode_get_networkid_resp()
+{
+	encode_decode_api_return_code ret;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct mctp_ctrl_get_networkid_resp response;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+	guid_t network_id;
+
+	response.networkid.canonical.data1 = 10;
+	response.completion_code = MCTP_CTRL_CC_ERROR;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	response.ctrl_hdr.rq_dgram_inst = 10;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_NETWORK_ID;
+	uint8_t completion_code;
+	ret = mctp_decode_get_networkid_resp(
+		NULL, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
+		&completion_code, &network_id);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_networkid_resp(resp, 0, &ctrl_hdr,
+					     &completion_code, &network_id);
+	assert(ret == GENERIC_ERROR);
+	ret = mctp_decode_get_networkid_resp(
+		resp, sizeof(struct mctp_ctrl_get_networkid_resp), NULL,
+		&completion_code, &network_id);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_networkid_resp(
+		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
+		NULL, &network_id);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_networkid_resp(
+		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
+		&completion_code, NULL);
+	assert(ret == INPUT_ERROR);
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
+	ret = mctp_decode_get_networkid_resp(
+		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
+		&completion_code, &network_id);
+	assert(ret == GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_decode_resolve_eid_resp();
 	test_decode_allocate_eid_pool_resp();
 	test_decode_set_eid_resp();
+	test_decode_get_networkid_resp();
 
 	/*Negative test cases */
 	test_negative_decode_resolve_eid_resp();
 	test_negative_decode_allocate_eid_pool_resp();
 	test_negative_decode_set_eid_resp();
+	test_negative_decode_get_networkid_resp();
 
 	return EXIT_SUCCESS;
 }
