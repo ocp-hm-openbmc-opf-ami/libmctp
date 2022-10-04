@@ -98,6 +98,7 @@ static void test_decode_allocate_eid_pool_resp()
 {
 	encode_decode_api_return_code ret;
 	struct mctp_ctrl_cmd_allocate_eids_resp response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	uint8_t expected_instance_id = 0x01;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
@@ -107,10 +108,6 @@ static void test_decode_allocate_eid_pool_resp()
 	response.operation = allocation_accepted;
 	response.eid_pool_size = 10;
 	response.first_eid = 9;
-
-	uint8_t ic_msg_type;
-	uint8_t rq_dgram_inst;
-	uint8_t command_code;
 	uint8_t cc;
 	mctp_ctrl_cmd_allocate_eids_resp_op op;
 	uint8_t eid_pool_size;
@@ -119,13 +116,12 @@ static void test_decode_allocate_eid_pool_resp()
 
 	ret = mctp_decode_allocate_endpoint_id_resp(
 		resp, sizeof(struct mctp_ctrl_cmd_allocate_eids_resp),
-		&ic_msg_type, &rq_dgram_inst, &command_code, &cc, &op,
-		&eid_pool_size, &first_eid);
+		&ctrl_hdr, &cc, &op, &eid_pool_size, &first_eid);
 
 	assert(ret == DECODE_SUCCESS);
-	assert(ic_msg_type == response.ctrl_hdr.ic_msg_type);
-	assert(rq_dgram_inst == response.ctrl_hdr.rq_dgram_inst);
-	assert(command_code == response.ctrl_hdr.command_code);
+	assert(ctrl_hdr.ic_msg_type == response.ctrl_hdr.ic_msg_type);
+	assert(ctrl_hdr.rq_dgram_inst == response.ctrl_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.command_code == response.ctrl_hdr.command_code);
 	assert(cc == response.completion_code);
 	assert(op == response.operation);
 	assert(eid_pool_size == response.eid_pool_size);
@@ -136,10 +132,7 @@ static void test_negative_decode_allocate_eid_pool_resp()
 {
 	encode_decode_api_return_code ret;
 	struct mctp_msg *response = NULL;
-
-	uint8_t ic_msg_type;
-	uint8_t rq_dgram_inst;
-	uint8_t command_code;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	uint8_t cc;
 	mctp_ctrl_cmd_allocate_eids_resp_op op;
 	uint8_t eid_pool_size;
@@ -147,14 +140,11 @@ static void test_negative_decode_allocate_eid_pool_resp()
 
 	ret = mctp_decode_allocate_endpoint_id_resp(
 		response, sizeof(struct mctp_ctrl_cmd_allocate_eids_resp),
-		&ic_msg_type, &rq_dgram_inst, &command_code, &cc, &op,
-		&eid_pool_size, &first_eid);
+		&ctrl_hdr, &cc, &op, &eid_pool_size, &first_eid);
 	assert(ret == INPUT_ERROR);
 	struct mctp_msg response1;
-	ret = mctp_decode_allocate_endpoint_id_resp(&response1, 0, &ic_msg_type,
-						    &rq_dgram_inst,
-						    &command_code, &cc, &op,
-						    &eid_pool_size, &first_eid);
+	ret = mctp_decode_allocate_endpoint_id_resp(
+		&response1, 0, &ctrl_hdr, &cc, &op, &eid_pool_size, &first_eid);
 	assert(ret == GENERIC_ERROR);
 }
 
@@ -163,11 +153,11 @@ static void test_decode_set_eid_resp()
 	encode_decode_api_return_code ret;
 	struct mctp_ctrl_resp_set_eid response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
-	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	uint8_t expected_instance_id = 0x01;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
-	ctrl_hdr.rq_dgram_inst = rq_d_inst;
-	ctrl_hdr.command_code = MCTP_CTRL_CMD_SET_ENDPOINT_ID;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_SET_ENDPOINT_ID;
 	response.eid_pool_size = 9;
 	response.eid_set = 12;
 	response.status = 8;
@@ -198,11 +188,6 @@ static void test_negative_decode_set_eid_resp()
 	encode_decode_api_return_code ret;
 	struct mctp_msg *response = NULL;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
-	ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	uint8_t expected_instance_id = 0x01;
-	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
-	ctrl_hdr.rq_dgram_inst = rq_d_inst;
-	ctrl_hdr.command_code = MCTP_CTRL_CMD_SET_ENDPOINT_ID;
 	uint8_t eid_pool_size;
 	uint8_t eid_set;
 	uint8_t status;
