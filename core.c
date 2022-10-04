@@ -1606,3 +1606,11 @@ bool mctp_decode_ctrl_cmd_get_query_hop_resp(
 
 	return true;
 }
+
+bool is_eid_valid(mctp_eid_t eid)
+{
+	const mctp_eid_t eid_range_start = 0x8;
+	if (eid < eid_range_start || eid == MCTP_EID_BROADCAST)
+		return false;
+	return true;
+}
