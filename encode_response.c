@@ -14,15 +14,16 @@ static void encode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
 	mctp_ctrl_hdr->command_code = cmd_code;
 }
 
-encode_decode_api_return_code
-mctp_encode_resolve_eid_resp(struct mctp_msg *response, const size_t length,
-			     uint8_t rq_dgram_inst, uint8_t bridge_eid,
-			     struct variable_field *address)
+encode_rc mctp_encode_resolve_eid_resp(struct mctp_msg *response,
+				       const size_t length,
+				       uint8_t rq_dgram_inst,
+				       uint8_t bridge_eid,
+				       struct variable_field *address)
 {
 	if (response == NULL || address == NULL)
-		return INPUT_ERROR;
+		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_resolve_eid_resp))
-		return GENERIC_ERROR;
+		return ENCODE_GENERIC_ERROR;
 	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
 	struct mctp_ctrl_cmd_resolve_eid_resp *resp =
@@ -33,15 +34,15 @@ mctp_encode_resolve_eid_resp(struct mctp_msg *response, const size_t length,
 	return ENCODE_SUCCESS;
 }
 
-encode_decode_api_return_code mctp_encode_allocate_endpoint_id_resp(
+encode_rc mctp_encode_allocate_endpoint_id_resp(
 	struct mctp_msg *response, const size_t length, uint8_t rq_dgram_inst,
 	mctp_ctrl_cmd_allocate_eids_resp_op op, uint8_t eid_pool_size,
 	uint8_t first_eid)
 {
 	if (response == NULL)
-		return INPUT_ERROR;
+		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_allocate_eids_resp))
-		return GENERIC_ERROR;
+		return ENCODE_GENERIC_ERROR;
 	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS);
 	struct mctp_ctrl_cmd_allocate_eids_resp *resp =
@@ -50,19 +51,18 @@ encode_decode_api_return_code mctp_encode_allocate_endpoint_id_resp(
 	resp->operation = op;
 	resp->eid_pool_size = eid_pool_size;
 	resp->first_eid = first_eid;
-
 	return ENCODE_SUCCESS;
 }
 
-encode_decode_api_return_code
-mctp_encode_set_eid_resp(struct mctp_msg *response, const size_t length,
-			 uint8_t rq_dgram_inst, uint8_t eid_pool_size,
-			 uint8_t status, mctp_eid_t eid_set)
+encode_rc mctp_encode_set_eid_resp(struct mctp_msg *response,
+				   const size_t length, uint8_t rq_dgram_inst,
+				   uint8_t eid_pool_size, uint8_t status,
+				   mctp_eid_t eid_set)
 {
 	if (response == NULL)
-		return INPUT_ERROR;
+		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_resp_set_eid))
-		return GENERIC_ERROR;
+		return ENCODE_GENERIC_ERROR;
 	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_SET_ENDPOINT_ID);
 	struct mctp_ctrl_resp_set_eid *resp =
@@ -74,14 +74,14 @@ mctp_encode_set_eid_resp(struct mctp_msg *response, const size_t length,
 	return ENCODE_SUCCESS;
 }
 
-encode_decode_api_return_code
-mctp_encode_get_uuid_resp(struct mctp_msg *response, const size_t length,
-			  uint8_t rq_dgram_inst, const guid_t *uuid)
+encode_rc mctp_encode_get_uuid_resp(struct mctp_msg *response,
+				    const size_t length, uint8_t rq_dgram_inst,
+				    const guid_t *uuid)
 {
 	if (response == NULL || uuid == NULL)
-		return INPUT_ERROR;
+		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_resp_get_uuid))
-		return GENERIC_ERROR;
+		return ENCODE_GENERIC_ERROR;
 
 	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_GET_ENDPOINT_UUID);

@@ -19,27 +19,27 @@ decode_ctrl_cmd_header(const struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
 	*cmd_code = mctp_ctrl_hdr->command_code;
 }
 
-encode_decode_api_return_code
-mctp_decode_resolve_eid_req(const struct mctp_msg *request, const size_t length,
-			    struct mctp_ctrl_msg_hdr *ctrl_hdr,
-			    uint8_t *target_eid)
+decode_rc mctp_decode_resolve_eid_req(const struct mctp_msg *request,
+				      const size_t length,
+				      struct mctp_ctrl_msg_hdr *ctrl_hdr,
+				      uint8_t *target_eid)
 {
 	if (request == NULL || ctrl_hdr == NULL || target_eid == NULL)
-		return INPUT_ERROR;
+		return DECODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_resolve_eid_req))
-		return GENERIC_ERROR;
+		return DECODE_GENERIC_ERROR;
 	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
 			       &ctrl_hdr->rq_dgram_inst,
 			       &ctrl_hdr->command_code);
 	struct mctp_ctrl_cmd_resolve_eid_req *req =
 		(struct mctp_ctrl_cmd_resolve_eid_req *)(request);
 	if (req->ctrl_msg_hdr.command_code != MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID)
-		return GENERIC_ERROR;
+		return DECODE_GENERIC_ERROR;
 	*target_eid = req->target_eid;
 	return DECODE_SUCCESS;
 }
 
-encode_decode_api_return_code
+decode_rc
 mctp_decode_allocate_endpoint_id_req(const struct mctp_msg *request,
 				     const size_t length,
 				     struct mctp_ctrl_msg_hdr *ctrl_hdr,
@@ -48,9 +48,9 @@ mctp_decode_allocate_endpoint_id_req(const struct mctp_msg *request,
 {
 	if (request == NULL || ctrl_hdr == NULL || op == NULL ||
 	    eid_pool_size == NULL || first_eid == NULL)
-		return INPUT_ERROR;
+		return DECODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_allocate_eids_req))
-		return GENERIC_ERROR;
+		return DECODE_GENERIC_ERROR;
 
 	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
 			       &ctrl_hdr->rq_dgram_inst,
@@ -60,22 +60,22 @@ mctp_decode_allocate_endpoint_id_req(const struct mctp_msg *request,
 		(struct mctp_ctrl_cmd_allocate_eids_req *)(request);
 	if (req->ctrl_msg_hdr.command_code !=
 	    MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS)
-		return GENERIC_ERROR;
+		return DECODE_GENERIC_ERROR;
 	*op = req->operation;
 	*eid_pool_size = req->eid_pool_size;
 	*first_eid = req->first_eid;
 	return DECODE_SUCCESS;
 }
 
-encode_decode_api_return_code
-mctp_decode_set_eid_req(const struct mctp_msg *request, const size_t length,
-			struct mctp_ctrl_msg_hdr *ctrl_hdr,
-			mctp_ctrl_cmd_set_eid_op *op, uint8_t *eid)
+decode_rc mctp_decode_set_eid_req(const struct mctp_msg *request,
+				  const size_t length,
+				  struct mctp_ctrl_msg_hdr *ctrl_hdr,
+				  mctp_ctrl_cmd_set_eid_op *op, uint8_t *eid)
 {
 	if (request == NULL || ctrl_hdr == NULL || op == NULL || eid == NULL)
-		return INPUT_ERROR;
+		return DECODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_set_eid))
-		return GENERIC_ERROR;
+		return DECODE_GENERIC_ERROR;
 	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
 			       &ctrl_hdr->rq_dgram_inst,
 			       &ctrl_hdr->command_code);
@@ -83,7 +83,7 @@ mctp_decode_set_eid_req(const struct mctp_msg *request, const size_t length,
 	struct mctp_ctrl_cmd_set_eid *req =
 		(struct mctp_ctrl_cmd_set_eid *)request;
 	if (req->ctrl_msg_hdr.command_code != MCTP_CTRL_CMD_SET_ENDPOINT_ID)
-		return GENERIC_ERROR;
+		return DECODE_GENERIC_ERROR;
 	*op = req->operation;
 	*eid = req->eid;
 	return DECODE_SUCCESS;
