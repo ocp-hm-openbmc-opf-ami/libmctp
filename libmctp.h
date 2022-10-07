@@ -55,6 +55,10 @@ struct mctp_hdr {
 
 #define TX_DISABLED_ERR (-1024)
 
+#define ENDPOINT_TYPE_SIMPLE_ENDPOINT 0
+#define ENDPOINT_TYPE_BUS_OWNER_BRIDGE 1
+#define ENDPOINT_TYPE_SHIFT 4
+
 struct mctp_binding;
 /* packet buffers */
 
