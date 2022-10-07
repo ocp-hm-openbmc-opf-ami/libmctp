@@ -1225,6 +1225,10 @@ int mctp_ctrl_cmd_set_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 		response->completion_code = MCTP_CTRL_CC_SUCCESS;
 		response->eid_set = request->eid;
 		break;
+	case 3: /* Set Discovered Flag */
+		response->completion_code = MCTP_CTRL_CC_SUCCESS;
+		response->eid_set = bus->eid;
+		break;
 	default: /* Reset EID and Set Discovered Flag */
 		response->completion_code = MCTP_CTRL_CC_ERROR_INVALID_DATA;
 	}
