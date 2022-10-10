@@ -1,7 +1,5 @@
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "libmctp-cmds.h"
 #include "libmctp-encode-request.h"

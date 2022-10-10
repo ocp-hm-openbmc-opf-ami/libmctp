@@ -1,7 +1,4 @@
-#include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "libmctp.h"
 #include "libmctp-cmds.h"
@@ -33,11 +30,10 @@ decode_rc mctp_decode_resolve_eid_resp(const struct mctp_msg *response,
 	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
 			       &ctrl_hdr->rq_dgram_inst,
 			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID)
+		return DECODE_GENERIC_ERROR;
 	struct mctp_ctrl_cmd_resolve_eid_resp *resp =
 		(struct mctp_ctrl_cmd_resolve_eid_resp *)(response);
-	if (resp->ctrl_msg_hdr.command_code !=
-	    MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID)
-		return DECODE_GENERIC_ERROR;
 	*completion_code = resp->completion_code;
 	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
 		return DECODE_CC_ERROR;
@@ -65,10 +61,11 @@ decode_rc mctp_decode_allocate_endpoint_id_resp(
 	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
 			       &ctrl_hdr->rq_dgram_inst,
 			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS)
+		return DECODE_GENERIC_ERROR;
 	struct mctp_ctrl_cmd_allocate_eids_resp *resp =
 		(struct mctp_ctrl_cmd_allocate_eids_resp *)(response);
-	if (resp->ctrl_hdr.command_code != MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS)
-		return DECODE_GENERIC_ERROR;
+
 	*cc = resp->completion_code;
 	*op = resp->operation;
 	*eid_pool_size = resp->eid_pool_size;
@@ -93,15 +90,43 @@ decode_rc mctp_decode_set_eid_resp(const struct mctp_msg *response,
 	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
 			       &ctrl_hdr->rq_dgram_inst,
 			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_SET_ENDPOINT_ID)
+		return DECODE_GENERIC_ERROR;
 	struct mctp_ctrl_resp_set_eid *resp =
 		(struct mctp_ctrl_resp_set_eid *)(response);
-	if (resp->ctrl_hdr.command_code != MCTP_CTRL_CMD_SET_ENDPOINT_ID)
-		return DECODE_GENERIC_ERROR;
+
 	*completion_code = resp->completion_code;
 	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
 		return DECODE_CC_ERROR;
 	*eid_pool_size = resp->eid_pool_size;
 	*status = resp->status;
 	*eid_set = resp->eid_set;
+	return DECODE_SUCCESS;
+}
+
+decode_rc mctp_decode_get_uuid_resp(const struct mctp_msg *response,
+				    const size_t length,
+				    struct mctp_ctrl_msg_hdr *ctrl_hdr,
+				    uint8_t *completion_code, guid_t *uuid)
+{
+	if (response == NULL || completion_code == NULL || uuid == NULL ||
+	    ctrl_hdr == NULL)
+		return DECODE_INPUT_ERROR;
+
+	if (length < MIN_RESP_LENGTH)
+		return DECODE_GENERIC_ERROR;
+	if (length < sizeof(struct mctp_ctrl_resp_get_uuid))
+		return DECODE_GENERIC_ERROR;
+	struct mctp_ctrl_resp_get_uuid *resp =
+		(struct mctp_ctrl_resp_get_uuid *)(response);
+
+	*ctrl_hdr = resp->ctrl_hdr;
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_ENDPOINT_UUID)
+		return DECODE_GENERIC_ERROR;
+
+	*completion_code = resp->completion_code;
+	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return DECODE_CC_ERROR;
+	*uuid = resp->uuid;
 	return DECODE_SUCCESS;
 }

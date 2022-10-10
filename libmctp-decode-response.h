@@ -26,6 +26,11 @@ decode_rc mctp_decode_set_eid_resp(const struct mctp_msg *response,
 				   uint8_t *eid_pool_size, uint8_t *status,
 				   mctp_eid_t *eid_set);
 
+decode_rc mctp_decode_get_uuid_resp(const struct mctp_msg *response,
+				    const size_t length,
+				    struct mctp_ctrl_msg_hdr *ctrl_hdr,
+				    uint8_t *completion_code, guid_t *uuid);
+
 #ifdef __cplusplus
 }
 #endif
