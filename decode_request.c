@@ -84,7 +84,7 @@ decode_rc mctp_decode_set_eid_req(const struct mctp_msg *request,
 	return DECODE_SUCCESS;
 }
 
-encode_decode_api_return_code
+decode_rc
 mctp_decode_get_networkid_req(struct mctp_msg *request, size_t length,
 			      struct mctp_ctrl_msg_hdr *ctrl_hdr)
 {
@@ -99,7 +99,7 @@ mctp_decode_get_networkid_req(struct mctp_msg *request, size_t length,
 		return GENERIC_ERROR;
 
 	*ctrl_hdr = req->ctrl_msg_hdr;
-  return DECODE_SUCCESS;
+  	return DECODE_SUCCESS;
 }
 
 decode_rc mctp_decode_get_uuid_req(const struct mctp_msg *request,
