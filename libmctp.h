@@ -55,6 +55,10 @@ struct mctp_hdr {
 
 #define TX_DISABLED_ERR (-1024)
 
+#define ENDPOINT_TYPE_SIMPLE_ENDPOINT 0
+#define ENDPOINT_TYPE_BUS_OWNER_BRIDGE 1
+#define ENDPOINT_TYPE_SHIFT 4
+
 struct mctp_binding;
 /* packet buffers */
 
@@ -84,6 +88,7 @@ struct mctp_bus;
 struct mctp *mctp_init(void);
 void mctp_set_max_message_size(struct mctp *mctp, size_t message_size);
 void mctp_destroy(struct mctp *mctp);
+bool is_eid_valid(mctp_eid_t eid);
 
 /* Register a binding to the MCTP core, and creates a bus (populating
  * binding->bus).

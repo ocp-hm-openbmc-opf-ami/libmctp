@@ -37,6 +37,23 @@ static void create_packet(struct mctp_hdr *pkt, mctp_eid_t src, mctp_eid_t dest)
 	pkt->flags_seq_tag = MCTP_HDR_FLAG_SOM | MCTP_HDR_FLAG_EOM;
 }
 
+void test_eid_valid()
+{
+	mctp_eid_t eid = 0;
+	const mctp_eid_t eid_range_start = 0x8;
+
+	// positive testcase
+	for (eid = eid_range_start; eid < MCTP_EID_BROADCAST; eid++) {
+		assert(is_eid_valid(eid));
+	}
+	// negative testcase
+	for (eid = 0; eid < eid_range_start; eid++) {
+		assert(!is_eid_valid(eid));
+	}
+
+	assert(!is_eid_valid(MCTP_EID_BROADCAST));
+}
+
 int main(void)
 {
 	struct test_ctx _ctx, *ctx = &_ctx;
@@ -74,5 +91,6 @@ int main(void)
 	mctp_binding_test_destroy(ctx->binding);
 	mctp_destroy(ctx->mctp);
 
+	test_eid_valid();
 	return EXIT_SUCCESS;
 }

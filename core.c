@@ -1225,6 +1225,10 @@ int mctp_ctrl_cmd_set_endpoint_id(struct mctp *mctp, mctp_eid_t dest_eid,
 		response->completion_code = MCTP_CTRL_CC_SUCCESS;
 		response->eid_set = request->eid;
 		break;
+	case 3: /* Set Discovered Flag */
+		response->completion_code = MCTP_CTRL_CC_SUCCESS;
+		response->eid_set = bus->eid;
+		break;
 	default: /* Reset EID and Set Discovered Flag */
 		response->completion_code = MCTP_CTRL_CC_ERROR_INVALID_DATA;
 	}
@@ -1604,5 +1608,13 @@ bool mctp_decode_ctrl_cmd_get_query_hop_resp(
 	*max_incoming_size = data->max_incoming_size;
 	*max_outgoing_size = data->max_outgoing_size;
 
+	return true;
+}
+
+bool is_eid_valid(mctp_eid_t eid)
+{
+	const mctp_eid_t eid_range_start = 0x8;
+	if (eid < eid_range_start || eid == MCTP_EID_BROADCAST)
+		return false;
 	return true;
 }
