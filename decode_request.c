@@ -89,14 +89,14 @@ mctp_decode_get_networkid_req(struct mctp_msg *request, size_t length,
 			      struct mctp_ctrl_msg_hdr *ctrl_hdr)
 {
 	if (request == NULL || ctrl_hdr == NULL)
-		return INPUT_ERROR;
+		return DECODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_get_networkid_req))
-		return GENERIC_ERROR;
+		return DECODE_GENERIC_ERROR;
 
 	struct mctp_ctrl_cmd_get_networkid_req *req =
 		(struct mctp_ctrl_cmd_get_networkid_req *)request;
 	if (req->ctrl_msg_hdr.command_code != MCTP_CTRL_CMD_GET_NETWORK_ID)
-		return GENERIC_ERROR;
+		return DECODE_GENERIC_ERROR;
 
 	*ctrl_hdr = req->ctrl_msg_hdr;
   	return DECODE_SUCCESS;
