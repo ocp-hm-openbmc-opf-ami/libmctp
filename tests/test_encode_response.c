@@ -199,7 +199,7 @@ static void test_negative_encode_get_uuid_resp()
 
 static void test_encode_get_networkid_resp()
 {
-	encode_decode_api_return_code ret = false;
+	encode_rc ret = false;
 	struct mctp *mctp;
 	mctp = mctp_init();
 	guid_t networkid;
@@ -223,17 +223,17 @@ static void test_encode_get_networkid_resp()
 
 static void test_negative_decode_get_networkid_resp()
 {
-	encode_decode_api_return_code ret;
+	encode_rc ret;
 	struct mctp_msg *response = NULL;
 	guid_t networkid;
 
 	ret = mctp_encode_get_networkid_resp(
 		response, sizeof(struct mctp_ctrl_get_networkid_resp),
 		&networkid);
-	assert(ret == INPUT_ERROR);
+	assert(ret == ENCODE_INPUT_ERROR);
 	struct mctp_msg request1;
 	ret = mctp_encode_get_networkid_resp(&request1, 0, &networkid);
-	assert(ret == GENERIC_ERROR);
+	assert(ret == ENCODE_GENERIC_ERROR);
 }
 
 static void test_encode_get_routing_table_resp(void)
@@ -273,15 +273,15 @@ static void test_encode_get_routing_table_resp(void)
 	assert(response.number_of_entries == 0x01);
 	next_entry_handle = 0xFF;
 
-	assert(INPUT_ERROR ==
+	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       NULL, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       entries, 1, &new_size, next_entry_handle));
-	assert(INPUT_ERROR ==
+	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       NULL, 1, &new_size, next_entry_handle));
-	assert(INPUT_ERROR ==
+	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       entries, 1, NULL, next_entry_handle));
@@ -292,15 +292,15 @@ static void test_encode_get_routing_table_resp(void)
 
 	next_entry_handle = 0x01;
 
-	assert(INPUT_ERROR ==
+	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       NULL, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       entries, 1, &new_size, next_entry_handle));
-	assert(INPUT_ERROR ==
+	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       NULL, 1, &new_size, next_entry_handle));
-	assert(INPUT_ERROR ==
+	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       entries, 1, NULL, next_entry_handle));
@@ -308,6 +308,86 @@ static void test_encode_get_routing_table_resp(void)
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       entries, 0, &new_size, next_entry_handle));
+}
+
+static void test_encode_get_ver_support_resp()
+{
+	encode_rc ret;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t number_of_entries = 10;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	struct mctp_ctrl_resp_get_mctp_ver_support response;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_encode_get_ver_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		rq_d_inst, number_of_entries);
+	assert(ret == ENCODE_SUCCESS);
+	assert(response.ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(response.number_of_entries == number_of_entries);
+}
+
+static void test_negative_encode_get_ver_support_resp()
+{
+	encode_rc ret;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t number_of_entries = 10;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	struct mctp_msg *response = NULL;
+	ret = mctp_encode_get_ver_support_resp(
+		response, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		rq_d_inst, number_of_entries);
+	assert(ret == ENCODE_INPUT_ERROR);
+	struct mctp_msg response1;
+	ret = mctp_encode_get_ver_support_resp(&response1, 0, rq_d_inst,
+					       number_of_entries);
+	assert(ret == ENCODE_GENERIC_ERROR);
+}
+
+static void test_encode_get_eid_resp()
+{
+	encode_rc ret;
+	struct mctp_ctrl_resp_get_eid response;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	mctp_eid_t eid = 10;
+	uint8_t eid_type = 9;
+	uint8_t medium_data = 8;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_encode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       rq_d_inst, eid, eid_type, medium_data);
+	assert(ret == ENCODE_SUCCESS);
+
+	assert(response.ctrl_hdr.command_code == MCTP_CTRL_CMD_GET_ENDPOINT_ID);
+	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(response.eid == eid);
+	assert(response.eid_type == eid_type);
+	assert(response.medium_data == medium_data);
+}
+
+static void test_negative_encode_get_eid_resp()
+{
+	encode_rc ret;
+	struct mctp_msg *response = NULL;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	mctp_eid_t eid = 10;
+	uint8_t eid_type = 9;
+	uint8_t medium_data = 8;
+	ret = mctp_encode_get_eid_resp(response,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       rq_d_inst, eid, eid_type, medium_data);
+	assert(ret == ENCODE_INPUT_ERROR);
+	struct mctp_msg response1;
+	ret = mctp_encode_get_eid_resp(&response1, 0, rq_d_inst, eid, eid_type,
+				       medium_data);
+	assert(ret == ENCODE_GENERIC_ERROR);
 }
 
 int main(int argc, char *argv[])
@@ -318,6 +398,8 @@ int main(int argc, char *argv[])
 	test_encode_get_uuid_resp();
 	test_encode_get_networkid_resp();
 	test_encode_get_routing_table_resp();
+	test_encode_get_ver_support_resp();
+	test_encode_get_eid_resp();
 
 	/*Negative test cases */
 	test_negative_encode_resolve_eid_resp();
@@ -325,6 +407,8 @@ int main(int argc, char *argv[])
 	test_negative_encode_set_eid_resp();
 	test_negative_encode_get_uuid_resp();
 	test_negative_decode_get_networkid_resp();
+	test_negative_encode_get_ver_support_resp();
+	test_negative_encode_get_eid_resp();
 
 	return EXIT_SUCCESS;
 }

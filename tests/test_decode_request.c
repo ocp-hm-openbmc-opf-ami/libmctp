@@ -198,11 +198,13 @@ static void test_negative_decode_get_uuid_req()
 
 static void test_decode_get_networkid_req()
 {
-	encode_decode_api_return_code ret = true;
+	decode_rc ret;
 	struct mctp_ctrl_cmd_get_networkid_req request;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	request.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	request.ctrl_msg_hdr.rq_dgram_inst = 10;
+	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
 	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_GET_NETWORK_ID;
 
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
@@ -215,23 +217,179 @@ static void test_decode_get_networkid_req()
 
 static void test_negative_decode_get_networkid_req()
 {
-	encode_decode_api_return_code ret;
+	decode_rc ret;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	struct mctp_ctrl_cmd_get_networkid_req request;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 	ret = mctp_decode_get_networkid_req(
 		NULL, sizeof(struct mctp_ctrl_cmd_get_networkid_req),
 		&ctrl_hdr);
-	assert(ret == INPUT_ERROR);
+	assert(ret == DECODE_INPUT_ERROR);
 	ret = mctp_decode_get_networkid_req(req, 0, &ctrl_hdr);
-	assert(ret == GENERIC_ERROR);
+	assert(ret == DECODE_GENERIC_ERROR);
 	ret = mctp_decode_get_networkid_req(
 		req, sizeof(struct mctp_ctrl_cmd_get_networkid_req), NULL);
-	assert(ret == INPUT_ERROR);
+	assert(ret == DECODE_INPUT_ERROR);
 	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
 	ret = mctp_decode_get_networkid_req(
 		req, sizeof(struct mctp_ctrl_cmd_get_networkid_req), &ctrl_hdr);
-	assert(ret == GENERIC_ERROR);
+	assert(ret == DECODE_GENERIC_ERROR);
+}
+
+static void test_decode_get_routing_table_req()
+{
+	decode_rc ret;
+	uint8_t entry_handle;
+	uint8_t expected_instance_id = 0x01;
+	struct mctp_ctrl_cmd_get_routing_table_req request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	request.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
+	request.ctrl_msg_hdr.command_code =
+		MCTP_CTRL_CMD_GET_ROUTING_TABLE_ENTRIES;
+	request.entry_handle = 1;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+
+	ret = mctp_decode_get_routing_table_req(
+		req, sizeof(struct mctp_ctrl_cmd_get_routing_table_req),
+		&ctrl_hdr, &entry_handle);
+	assert(ret == DECODE_SUCCESS);
+	assert(ctrl_hdr.command_code == request.ctrl_msg_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == request.ctrl_msg_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == request.ctrl_msg_hdr.ic_msg_type);
+	assert(entry_handle == request.entry_handle);
+}
+
+static void test_negative_decode_get_routing_table_req()
+{
+	decode_rc ret;
+	struct mctp_ctrl_cmd_get_routing_table_req request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t entry_handle;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+	request.ctrl_msg_hdr.command_code =
+		MCTP_CTRL_CMD_GET_ROUTING_TABLE_ENTRIES;
+
+	ret = mctp_decode_get_routing_table_req(
+		NULL, sizeof(struct mctp_ctrl_cmd_get_routing_table_req),
+		&ctrl_hdr, &entry_handle);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_routing_table_req(
+		req, sizeof(struct mctp_ctrl_cmd_get_routing_table_req), NULL,
+		&entry_handle);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_routing_table_req(
+		req, sizeof(struct mctp_ctrl_cmd_get_routing_table_req),
+		&ctrl_hdr, NULL);
+	assert(ret == DECODE_INPUT_ERROR);
+
+	ret = mctp_decode_get_routing_table_req(req, 0, &ctrl_hdr,
+						&entry_handle);
+	assert(ret == DECODE_GENERIC_ERROR);
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+	ret = mctp_decode_get_routing_table_req(
+		req, sizeof(struct mctp_ctrl_cmd_get_routing_table_req),
+		&ctrl_hdr, &entry_handle);
+	assert(ret == DECODE_GENERIC_ERROR);
+}
+
+static void test_decode_get_ver_support_req()
+{
+	decode_rc ret;
+	uint8_t msg_type_number;
+	uint8_t expected_instance_id = 0x01;
+	struct mctp_ctrl_cmd_get_mctp_ver_support request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	request.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
+	request.ctrl_msg_hdr.command_code =
+		MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT;
+	request.msg_type_number = 9;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+
+	ret = mctp_decode_get_ver_support_req(
+		req, sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support),
+		&ctrl_hdr, &msg_type_number);
+	assert(ret == DECODE_SUCCESS);
+	assert(ctrl_hdr.command_code == request.ctrl_msg_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == request.ctrl_msg_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == request.ctrl_msg_hdr.ic_msg_type);
+	assert(msg_type_number == request.msg_type_number);
+}
+
+static void test_negative_decode_get_ver_support_req()
+{
+	decode_rc ret;
+	struct mctp_ctrl_cmd_get_mctp_ver_support request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t msg_type_number;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+
+	ret = mctp_decode_get_ver_support_req(
+		NULL, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, &msg_type_number);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_ver_support_req(req, 0, &ctrl_hdr,
+					      &msg_type_number);
+	assert(ret == DECODE_GENERIC_ERROR);
+	ret = mctp_decode_get_ver_support_req(
+		req, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support), NULL,
+		&msg_type_number);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_ver_support_req(
+		req, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, NULL);
+	assert(ret == DECODE_INPUT_ERROR);
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESERVED;
+	ret = mctp_decode_get_ver_support_req(
+		req, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, &msg_type_number);
+	assert(ret == DECODE_GENERIC_ERROR);
+}
+
+static void test_decode_get_eid_req()
+{
+	decode_rc ret;
+	uint8_t expected_instance_id = 0x01;
+	struct mctp_ctrl_cmd_get_eid request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	request.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_ID;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+
+	ret = mctp_decode_get_eid_req(req, sizeof(struct mctp_ctrl_cmd_get_eid),
+				      &ctrl_hdr);
+	assert(ret == DECODE_SUCCESS);
+	assert(ctrl_hdr.command_code == request.ctrl_msg_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == request.ctrl_msg_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == request.ctrl_msg_hdr.ic_msg_type);
+}
+
+static void test_negative_decode_get_eid_req()
+{
+	decode_rc ret;
+	struct mctp_ctrl_cmd_get_eid request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_ID;
+
+	ret = mctp_decode_get_eid_req(
+		NULL, sizeof(struct mctp_ctrl_cmd_get_eid), &ctrl_hdr);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_eid_req(req, sizeof(struct mctp_ctrl_cmd_get_eid),
+				      NULL);
+	assert(ret == DECODE_INPUT_ERROR);
+
+	ret = mctp_decode_get_eid_req(req, 0, &ctrl_hdr);
+	assert(ret == DECODE_GENERIC_ERROR);
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+	ret = mctp_decode_get_eid_req(req, sizeof(struct mctp_ctrl_cmd_get_eid),
+				      &ctrl_hdr);
+	assert(ret == DECODE_GENERIC_ERROR);
 }
 
 int main(int argc, char *argv[])
@@ -241,6 +399,9 @@ int main(int argc, char *argv[])
 	test_decode_set_eid_req();
 	test_decode_get_networkid_req();
 	test_decode_get_uuid_req();
+	test_decode_get_routing_table_req();
+	test_decode_get_ver_support_req();
+	test_decode_get_eid_req();
 
 	/*Negative test cases */
 	test_negative_decode_resolve_eid_req();
@@ -248,6 +409,9 @@ int main(int argc, char *argv[])
 	test_negative_decode_set_eid_req();
 	test_negative_decode_get_networkid_req();
 	test_negative_decode_get_uuid_req();
-  
+	test_negative_decode_get_routing_table_req();
+	test_negative_decode_get_ver_support_req();
+	test_negative_decode_get_eid_req();
+
 	return EXIT_SUCCESS;
 }

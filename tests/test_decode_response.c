@@ -272,15 +272,17 @@ static void test_negative_decode_get_uuid_resp()
 
 static void test_decode_get_networkid_resp()
 {
-	encode_decode_api_return_code ret;
+	decode_rc ret;
 	struct mctp_ctrl_get_networkid_resp response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	guid_t network_id;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 
 	response.networkid.canonical.data1 = 10;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	response.ctrl_hdr.rq_dgram_inst = 10;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_NETWORK_ID;
 	uint8_t completion_code;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
@@ -299,42 +301,226 @@ static void test_decode_get_networkid_resp()
 
 static void test_negative_decode_get_networkid_resp()
 {
-	encode_decode_api_return_code ret;
+	decode_rc ret;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	struct mctp_ctrl_get_networkid_resp response;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	guid_t network_id;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 
 	response.networkid.canonical.data1 = 10;
 	response.completion_code = MCTP_CTRL_CC_ERROR;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	response.ctrl_hdr.rq_dgram_inst = 10;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_NETWORK_ID;
 	uint8_t completion_code;
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+
 	ret = mctp_decode_get_networkid_resp(
 		NULL, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
 		&completion_code, &network_id);
-	assert(ret == INPUT_ERROR);
+	assert(ret == DECODE_INPUT_ERROR);
 	ret = mctp_decode_get_networkid_resp(resp, 0, &ctrl_hdr,
 					     &completion_code, &network_id);
-	assert(ret == GENERIC_ERROR);
+	assert(ret == DECODE_GENERIC_ERROR);
 	ret = mctp_decode_get_networkid_resp(
 		resp, sizeof(struct mctp_ctrl_get_networkid_resp), NULL,
 		&completion_code, &network_id);
-	assert(ret == INPUT_ERROR);
+	assert(ret == DECODE_INPUT_ERROR);
 	ret = mctp_decode_get_networkid_resp(
 		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
 		NULL, &network_id);
-	assert(ret == INPUT_ERROR);
+	assert(ret == DECODE_INPUT_ERROR);
 	ret = mctp_decode_get_networkid_resp(
 		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
 		&completion_code, NULL);
-	assert(ret == INPUT_ERROR);
+	assert(ret == DECODE_INPUT_ERROR);
+	response.completion_code = MCTP_CTRL_CC_ERROR;
+	ret = mctp_decode_get_networkid_resp(
+		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
+		&completion_code, &network_id);
+	assert(ret == DECODE_CC_ERROR);
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
 	ret = mctp_decode_get_networkid_resp(
 		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &ctrl_hdr,
 		&completion_code, &network_id);
-	assert(ret == GENERIC_ERROR);
+	assert(ret == DECODE_GENERIC_ERROR);
+}
+
+static void test_decode_get_ver_support_resp()
+{
+	decode_rc ret;
+	uint8_t number_of_entries;
+	uint8_t completion_code;
+	uint8_t expected_instance_id = 0x01;
+	struct mctp_ctrl_resp_get_mctp_ver_support response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	response.ctrl_hdr.command_code =
+		MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT;
+	response.number_of_entries = 9;
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_decode_get_ver_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, &completion_code, &number_of_entries);
+	assert(ret == DECODE_SUCCESS);
+	assert(ctrl_hdr.command_code == response.ctrl_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == response.ctrl_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == response.ctrl_hdr.ic_msg_type);
+	assert(number_of_entries == response.number_of_entries);
+}
+
+static void test_negative_decode_get_ver_support_resp()
+{
+	decode_rc ret;
+	struct mctp_ctrl_resp_get_mctp_ver_support response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t number_of_entries;
+	uint8_t completion_code;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	response.ctrl_hdr.command_code =
+		MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT;
+
+	ret = mctp_decode_get_ver_support_resp(
+		NULL, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, &completion_code, &number_of_entries);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_ver_support_resp(
+		resp, 0, &ctrl_hdr, &completion_code, &number_of_entries);
+	assert(ret == DECODE_GENERIC_ERROR);
+	ret = mctp_decode_get_ver_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support), NULL,
+		&completion_code, &number_of_entries);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_ver_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, NULL, &number_of_entries);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_ver_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, &completion_code, NULL);
+	assert(ret == DECODE_INPUT_ERROR);
+	response.completion_code = MCTP_CTRL_CC_ERROR;
+	ret = mctp_decode_get_ver_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, &completion_code, &number_of_entries);
+	assert(ret == DECODE_CC_ERROR);
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
+	ret = mctp_decode_get_ver_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		&ctrl_hdr, &completion_code, &number_of_entries);
+	assert(ret == DECODE_GENERIC_ERROR);
+}
+
+static void test_decode_get_eid_resp()
+{
+	decode_rc ret;
+	struct mctp_ctrl_resp_get_eid response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_ID;
+	response.eid = 12;
+	response.eid_type = 1;
+	response.medium_data = 8;
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	uint8_t eid;
+	uint8_t eid_type;
+	uint8_t medium_data;
+	uint8_t completion_code;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_decode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       &ctrl_hdr, &completion_code, &eid,
+				       &eid_type, &medium_data);
+	assert(ret == DECODE_SUCCESS);
+
+	assert(ctrl_hdr.command_code == response.ctrl_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == response.ctrl_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == response.ctrl_hdr.ic_msg_type);
+	assert(response.completion_code == completion_code);
+	assert(response.eid == eid);
+	assert(response.eid_type == eid_type);
+	assert(response.medium_data == medium_data);
+}
+
+static void test_negative_decode_get_eid_resp()
+{
+	decode_rc ret;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct mctp_ctrl_resp_get_eid response;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+	uint8_t eid;
+	uint8_t eid_type;
+	uint8_t medium_data;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_ID;
+	response.eid = 12;
+	response.eid_type = 1;
+	response.medium_data = 8;
+
+	uint8_t completion_code;
+	ret = mctp_decode_get_eid_resp(NULL,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       &ctrl_hdr, &completion_code, &eid,
+				       &eid_type, &medium_data);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       NULL, &completion_code, &eid, &eid_type,
+				       &medium_data);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       &ctrl_hdr, NULL, &eid, &eid_type,
+				       &medium_data);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       &ctrl_hdr, &completion_code, NULL,
+				       &eid_type, &medium_data);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       &ctrl_hdr, &completion_code, &eid, NULL,
+				       &medium_data);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       &ctrl_hdr, &completion_code, &eid,
+				       &eid_type, NULL);
+	assert(ret == DECODE_INPUT_ERROR);
+
+	ret = mctp_decode_get_eid_resp(resp, 0, &ctrl_hdr, &completion_code,
+				       &eid, &eid_type, &medium_data);
+	assert(ret == DECODE_GENERIC_ERROR);
+	response.completion_code = MCTP_CTRL_CC_ERROR;
+	ret = mctp_decode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       &ctrl_hdr, &completion_code, &eid,
+				       &eid_type, &medium_data);
+	assert(ret == DECODE_CC_ERROR);
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
+	ret = mctp_decode_get_eid_resp(resp,
+				       sizeof(struct mctp_ctrl_resp_get_eid),
+				       &ctrl_hdr, &completion_code, &eid,
+				       &eid_type, &medium_data);
+	assert(ret == DECODE_GENERIC_ERROR);
 }
 
 int main(int argc, char *argv[])
@@ -344,13 +530,17 @@ int main(int argc, char *argv[])
 	test_decode_set_eid_resp();
 	test_decode_get_networkid_resp();
 	test_decode_get_uuid_resp();
+	test_decode_get_ver_support_resp();
+	test_decode_get_eid_resp();
 
 	/*Negative test cases */
 	test_negative_decode_resolve_eid_resp();
 	test_negative_decode_allocate_eid_pool_resp();
 	test_negative_decode_set_eid_resp();
-  test_negative_decode_get_networkid_resp();
+	test_negative_decode_get_networkid_resp();
 	test_negative_decode_get_uuid_resp();
+	test_negative_decode_get_ver_support_resp();
+	test_negative_decode_get_eid_resp();
 
 	return EXIT_SUCCESS;
 }

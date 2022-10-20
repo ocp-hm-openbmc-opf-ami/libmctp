@@ -26,9 +26,23 @@ decode_rc mctp_decode_get_uuid_req(const struct mctp_msg *request,
 				   const size_t length,
 				   struct mctp_ctrl_msg_hdr *ctrl_hdr);
 
-encode_decode_api_return_code
-mctp_decode_get_networkid_req(struct mctp_msg *request, size_t length,
-			      struct mctp_ctrl_msg_hdr *ctrl_hdr);
+decode_rc mctp_decode_get_networkid_req(const struct mctp_msg *request,
+					const size_t length,
+					struct mctp_ctrl_msg_hdr *ctrl_hdr);
+
+decode_rc mctp_decode_get_routing_table_req(const struct mctp_msg *request,
+					    const size_t length,
+					    struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					    uint8_t *entry_handle);
+
+decode_rc mctp_decode_get_ver_support_req(const struct mctp_msg *request,
+					  const size_t length,
+					  struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					  uint8_t *msg_type_number);
+
+decode_rc mctp_decode_get_eid_req(const struct mctp_msg *request,
+				  const size_t length,
+				  struct mctp_ctrl_msg_hdr *ctrl_hdr);
 
 #ifdef __cplusplus
 }

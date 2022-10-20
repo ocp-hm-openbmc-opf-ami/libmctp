@@ -31,10 +31,23 @@ decode_rc mctp_decode_get_uuid_resp(const struct mctp_msg *response,
 				    struct mctp_ctrl_msg_hdr *ctrl_hdr,
 				    uint8_t *completion_code, guid_t *uuid);
 
-encode_decode_api_return_code
-mctp_decode_get_networkid_resp(struct mctp_msg *response, size_t length,
-			       struct mctp_ctrl_msg_hdr *ctrl_hdr,
-			       uint8_t *completion_code, guid_t *networkid);
+decode_rc mctp_decode_get_networkid_resp(const struct mctp_msg *response,
+					 const size_t length,
+					 struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					 uint8_t *completion_code,
+					 guid_t *networkid);
+
+decode_rc mctp_decode_get_ver_support_resp(const struct mctp_msg *response,
+					   const size_t length,
+					   struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					   uint8_t *completion_code,
+					   uint8_t *number_of_entries);
+
+decode_rc mctp_decode_get_eid_resp(const struct mctp_msg *response,
+				   const size_t length,
+				   struct mctp_ctrl_msg_hdr *ctrl_hdr,
+				   uint8_t *completion_code, mctp_eid_t *eid,
+				   uint8_t *eid_type, uint8_t *medium_data);
 
 #ifdef __cplusplus
 }

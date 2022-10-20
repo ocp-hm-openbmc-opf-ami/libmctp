@@ -77,15 +77,63 @@ encode_rc mctp_encode_get_uuid_req(struct mctp_msg *request,
 	return ENCODE_SUCCESS;
 }
 
-encode_decode_api_return_code
-mctp_encode_get_networkid_req(struct mctp_msg *request, size_t length,
-			      uint8_t rq_dgram_inst)
+encode_rc mctp_encode_get_networkid_req(struct mctp_msg *request,
+					const size_t length,
+					uint8_t rq_dgram_inst)
 {
 	if (!request)
-		return INPUT_ERROR;
+		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_get_networkid_req))
-		return GENERIC_ERROR;
+		return ENCODE_GENERIC_ERROR;
 	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_GET_NETWORK_ID);
+	return ENCODE_SUCCESS;
+}
+
+encode_rc mctp_encode_get_routing_table_req(struct mctp_msg *request,
+					    const size_t length,
+					    uint8_t rq_dgram_inst,
+					    uint8_t entry_handle)
+{
+	if (!request)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_routing_table_req))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_ROUTING_TABLE_ENTRIES);
+	struct mctp_ctrl_cmd_get_routing_table_req *req =
+		(struct mctp_ctrl_cmd_get_routing_table_req *)request;
+	req->entry_handle = entry_handle;
+	return ENCODE_SUCCESS;
+}
+
+encode_rc mctp_encode_get_ver_support_req(struct mctp_msg *request,
+					  const size_t length,
+					  uint8_t rq_dgram_inst,
+					  uint8_t msg_type_number)
+{
+	if (!request)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+
+	struct mctp_ctrl_cmd_get_mctp_ver_support *req =
+		(struct mctp_ctrl_cmd_get_mctp_ver_support *)request;
+	req->msg_type_number = msg_type_number;
+	return ENCODE_SUCCESS;
+}
+
+encode_rc mctp_encode_get_eid_req(struct mctp_msg *request, const size_t length,
+				  uint8_t rq_dgram_inst)
+{
+	if (!request)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_eid))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_ENDPOINT_ID);
+
 	return ENCODE_SUCCESS;
 }

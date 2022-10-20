@@ -84,22 +84,21 @@ decode_rc mctp_decode_set_eid_req(const struct mctp_msg *request,
 	return DECODE_SUCCESS;
 }
 
-decode_rc
-mctp_decode_get_networkid_req(struct mctp_msg *request, size_t length,
-			      struct mctp_ctrl_msg_hdr *ctrl_hdr)
+decode_rc mctp_decode_get_networkid_req(const struct mctp_msg *request,
+					const size_t length,
+					struct mctp_ctrl_msg_hdr *ctrl_hdr)
 {
 	if (request == NULL || ctrl_hdr == NULL)
 		return DECODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_get_networkid_req))
 		return DECODE_GENERIC_ERROR;
 
-	struct mctp_ctrl_cmd_get_networkid_req *req =
-		(struct mctp_ctrl_cmd_get_networkid_req *)request;
-	if (req->ctrl_msg_hdr.command_code != MCTP_CTRL_CMD_GET_NETWORK_ID)
+	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_NETWORK_ID)
 		return DECODE_GENERIC_ERROR;
-
-	*ctrl_hdr = req->ctrl_msg_hdr;
-  	return DECODE_SUCCESS;
+	return DECODE_SUCCESS;
 }
 
 decode_rc mctp_decode_get_uuid_req(const struct mctp_msg *request,
@@ -117,5 +116,64 @@ decode_rc mctp_decode_get_uuid_req(const struct mctp_msg *request,
 	*ctrl_hdr = req->ctrl_msg_hdr;
 	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_ENDPOINT_UUID)
 		return DECODE_GENERIC_ERROR;
+	return DECODE_SUCCESS;
+}
+
+decode_rc mctp_decode_get_routing_table_req(const struct mctp_msg *request,
+					    const size_t length,
+					    struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					    uint8_t *entry_handle)
+{
+	if (request == NULL || ctrl_hdr == NULL || entry_handle == NULL)
+		return DECODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_routing_table_req))
+		return DECODE_GENERIC_ERROR;
+	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_ROUTING_TABLE_ENTRIES)
+		return DECODE_GENERIC_ERROR;
+
+	struct mctp_ctrl_cmd_get_routing_table_req *req =
+		(struct mctp_ctrl_cmd_get_routing_table_req *)request;
+	*entry_handle = req->entry_handle;
+	return DECODE_SUCCESS;
+}
+
+decode_rc mctp_decode_get_ver_support_req(const struct mctp_msg *request,
+					  const size_t length,
+					  struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					  uint8_t *msg_type_number)
+{
+	if (request == NULL || ctrl_hdr == NULL || msg_type_number == NULL)
+		return DECODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support))
+		return DECODE_GENERIC_ERROR;
+	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT)
+		return DECODE_GENERIC_ERROR;
+	struct mctp_ctrl_cmd_get_mctp_ver_support *req =
+		(struct mctp_ctrl_cmd_get_mctp_ver_support *)request;
+	*msg_type_number = req->msg_type_number;
+	return DECODE_SUCCESS;
+}
+
+decode_rc mctp_decode_get_eid_req(const struct mctp_msg *request,
+				  const size_t length,
+				  struct mctp_ctrl_msg_hdr *ctrl_hdr)
+{
+	if (request == NULL || ctrl_hdr == NULL)
+		return DECODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_eid))
+		return DECODE_GENERIC_ERROR;
+	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_ENDPOINT_ID)
+		return DECODE_GENERIC_ERROR;
+
 	return DECODE_SUCCESS;
 }

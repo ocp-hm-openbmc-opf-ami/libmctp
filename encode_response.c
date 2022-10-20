@@ -92,14 +92,13 @@ encode_rc mctp_encode_get_uuid_resp(struct mctp_msg *response,
 	return ENCODE_SUCCESS;
 }
 
-encode_decode_api_return_code
-mctp_encode_get_networkid_resp(struct mctp_msg *response, size_t length,
-			       guid_t *networkid)
+encode_rc mctp_encode_get_networkid_resp(struct mctp_msg *response,
+					 const size_t length, guid_t *networkid)
 {
 	if (response == NULL)
-		return INPUT_ERROR;
+		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_get_networkid_resp))
-		return GENERIC_ERROR;
+		return ENCODE_GENERIC_ERROR;
 	struct mctp_ctrl_get_networkid_resp *resp =
 		(struct mctp_ctrl_get_networkid_resp *)(response);
 	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
@@ -108,8 +107,8 @@ mctp_encode_get_networkid_resp(struct mctp_msg *response, size_t length,
 	return ENCODE_SUCCESS;
 }
 
-encode_decode_api_return_code mctp_encode_get_routing_table_resp(
-	struct mctp_msg *response, size_t length,
+encode_rc mctp_encode_get_routing_table_resp(
+	struct mctp_msg *response, const size_t length,
 	struct get_routing_table_entry_with_address *entries,
 	uint8_t no_of_entries, size_t *resp_size,
 	const uint8_t next_entry_handle)
@@ -118,10 +117,10 @@ encode_decode_api_return_code mctp_encode_get_routing_table_resp(
 	uint16_t i;
 
 	if (!response || !entries || !resp_size)
-		return INPUT_ERROR;
+		return ENCODE_INPUT_ERROR;
 
 	if (length < sizeof(struct mctp_ctrl_resp_get_routing_table))
-		return GENERIC_ERROR;
+		return ENCODE_GENERIC_ERROR;
 	struct mctp_ctrl_resp_get_routing_table *resp =
 		(struct mctp_ctrl_resp_get_routing_table *)(response);
 
@@ -143,5 +142,43 @@ encode_decode_api_return_code mctp_encode_get_routing_table_resp(
 		cur_entry += current_entry_size;
 	}
 	*resp_size = (size_t)(cur_entry - (uint8_t *)(resp));
+	return ENCODE_SUCCESS;
+}
+
+encode_rc mctp_encode_get_ver_support_resp(struct mctp_msg *response,
+					   const size_t length,
+					   uint8_t rq_dgram_inst,
+					   uint8_t number_of_entries)
+{
+	if (response == NULL)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_resp_get_mctp_ver_support))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	struct mctp_ctrl_resp_get_mctp_ver_support *resp =
+		(struct mctp_ctrl_resp_get_mctp_ver_support *)(response);
+	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	resp->number_of_entries = number_of_entries;
+	return ENCODE_SUCCESS;
+}
+
+encode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
+				   const size_t length, uint8_t rq_dgram_inst,
+				   mctp_eid_t eid, uint8_t eid_type,
+				   uint8_t medium_data)
+{
+	if (response == NULL)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_resp_get_eid))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_ENDPOINT_ID);
+	struct mctp_ctrl_resp_get_eid *resp =
+		(struct mctp_ctrl_resp_get_eid *)(response);
+	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	resp->eid = eid;
+	resp->eid_type = eid_type;
+	resp->medium_data = medium_data;
 	return ENCODE_SUCCESS;
 }
