@@ -93,10 +93,9 @@ decode_rc mctp_decode_get_uuid_req(const struct mctp_msg *request,
 	if (length < sizeof(struct mctp_ctrl_cmd_get_uuid))
 		return DECODE_GENERIC_ERROR;
 
-	struct mctp_ctrl_cmd_get_uuid *req =
-		(struct mctp_ctrl_cmd_get_uuid *)request;
-
-	*ctrl_hdr = req->ctrl_msg_hdr;
+	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
 	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_ENDPOINT_UUID)
 		return DECODE_GENERIC_ERROR;
 

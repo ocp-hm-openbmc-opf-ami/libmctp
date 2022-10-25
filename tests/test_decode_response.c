@@ -8,12 +8,14 @@
 static void test_decode_resolve_eid_resp()
 {
 	decode_rc ret;
-	uint8_t packed_packet[] = { 0,
-				    1,
-				    (uint8_t)MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID,
-				    (uint8_t)MCTP_CTRL_CC_SUCCESS,
-				    10,
-				    12 };
+	uint8_t packed_packet[] = {
+		0,
+		1,
+		(uint8_t)MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID,
+		(uint8_t)MCTP_CTRL_CC_SUCCESS,
+		10, // Bridge EID
+		12 // Phsyical address
+	};
 	struct mctp_ctrl_cmd_resolve_eid_resp *response =
 		(struct mctp_ctrl_cmd_resolve_eid_resp *)packed_packet;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
@@ -30,24 +32,26 @@ static void test_decode_resolve_eid_resp()
 	assert(ctrl_hdr.ic_msg_type == response->ctrl_msg_hdr.ic_msg_type);
 	assert(completion_code == response->completion_code);
 	assert(bridge_eid == response->bridge_eid);
+	assert(address.data_size ==
+	       sizeof(packed_packet) -
+		       sizeof(struct mctp_ctrl_cmd_resolve_eid_resp));
 	assert(!memcmp(address.data,
 		       (uint8_t *)response +
 			       sizeof(struct mctp_ctrl_cmd_resolve_eid_resp),
 		       address.data_size));
-	assert(address.data_size ==
-	       sizeof(packed_packet) -
-		       sizeof(struct mctp_ctrl_cmd_resolve_eid_resp));
 }
 
 static void test_negative_decode_resolve_eid_resp()
 {
 	decode_rc ret;
-	uint8_t packed_packet[] = { 0,
-				    1,
-				    (uint8_t)MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID,
-				    (uint8_t)MCTP_CTRL_CC_SUCCESS,
-				    10,
-				    12 };
+	uint8_t packed_packet[] = {
+		0,
+		1,
+		(uint8_t)MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID,
+		(uint8_t)MCTP_CTRL_CC_SUCCESS,
+		10, // Bridge EID
+		12 // Phsyical address
+	};
 	struct mctp_ctrl_cmd_resolve_eid_resp *response =
 		(struct mctp_ctrl_cmd_resolve_eid_resp *)packed_packet;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
