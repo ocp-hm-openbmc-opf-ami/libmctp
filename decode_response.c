@@ -26,6 +26,8 @@ decode_rc mctp_decode_resolve_eid_resp(const struct mctp_msg *response,
 	if (response == NULL || ctrl_hdr == NULL || bridge_eid == NULL ||
 	    completion_code == NULL || address == NULL)
 		return DECODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_resolve_eid_resp))
+		return DECODE_GENERIC_ERROR;
 
 	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
 			       &ctrl_hdr->rq_dgram_inst,
@@ -37,8 +39,7 @@ decode_rc mctp_decode_resolve_eid_resp(const struct mctp_msg *response,
 	*completion_code = resp->completion_code;
 	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
 		return DECODE_CC_ERROR;
-	if (length < sizeof(struct mctp_ctrl_cmd_resolve_eid_resp))
-		return DECODE_GENERIC_ERROR;
+
 	*bridge_eid = resp->bridge_eid;
 	address->data =
 		(uint8_t *)resp + sizeof(struct mctp_ctrl_cmd_resolve_eid_resp);
@@ -67,6 +68,8 @@ decode_rc mctp_decode_allocate_endpoint_id_resp(
 		(struct mctp_ctrl_cmd_allocate_eids_resp *)(response);
 
 	*cc = resp->completion_code;
+	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return DECODE_CC_ERROR;
 	*op = resp->operation;
 	*eid_pool_size = resp->eid_pool_size;
 	*first_eid = resp->first_eid;
@@ -112,18 +115,16 @@ decode_rc mctp_decode_get_uuid_resp(const struct mctp_msg *response,
 	if (response == NULL || completion_code == NULL || uuid == NULL ||
 	    ctrl_hdr == NULL)
 		return DECODE_INPUT_ERROR;
-
-	if (length < MIN_RESP_LENGTH)
-		return DECODE_GENERIC_ERROR;
 	if (length < sizeof(struct mctp_ctrl_resp_get_uuid))
 		return DECODE_GENERIC_ERROR;
 	struct mctp_ctrl_resp_get_uuid *resp =
 		(struct mctp_ctrl_resp_get_uuid *)(response);
 
-	*ctrl_hdr = resp->ctrl_hdr;
+	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
 	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_ENDPOINT_UUID)
 		return DECODE_GENERIC_ERROR;
-
 	*completion_code = resp->completion_code;
 	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
 		return DECODE_CC_ERROR;
