@@ -297,6 +297,7 @@ static void test_decode_get_networkid_resp()
 	assert(completion_code == response.completion_code);
 	assert(network_id.canonical.data1 ==
 	       response.networkid.canonical.data1);
+	assert(memcmp(&response.networkid, &network_id, sizeof(guid_t)) == 0);
 }
 
 static void test_negative_decode_get_networkid_resp()
