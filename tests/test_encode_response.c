@@ -227,16 +227,17 @@ static void test_encode_get_networkid_resp()
 static void test_negative_encode_get_networkid_resp()
 {
 	encode_rc ret;
-	struct mctp_msg *response = NULL;
+	struct mctp_msg response;
 	guid_t networkid;
 
 	ret = mctp_encode_get_networkid_resp(
-		response, sizeof(struct mctp_ctrl_get_networkid_resp),
-		&networkid);
+		NULL, sizeof(struct mctp_ctrl_get_networkid_resp), &networkid);
 	assert(ret == ENCODE_INPUT_ERROR);
-	struct mctp_msg request1;
-	ret = mctp_encode_get_networkid_resp(&request1, 0, &networkid);
+	ret = mctp_encode_get_networkid_resp(&response, 0, &networkid);
 	assert(ret == ENCODE_GENERIC_ERROR);
+	ret = mctp_encode_get_networkid_resp(
+		&response, sizeof(struct mctp_ctrl_get_networkid_resp), NULL);
+	assert(ret == ENCODE_INPUT_ERROR);
 }
 
 static void test_encode_get_routing_table_resp(void)
@@ -274,39 +275,15 @@ static void test_encode_get_routing_table_resp(void)
 	assert(response.completion_code == MCTP_CTRL_CC_SUCCESS);
 	assert(response.next_entry_handle == 0xFF);
 	assert(response.number_of_entries == 0x01);
+
 	next_entry_handle = 0xFF;
 
-	assert(ENCODE_INPUT_ERROR ==
-	       mctp_encode_get_routing_table_resp(
-		       NULL, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, &new_size, next_entry_handle));
-	assert(ENCODE_INPUT_ERROR ==
-	       mctp_encode_get_routing_table_resp(
-		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       NULL, 1, &new_size, next_entry_handle));
-	assert(ENCODE_INPUT_ERROR ==
-	       mctp_encode_get_routing_table_resp(
-		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, NULL, next_entry_handle));
 	assert(ENCODE_SUCCESS ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       entries, 0, &new_size, next_entry_handle));
 
 	next_entry_handle = 0x01;
-
-	assert(ENCODE_INPUT_ERROR ==
-	       mctp_encode_get_routing_table_resp(
-		       NULL, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, &new_size, next_entry_handle));
-	assert(ENCODE_INPUT_ERROR ==
-	       mctp_encode_get_routing_table_resp(
-		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       NULL, 1, &new_size, next_entry_handle));
-	assert(ENCODE_INPUT_ERROR ==
-	       mctp_encode_get_routing_table_resp(
-		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, NULL, next_entry_handle));
 	assert(ENCODE_SUCCESS ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
@@ -329,15 +306,6 @@ static void test_negative_encode_get_routing_table_resp()
 	size_t new_size = 0;
 	uint8_t next_entry_handle = 0x01;
 
-	assert(mctp_encode_get_routing_table_resp(
-		resp, sizeof(struct mctp_ctrl_resp_get_routing_table), entries,
-		1, &new_size, next_entry_handle));
-	next_entry_handle = 0xFF;
-	assert(mctp_encode_get_routing_table_resp(
-		resp, sizeof(struct mctp_ctrl_resp_get_routing_table), entries,
-		1, &new_size, next_entry_handle));
-	next_entry_handle = 0xFF;
-
 	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       NULL, sizeof(struct mctp_ctrl_resp_get_routing_table),
@@ -350,10 +318,23 @@ static void test_negative_encode_get_routing_table_resp()
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
 		       entries, 1, NULL, next_entry_handle));
-	assert(ENCODE_SUCCESS ==
+	assert(ENCODE_GENERIC_ERROR ==
+	       mctp_encode_get_routing_table_resp(
+		       resp, 0, entries, 1, &new_size, next_entry_handle));
+
+	next_entry_handle = 0xFF;
+	assert(ENCODE_INPUT_ERROR ==
+	       mctp_encode_get_routing_table_resp(
+		       NULL, sizeof(struct mctp_ctrl_resp_get_routing_table),
+		       entries, 1, &new_size, next_entry_handle));
+	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 0, &new_size, next_entry_handle));
+		       NULL, 1, &new_size, next_entry_handle));
+	assert(ENCODE_INPUT_ERROR ==
+	       mctp_encode_get_routing_table_resp(
+		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
+		       entries, 1, NULL, next_entry_handle));
 	assert(ENCODE_GENERIC_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, 0, entries, 1, &new_size, next_entry_handle));

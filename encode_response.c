@@ -95,7 +95,7 @@ encode_rc mctp_encode_get_uuid_resp(struct mctp_msg *response,
 encode_rc mctp_encode_get_networkid_resp(struct mctp_msg *response,
 					 const size_t length, guid_t *networkid)
 {
-	if (response == NULL)
+	if (response == NULL || networkid == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_get_networkid_resp))
 		return ENCODE_GENERIC_ERROR;
@@ -137,7 +137,7 @@ encode_rc mctp_encode_get_routing_table_resp(
 			entries[entry_num].routing_info.phys_address_size -
 			MAX_PHYSICAL_ADDRESS_SIZE;
 		cur_size = cur_size + current_entry_size;
-		if (length < cur_size)
+		if (length > cur_size)
 			return ENCODE_GENERIC_ERROR;
 		memcpy(cur_entry, entries + entry_num, current_entry_size);
 		cur_entry += current_entry_size;
