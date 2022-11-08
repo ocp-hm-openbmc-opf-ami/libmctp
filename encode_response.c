@@ -95,7 +95,7 @@ encode_rc mctp_encode_get_uuid_resp(struct mctp_msg *response,
 encode_rc mctp_encode_get_networkid_resp(struct mctp_msg *response,
 					 const size_t length, guid_t *networkid)
 {
-	if (response == NULL)
+	if (response == NULL || networkid == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_get_networkid_resp))
 		return ENCODE_GENERIC_ERROR;
@@ -114,7 +114,8 @@ encode_rc mctp_encode_get_routing_table_resp(
 	const uint8_t next_entry_handle)
 {
 	uint8_t *cur_entry;
-	uint16_t i;
+	uint8_t entry_num;
+	size_t cur_size;
 
 	if (!response || !entries || !resp_size)
 		return ENCODE_INPUT_ERROR;
@@ -125,20 +126,20 @@ encode_rc mctp_encode_get_routing_table_resp(
 		(struct mctp_ctrl_resp_get_routing_table *)(response);
 
 	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
-	/* All entries will be enclosed in a single response.
-	*  So next entry handle will be 0xFF to indicate that
-	*  there is no more entries
-	*/
+
 	resp->next_entry_handle = next_entry_handle;
 	resp->number_of_entries = no_of_entries;
 	cur_entry = (uint8_t *)resp->entries;
-
-	for (i = 0; i < no_of_entries; i++) {
+	cur_size = sizeof(struct mctp_ctrl_resp_get_routing_table);
+	for (entry_num = 0; entry_num < no_of_entries; entry_num++) {
 		size_t current_entry_size =
 			sizeof(struct get_routing_table_entry_with_address) +
-			entries[i].routing_info.phys_address_size -
+			entries[entry_num].routing_info.phys_address_size -
 			MAX_PHYSICAL_ADDRESS_SIZE;
-		memcpy(cur_entry, entries + i, current_entry_size);
+		cur_size = cur_size + current_entry_size;
+		if (length > cur_size)
+			return ENCODE_GENERIC_ERROR;
+		memcpy(cur_entry, entries + entry_num, current_entry_size);
 		cur_entry += current_entry_size;
 	}
 	*resp_size = (size_t)(cur_entry - (uint8_t *)(resp));
