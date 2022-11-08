@@ -117,7 +117,7 @@ encode_rc mctp_encode_get_ver_support_req(struct mctp_msg *request,
 	if (length < sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support))
 		return ENCODE_GENERIC_ERROR;
 	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
-			       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+			       MCTP_CTRL_CMD_GET_VERSION_SUPPORT);
 
 	struct mctp_ctrl_cmd_get_mctp_ver_support *req =
 		(struct mctp_ctrl_cmd_get_mctp_ver_support *)request;

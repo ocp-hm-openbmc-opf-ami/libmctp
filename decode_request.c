@@ -153,7 +153,7 @@ decode_rc mctp_decode_get_ver_support_req(const struct mctp_msg *request,
 			       &ctrl_hdr->rq_dgram_inst,
 			       &ctrl_hdr->command_code);
 
-	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT)
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_VERSION_SUPPORT)
 		return DECODE_GENERIC_ERROR;
 	struct mctp_ctrl_cmd_get_mctp_ver_support *req =
 		(struct mctp_ctrl_cmd_get_mctp_ver_support *)request;

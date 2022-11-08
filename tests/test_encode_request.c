@@ -239,7 +239,7 @@ static void test_encode_get_ver_support_req()
 		rq_d_inst, msg_type_number);
 	assert(ret == ENCODE_SUCCESS);
 	assert(request.ctrl_msg_hdr.command_code ==
-	       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	       MCTP_CTRL_CMD_GET_VERSION_SUPPORT);
 	assert(request.ctrl_msg_hdr.rq_dgram_inst == rq_d_inst);
 	assert(request.ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
 	assert(request.msg_type_number == msg_type_number);

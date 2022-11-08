@@ -305,7 +305,7 @@ static void test_decode_get_ver_support_req()
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
 	request.ctrl_msg_hdr.command_code =
-		MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT;
+		MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
 	request.msg_type_number = 9;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 

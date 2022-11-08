@@ -155,7 +155,7 @@ encode_rc mctp_encode_get_ver_support_resp(struct mctp_msg *response,
 	if (length < sizeof(struct mctp_ctrl_resp_get_mctp_ver_support))
 		return ENCODE_GENERIC_ERROR;
 	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
-			       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+			       MCTP_CTRL_CMD_GET_VERSION_SUPPORT);
 	struct mctp_ctrl_resp_get_mctp_ver_support *resp =
 		(struct mctp_ctrl_resp_get_mctp_ver_support *)(response);
 	resp->completion_code = MCTP_CTRL_CC_SUCCESS;

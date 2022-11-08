@@ -324,7 +324,7 @@ static void test_encode_get_ver_support_resp()
 		rq_d_inst, number_of_entries);
 	assert(ret == ENCODE_SUCCESS);
 	assert(response.ctrl_hdr.command_code ==
-	       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	       MCTP_CTRL_CMD_GET_VERSION_SUPPORT);
 	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
 	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
 	assert(response.number_of_entries == number_of_entries);

@@ -360,7 +360,7 @@ static void test_decode_get_ver_support_resp()
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code =
-		MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT;
+		MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
 	response.number_of_entries = 9;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 
@@ -386,7 +386,7 @@ static void test_negative_decode_get_ver_support_resp()
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	response.ctrl_hdr.command_code =
-		MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT;
+		MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
 
 	ret = mctp_decode_get_ver_support_resp(
 		NULL, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
