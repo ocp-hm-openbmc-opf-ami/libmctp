@@ -328,23 +328,23 @@ static void test_negative_decode_get_ver_support_req()
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 
 	ret = mctp_decode_get_ver_support_req(
-		NULL, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		NULL, sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support),
 		&ctrl_hdr, &msg_type_number);
 	assert(ret == DECODE_INPUT_ERROR);
 	ret = mctp_decode_get_ver_support_req(req, 0, &ctrl_hdr,
 					      &msg_type_number);
 	assert(ret == DECODE_GENERIC_ERROR);
 	ret = mctp_decode_get_ver_support_req(
-		req, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support), NULL,
+		req, sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support), NULL,
 		&msg_type_number);
 	assert(ret == DECODE_INPUT_ERROR);
 	ret = mctp_decode_get_ver_support_req(
-		req, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		req, sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support),
 		&ctrl_hdr, NULL);
 	assert(ret == DECODE_INPUT_ERROR);
 	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESERVED;
 	ret = mctp_decode_get_ver_support_req(
-		req, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		req, sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support),
 		&ctrl_hdr, &msg_type_number);
 	assert(ret == DECODE_GENERIC_ERROR);
 }
