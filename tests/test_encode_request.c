@@ -294,6 +294,44 @@ static void test_negative_encode_get_eid_req()
 	assert(ret == ENCODE_GENERIC_ERROR);
 }
 
+static void test_encode_get_vdm_support_req()
+{
+	encode_rc ret;
+	uint8_t vid_set_selector = 9;
+	uint8_t expected_instance_id = 0x01;
+	struct mctp_ctrl_cmd_get_vdm_support request;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+
+	ret = mctp_encode_get_vdm_support_req(
+		req, sizeof(struct mctp_ctrl_cmd_get_vdm_support), rq_d_inst,
+		vid_set_selector);
+	assert(ret == ENCODE_SUCCESS);
+	assert(request.ctrl_msg_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	assert(request.ctrl_msg_hdr.rq_dgram_inst == rq_d_inst);
+	assert(request.ctrl_msg_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(request.vendor_id_set_selector == vid_set_selector);
+}
+
+static void test_negative_encode_get_vdm_support_req()
+{
+	encode_rc ret;
+	uint8_t vid_set_selector = 9;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	struct mctp_msg *request = NULL;
+
+	ret = mctp_encode_get_vdm_support_req(
+		request, sizeof(struct mctp_ctrl_cmd_get_vdm_support),
+		rq_d_inst, vid_set_selector);
+	assert(ret == ENCODE_INPUT_ERROR);
+	struct mctp_msg request1;
+	ret = mctp_encode_get_vdm_support_req(&request1, 0, rq_d_inst,
+					      vid_set_selector);
+	assert(ret == ENCODE_GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_encode_resolve_eid_req();
@@ -304,6 +342,7 @@ int main(int argc, char *argv[])
 	test_encode_get_routing_table_req();
 	test_encode_get_ver_support_req();
 	test_encode_get_eid_req();
+	test_encode_get_vdm_support_req();
 
 	/*Negative test cases */
 	test_negative_encode_resolve_eid_req();
@@ -314,6 +353,7 @@ int main(int argc, char *argv[])
 	test_negative_encode_get_routing_table_req();
 	test_negative_encode_get_ver_support_req();
 	test_negative_encode_get_eid_req();
+	test_negative_encode_get_vdm_support_req();
 
 	return EXIT_SUCCESS;
 }

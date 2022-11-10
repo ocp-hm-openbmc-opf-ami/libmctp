@@ -45,6 +45,13 @@ encode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 				   mctp_eid_t eid, uint8_t eid_type,
 				   uint8_t medium_data);
 
+encode_rc mctp_encode_get_vdm_support_resp(struct mctp_msg *response,
+					   const size_t length,
+					   uint8_t rq_dgram_inst,
+					   uint8_t vendor_id_set_selector,
+					   uint8_t vendor_id_format,
+					   uint16_t vendor_id_data_pcie);
+
 #ifdef __cplusplus
 }
 #endif

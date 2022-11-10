@@ -420,6 +420,53 @@ static void test_negative_encode_get_eid_resp()
 	assert(ret == ENCODE_GENERIC_ERROR);
 }
 
+static void test_encode_get_vdm_support_resp()
+{
+	encode_rc ret;
+	uint8_t vendor_id_set_selector = 9;
+	uint8_t vendor_id_format = 8;
+	uint16_t vendor_id_data_pcie = 9;
+	uint8_t expected_instance_id = 0x01;
+	struct mctp_ctrl_resp_get_vdm_support response;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_encode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), rq_d_inst,
+		vendor_id_set_selector, vendor_id_format, vendor_id_data_pcie);
+	assert(ret == ENCODE_SUCCESS);
+	assert(response.ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(response.vendor_id_set_selector == vendor_id_set_selector);
+	assert(response.vendor_id_format == vendor_id_format);
+	assert(response.vendor_id_data_pcie == vendor_id_data_pcie);
+}
+
+static void test_negative_encode_get_vdm_support_resp()
+{
+	encode_rc ret;
+	uint8_t vendor_id_set_selector = 9;
+	uint8_t vendor_id_format = 8;
+	uint16_t vendor_id_data_pcie = 9;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	struct mctp_msg *response = NULL;
+
+	ret = mctp_encode_get_vdm_support_resp(
+		response, sizeof(struct mctp_ctrl_resp_get_vdm_support),
+		rq_d_inst, vendor_id_set_selector, vendor_id_format,
+		vendor_id_data_pcie);
+	assert(ret == ENCODE_INPUT_ERROR);
+	struct mctp_msg response1;
+	ret = mctp_encode_get_vdm_support_resp(&response1, 0, rq_d_inst,
+					       vendor_id_set_selector,
+					       vendor_id_format,
+					       vendor_id_data_pcie);
+	assert(ret == ENCODE_GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_encode_resolve_eid_resp();
@@ -430,6 +477,7 @@ int main(int argc, char *argv[])
 	test_encode_get_routing_table_resp();
 	test_encode_get_ver_support_resp();
 	test_encode_get_eid_resp();
+	test_encode_get_vdm_support_resp();
 
 	/*Negative test cases */
 	test_negative_encode_resolve_eid_resp();
@@ -440,6 +488,7 @@ int main(int argc, char *argv[])
 	test_negative_encode_get_routing_table_resp();
 	test_negative_encode_get_ver_support_resp();
 	test_negative_encode_get_eid_resp();
+	test_negative_encode_get_vdm_support_resp();
 
 	return EXIT_SUCCESS;
 }

@@ -183,3 +183,26 @@ encode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 	resp->medium_data = medium_data;
 	return ENCODE_SUCCESS;
 }
+
+encode_rc mctp_encode_get_vdm_support_resp(struct mctp_msg *response,
+					   const size_t length,
+					   uint8_t rq_dgram_inst,
+					   uint8_t vendor_id_set_selector,
+					   uint8_t vendor_id_format,
+					   uint16_t vendor_id_data_pcie)
+{
+	if (response == NULL)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_resp_get_vdm_support))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	struct mctp_ctrl_resp_get_vdm_support *resp =
+		(struct mctp_ctrl_resp_get_vdm_support *)response;
+	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	resp->vendor_id_set_selector = vendor_id_set_selector;
+	resp->vendor_id_format = vendor_id_format;
+	resp->vendor_id_data_pcie = vendor_id_data_pcie;
+
+	return ENCODE_SUCCESS;
+}

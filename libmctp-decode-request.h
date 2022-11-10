@@ -44,6 +44,11 @@ decode_rc mctp_decode_get_eid_req(const struct mctp_msg *request,
 				  const size_t length,
 				  struct mctp_ctrl_msg_hdr *ctrl_hdr);
 
+decode_rc mctp_decode_get_vdm_support_req(const struct mctp_msg *request,
+					  const size_t length,
+					  struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					  uint8_t *vid_set_selector);
+
 #ifdef __cplusplus
 }
 #endif

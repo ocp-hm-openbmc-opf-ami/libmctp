@@ -213,3 +213,35 @@ decode_rc mctp_decode_get_eid_resp(const struct mctp_msg *response,
 	*medium_data = resp->medium_data;
 	return DECODE_SUCCESS;
 }
+
+decode_rc mctp_decode_get_vdm_support_resp(const struct mctp_msg *response,
+					   const size_t length,
+					   struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					   uint8_t *completion_code,
+					   uint8_t *vendor_id_set_selector,
+					   uint8_t *vendor_id_format,
+					   uint16_t *vendor_id_data_pcie)
+{
+	if (response == NULL || ctrl_hdr == NULL || completion_code == NULL ||
+	    vendor_id_set_selector == NULL || vendor_id_format == NULL ||
+	    vendor_id_data_pcie == NULL)
+		return DECODE_INPUT_ERROR;
+
+	if (length < sizeof(struct mctp_ctrl_resp_get_vdm_support))
+		return DECODE_GENERIC_ERROR;
+	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT)
+		return DECODE_GENERIC_ERROR;
+	struct mctp_ctrl_resp_get_vdm_support *resp =
+		(struct mctp_ctrl_resp_get_vdm_support *)(response);
+
+	*completion_code = resp->completion_code;
+	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return DECODE_CC_ERROR;
+	*vendor_id_set_selector = resp->vendor_id_set_selector;
+	*vendor_id_format = resp->vendor_id_format;
+	*vendor_id_data_pcie = resp->vendor_id_data_pcie;
+	return DECODE_SUCCESS;
+}
