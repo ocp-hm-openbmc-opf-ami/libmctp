@@ -41,8 +41,7 @@ decode_rc mctp_decode_resolve_eid_resp(const struct mctp_msg *response,
 		return DECODE_CC_ERROR;
 
 	*bridge_eid = resp->bridge_eid;
-	address->data =
-		(uint8_t *)resp + sizeof(struct mctp_ctrl_cmd_resolve_eid_resp);
+	address->data = resp->physical_address;
 	address->data_size =
 		length - sizeof(struct mctp_ctrl_cmd_resolve_eid_resp);
 	return DECODE_SUCCESS;

@@ -73,7 +73,7 @@ static void test_negative_encode_resolve_eid_resp()
 			sizeof(phy_address),
 		(instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), bridge_eid,
 		&address);
-	assert(ret == ENCODE_GENERIC_ERROR);
+	assert(ret == ENCODE_INPUT_ERROR);
 }
 
 static void test_encode_allocate_eid_pool_resp()

@@ -20,7 +20,7 @@ encode_rc mctp_encode_resolve_eid_resp(struct mctp_msg *response,
 				       uint8_t bridge_eid,
 				       struct variable_field *address)
 {
-	if (response == NULL || address == NULL)
+	if (response == NULL || address == NULL || address->data == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length <
 	    sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) + address->data_size)
@@ -31,12 +31,8 @@ encode_rc mctp_encode_resolve_eid_resp(struct mctp_msg *response,
 		(struct mctp_ctrl_cmd_resolve_eid_resp *)(response);
 	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
 	resp->bridge_eid = bridge_eid;
-	if (address->data != NULL) {
-		memcpy(resp->physical_address, address->data,
-		       address->data_size);
-	} else {
-		return ENCODE_GENERIC_ERROR;
-	}
+
+	memcpy(resp->physical_address, address->data, address->data_size);
 	return ENCODE_SUCCESS;
 }
 
