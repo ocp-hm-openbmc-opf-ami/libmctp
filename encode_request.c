@@ -6,6 +6,8 @@
 static void encode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
 				   uint8_t rq_dgram_inst, uint8_t cmd_code)
 {
+	if (mctp_ctrl_hdr == NULL)
+		return;
 	mctp_ctrl_hdr->ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	mctp_ctrl_hdr->rq_dgram_inst = rq_dgram_inst;
 	mctp_ctrl_hdr->command_code = cmd_code;
