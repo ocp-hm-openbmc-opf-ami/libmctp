@@ -435,6 +435,44 @@ static void test_negative_encode_get_eid_resp()
 	assert(ret == ENCODE_GENERIC_ERROR);
 }
 
+static void test_encode_get_msg_type_support_resp()
+{
+	encode_rc ret;
+	struct mctp_ctrl_resp_get_msg_type_support response;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	uint8_t msg_type_count = 1;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_encode_get_msg_type_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_msg_type_support),
+		rq_d_inst, msg_type_count);
+	assert(ret == ENCODE_SUCCESS);
+
+	assert(response.ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_MESSAGE_TYPE_SUPPORT);
+	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(response.msg_type_count == msg_type_count);
+}
+
+static void test_negative_encode_get_msg_type_support_resp()
+{
+	encode_rc ret;
+	struct mctp_msg *response = NULL;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	uint8_t msg_type_count = 1;
+	ret = mctp_encode_get_msg_type_support_resp(
+		response, sizeof(struct mctp_ctrl_resp_get_msg_type_support),
+		rq_d_inst, msg_type_count);
+	assert(ret == ENCODE_INPUT_ERROR);
+	struct mctp_msg response1;
+	ret = mctp_encode_get_msg_type_support_resp(&response1, 0, rq_d_inst,
+						    msg_type_count);
+	assert(ret == ENCODE_GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_encode_resolve_eid_resp();
@@ -445,6 +483,7 @@ int main(int argc, char *argv[])
 	test_encode_get_routing_table_resp();
 	test_encode_get_ver_support_resp();
 	test_encode_get_eid_resp();
+	test_encode_get_msg_type_support_resp();
 
 	/*Negative test cases */
 	test_negative_encode_resolve_eid_resp();
@@ -455,6 +494,7 @@ int main(int argc, char *argv[])
 	test_negative_encode_get_routing_table_resp();
 	test_negative_encode_get_ver_support_resp();
 	test_negative_encode_get_eid_resp();
+	test_negative_encode_get_msg_type_support_resp();
 
 	return EXIT_SUCCESS;
 }

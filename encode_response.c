@@ -187,3 +187,21 @@ encode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 	resp->medium_data = medium_data;
 	return ENCODE_SUCCESS;
 }
+
+encode_rc mctp_encode_get_msg_type_support_resp(struct mctp_msg *response,
+						const size_t length,
+						uint8_t rq_dgram_inst,
+						uint8_t msg_type_count)
+{
+	if (response == NULL)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_resp_get_msg_type_support))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_MESSAGE_TYPE_SUPPORT);
+	struct mctp_ctrl_resp_get_msg_type_support *resp =
+		(struct mctp_ctrl_resp_get_msg_type_support *)(response);
+	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	resp->msg_type_count = msg_type_count;
+	return ENCODE_SUCCESS;
+}

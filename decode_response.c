@@ -213,3 +213,29 @@ decode_rc mctp_decode_get_eid_resp(const struct mctp_msg *response,
 	*medium_data = resp->medium_data;
 	return DECODE_SUCCESS;
 }
+
+decode_rc mctp_decode_get_msg_type_support_resp(
+	const struct mctp_msg *response, const size_t length,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *completion_code,
+	uint8_t *msg_type_count)
+{
+	if (response == NULL || ctrl_hdr == NULL || completion_code == NULL ||
+	    msg_type_count == NULL)
+		return DECODE_INPUT_ERROR;
+
+	if (length < sizeof(struct mctp_ctrl_resp_get_msg_type_support))
+		return DECODE_GENERIC_ERROR;
+	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_GET_MESSAGE_TYPE_SUPPORT)
+		return DECODE_GENERIC_ERROR;
+	struct mctp_ctrl_resp_get_msg_type_support *resp =
+		(struct mctp_ctrl_resp_get_msg_type_support *)(response);
+
+	*completion_code = resp->completion_code;
+	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return DECODE_CC_ERROR;
+	*msg_type_count = resp->msg_type_count;
+	return DECODE_SUCCESS;
+}

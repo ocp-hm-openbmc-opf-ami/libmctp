@@ -45,6 +45,11 @@ encode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 				   mctp_eid_t eid, uint8_t eid_type,
 				   uint8_t medium_data);
 
+encode_rc mctp_encode_get_msg_type_support_resp(struct mctp_msg *response,
+						const size_t length,
+						uint8_t rq_dgram_inst,
+						uint8_t msg_type_count);
+
 #ifdef __cplusplus
 }
 #endif

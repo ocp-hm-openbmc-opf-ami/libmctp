@@ -49,6 +49,11 @@ decode_rc mctp_decode_get_eid_resp(const struct mctp_msg *response,
 				   uint8_t *completion_code, mctp_eid_t *eid,
 				   uint8_t *eid_type, uint8_t *medium_data);
 
+decode_rc mctp_decode_get_msg_type_support_resp(
+	const struct mctp_msg *response, const size_t length,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *completion_code,
+	uint8_t *msg_type_count);
+
 #ifdef __cplusplus
 }
 #endif
