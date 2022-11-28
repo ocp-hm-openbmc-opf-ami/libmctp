@@ -460,8 +460,7 @@ static void test_decode_get_ver_support_resp()
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
-	response.ctrl_hdr.command_code =
-		MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
 	response.number_of_entries = 9;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 
@@ -486,8 +485,7 @@ static void test_negative_decode_get_ver_support_resp()
 	uint8_t completion_code;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
-	response.ctrl_hdr.command_code =
-		MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
 
 	ret = mctp_decode_get_ver_support_resp(
 		NULL, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
@@ -624,6 +622,74 @@ static void test_negative_decode_get_eid_resp()
 	assert(ret == DECODE_GENERIC_ERROR);
 }
 
+static void test_decode_endpoint_discovery_resp()
+{
+	decode_rc ret;
+	struct mctp_ctrl_resp_endpoint_discovery response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_ENDPOINT_DISCOVERY;
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	uint8_t completion_code;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_decode_endpoint_discovery_resp(
+		resp, sizeof(struct mctp_ctrl_resp_endpoint_discovery),
+		&ctrl_hdr, &completion_code);
+	assert(ret == DECODE_SUCCESS);
+
+	assert(ctrl_hdr.command_code == response.ctrl_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == response.ctrl_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == response.ctrl_hdr.ic_msg_type);
+	assert(response.completion_code == completion_code);
+}
+
+static void test_negative_decode_endpoint_discovery_resp()
+{
+	decode_rc ret;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct mctp_ctrl_resp_endpoint_discovery response;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+	uint8_t expected_instance_id = 0x01;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_ENDPOINT_DISCOVERY;
+
+	uint8_t completion_code;
+	ret = mctp_decode_endpoint_discovery_resp(
+		NULL, sizeof(struct mctp_ctrl_resp_endpoint_discovery),
+		&ctrl_hdr, &completion_code);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_endpoint_discovery_resp(
+		resp, sizeof(struct mctp_ctrl_resp_endpoint_discovery), NULL,
+		&completion_code);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_endpoint_discovery_resp(
+		resp, sizeof(struct mctp_ctrl_resp_endpoint_discovery),
+		&ctrl_hdr, NULL);
+	assert(ret == DECODE_INPUT_ERROR);
+
+	ret = mctp_decode_endpoint_discovery_resp(resp, 0, &ctrl_hdr,
+						  &completion_code);
+	assert(ret == DECODE_GENERIC_ERROR);
+	response.completion_code = MCTP_CTRL_CC_ERROR;
+	ret = mctp_decode_endpoint_discovery_resp(
+		resp, sizeof(struct mctp_ctrl_resp_endpoint_discovery),
+		&ctrl_hdr, &completion_code);
+	assert(ret == DECODE_CC_ERROR);
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
+	ret = mctp_decode_endpoint_discovery_resp(
+		resp, sizeof(struct mctp_ctrl_resp_endpoint_discovery),
+		&ctrl_hdr, &completion_code);
+	assert(ret == DECODE_GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_decode_resolve_eid_resp();
@@ -633,6 +699,7 @@ int main(int argc, char *argv[])
 	test_decode_get_uuid_resp();
 	test_decode_get_ver_support_resp();
 	test_decode_get_eid_resp();
+	test_decode_endpoint_discovery_resp();
 
 	/*Negative test cases */
 	test_negative_decode_resolve_eid_resp();
@@ -642,6 +709,7 @@ int main(int argc, char *argv[])
 	test_negative_decode_get_uuid_resp();
 	test_negative_decode_get_ver_support_resp();
 	test_negative_decode_get_eid_resp();
+	test_negative_decode_endpoint_discovery_resp();
 
 	return EXIT_SUCCESS;
 }

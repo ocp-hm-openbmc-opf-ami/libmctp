@@ -44,6 +44,11 @@ decode_rc mctp_decode_get_eid_req(const struct mctp_msg *request,
 				  const size_t length,
 				  struct mctp_ctrl_msg_hdr *ctrl_hdr);
 
+decode_rc
+mctp_decode_endpoint_discovery_req(const struct mctp_msg *request,
+				   const size_t length,
+				   struct mctp_ctrl_msg_hdr *ctrl_hdr);
+
 #ifdef __cplusplus
 }
 #endif

@@ -187,3 +187,19 @@ encode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 	resp->medium_data = medium_data;
 	return ENCODE_SUCCESS;
 }
+
+encode_rc mctp_encode_endpoint_discovery_resp(struct mctp_msg *response,
+					      const size_t length,
+					      uint8_t rq_dgram_inst)
+{
+	if (response == NULL)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_resp_endpoint_discovery))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_ENDPOINT_DISCOVERY);
+	struct mctp_ctrl_resp_endpoint_discovery *resp =
+		(struct mctp_ctrl_resp_endpoint_discovery *)(response);
+	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	return ENCODE_SUCCESS;
+}

@@ -140,6 +140,10 @@ struct mctp_ctrl_cmd_get_routing_table_req {
 	uint8_t entry_handle;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_cmd_endpoint_discovery_req {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+} __attribute__((__packed__));
+
 #define MCTP_CTRL_HDR_MSG_TYPE 0
 #define MCTP_CTRL_HDR_FLAG_REQUEST (1 << 7)
 #define MCTP_CTRL_HDR_FLAG_DGRAM (1 << 6)
