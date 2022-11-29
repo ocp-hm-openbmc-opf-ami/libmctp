@@ -338,8 +338,7 @@ static void test_decode_get_ver_support_req()
 	request.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
-	request.ctrl_msg_hdr.command_code =
-		MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
 	request.msg_type_number = 9;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 
@@ -426,6 +425,49 @@ static void test_negative_decode_get_eid_req()
 	assert(ret == DECODE_GENERIC_ERROR);
 }
 
+static void test_decode_discovery_notify_req()
+{
+	decode_rc ret;
+	uint8_t expected_instance_id = 0x01;
+	struct mctp_ctrl_cmd_discovery_notify request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	request.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_DISCOVERY_NOTIFY;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+
+	ret = mctp_decode_discovery_notify_req(
+		req, sizeof(struct mctp_ctrl_cmd_discovery_notify), &ctrl_hdr);
+	assert(ret == DECODE_SUCCESS);
+	assert(ctrl_hdr.command_code == request.ctrl_msg_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == request.ctrl_msg_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == request.ctrl_msg_hdr.ic_msg_type);
+}
+
+static void test_negative_decode_discovery_notify_req()
+{
+	decode_rc ret;
+	struct mctp_ctrl_cmd_discovery_notify request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_DISCOVERY_NOTIFY;
+
+	ret = mctp_decode_discovery_notify_req(
+		NULL, sizeof(struct mctp_ctrl_cmd_discovery_notify), &ctrl_hdr);
+	assert(ret == DECODE_INPUT_ERROR);
+	ret = mctp_decode_discovery_notify_req(
+		req, sizeof(struct mctp_ctrl_cmd_discovery_notify), NULL);
+	assert(ret == DECODE_INPUT_ERROR);
+
+	ret = mctp_decode_discovery_notify_req(req, 0, &ctrl_hdr);
+	assert(ret == DECODE_GENERIC_ERROR);
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+	ret = mctp_decode_discovery_notify_req(
+		req, sizeof(struct mctp_ctrl_cmd_discovery_notify), &ctrl_hdr);
+	assert(ret == DECODE_GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_decode_resolve_eid_req();
@@ -436,6 +478,7 @@ int main(int argc, char *argv[])
 	test_decode_get_routing_table_req();
 	test_decode_get_ver_support_req();
 	test_decode_get_eid_req();
+	test_decode_discovery_notify_req();
 
 	/*Negative test cases */
 	test_negative_decode_resolve_eid_req();
@@ -446,6 +489,7 @@ int main(int argc, char *argv[])
 	test_negative_decode_get_routing_table_req();
 	test_negative_decode_get_ver_support_req();
 	test_negative_decode_get_eid_req();
+	test_negative_decode_discovery_notify_req();
 
 	return EXIT_SUCCESS;
 }

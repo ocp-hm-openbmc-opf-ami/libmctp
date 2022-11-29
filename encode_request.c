@@ -139,3 +139,17 @@ encode_rc mctp_encode_get_eid_req(struct mctp_msg *request, const size_t length,
 
 	return ENCODE_SUCCESS;
 }
+
+encode_rc mctp_encode_discovery_notify_req(struct mctp_msg *request,
+					   const size_t length,
+					   uint8_t rq_dgram_inst)
+{
+	if (!request)
+		return ENCODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_discovery_notify))
+		return ENCODE_GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_DISCOVERY_NOTIFY);
+
+	return ENCODE_SUCCESS;
+}

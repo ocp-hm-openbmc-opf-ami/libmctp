@@ -176,3 +176,20 @@ decode_rc mctp_decode_get_eid_req(const struct mctp_msg *request,
 
 	return DECODE_SUCCESS;
 }
+
+decode_rc mctp_decode_discovery_notify_req(const struct mctp_msg *request,
+					   const size_t length,
+					   struct mctp_ctrl_msg_hdr *ctrl_hdr)
+{
+	if (request == NULL || ctrl_hdr == NULL)
+		return DECODE_INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_discovery_notify))
+		return DECODE_GENERIC_ERROR;
+	decode_ctrl_cmd_header(&request->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	if (ctrl_hdr->command_code != MCTP_CTRL_CMD_DISCOVERY_NOTIFY)
+		return DECODE_GENERIC_ERROR;
+
+	return DECODE_SUCCESS;
+}
