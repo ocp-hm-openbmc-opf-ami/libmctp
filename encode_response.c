@@ -7,6 +7,8 @@
 static void encode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
 				   uint8_t rq_dgram_inst, uint8_t cmd_code)
 {
+	if (mctp_ctrl_hdr == NULL)
+		return;
 	mctp_ctrl_hdr->ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	mctp_ctrl_hdr->rq_dgram_inst = rq_dgram_inst;
 	mctp_ctrl_hdr->command_code = cmd_code;
@@ -18,9 +20,10 @@ encode_rc mctp_encode_resolve_eid_resp(struct mctp_msg *response,
 				       uint8_t bridge_eid,
 				       struct variable_field *address)
 {
-	if (response == NULL || address == NULL)
+	if (response == NULL || address == NULL || address->data == NULL)
 		return ENCODE_INPUT_ERROR;
-	if (length < sizeof(struct mctp_ctrl_cmd_resolve_eid_resp))
+	if (length <
+	    sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) + address->data_size)
 		return ENCODE_GENERIC_ERROR;
 	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
@@ -28,6 +31,7 @@ encode_rc mctp_encode_resolve_eid_resp(struct mctp_msg *response,
 		(struct mctp_ctrl_cmd_resolve_eid_resp *)(response);
 	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
 	resp->bridge_eid = bridge_eid;
+
 	memcpy(resp->physical_address, address->data, address->data_size);
 	return ENCODE_SUCCESS;
 }
