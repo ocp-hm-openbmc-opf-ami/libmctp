@@ -119,6 +119,10 @@ struct mctp_ctrl_cmd_discovery_notify {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_cmd_prepare_discovery {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+} __attribute__((__packed__));
+
 struct mctp_ctrl_cmd_get_routing_table {
 	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
 	uint8_t entry_handle;

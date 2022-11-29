@@ -41,6 +41,10 @@ encode_rc mctp_encode_get_ver_support_req(struct mctp_msg *request,
 encode_rc mctp_encode_get_eid_req(struct mctp_msg *request, const size_t length,
 				  uint8_t rq_dgram_inst);
 
+encode_rc mctp_encode_prepare_discovery_req(struct mctp_msg *request,
+					    const size_t length,
+					    uint8_t rq_dgram_inst);
+
 #ifdef __cplusplus
 }
 #endif
