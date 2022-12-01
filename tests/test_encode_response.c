@@ -19,13 +19,14 @@ static void test_mctp_encode_resolve_eid_resp()
 	const uint8_t instance_id = 0x01;
 	uint8_t rq_d_inst = instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	const uint8_t bridge_eid = 10;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_msg *resp = (struct mctp_msg *)(response);
 
 	ret = mctp_encode_resolve_eid_resp(
 		resp,
 		sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) +
 			sizeof(phy_address),
-		rq_d_inst, bridge_eid, &address);
+		rq_d_inst, completion_code, bridge_eid, &address);
 	assert(ret == ENCODE_SUCCESS);
 	assert(response->ctrl_msg_hdr.command_code ==
 	       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
@@ -48,22 +49,24 @@ static void test_negative_encode_resolve_eid_resp()
 	address.data_size = sizeof(phy_address);
 	const uint8_t instance_id = 0x01;
 	const uint8_t bridge_eid = 10;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	ret = mctp_encode_resolve_eid_resp(
 		NULL,
 		sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) +
 			sizeof(phy_address),
-		(instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), bridge_eid,
-		&address);
+		(instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), completion_code,
+		bridge_eid, &address);
 	assert(ret == ENCODE_INPUT_ERROR);
 	ret = mctp_encode_resolve_eid_resp(
 		&response,
 		sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) +
 			sizeof(phy_address),
-		(instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), bridge_eid, NULL);
+		(instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), completion_code,
+		bridge_eid, NULL);
 	assert(ret == ENCODE_INPUT_ERROR);
 	ret = mctp_encode_resolve_eid_resp(
 		&response, 0, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
-		bridge_eid, &address);
+		completion_code, bridge_eid, &address);
 	assert(ret == ENCODE_GENERIC_ERROR);
 	address.data = NULL;
 	address.data_size = 0;
@@ -72,7 +75,7 @@ static void test_negative_encode_resolve_eid_resp()
 		sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) +
 			sizeof(phy_address),
 		(instance_id | MCTP_CTRL_HDR_FLAG_REQUEST), bridge_eid,
-		&address);
+		completion_code, &address);
 	assert(ret == ENCODE_INPUT_ERROR);
 }
 
@@ -85,11 +88,12 @@ static void test_encode_allocate_eid_pool_resp()
 	mctp_ctrl_cmd_allocate_eids_resp_op op = allocation_accepted;
 	uint8_t eid_pool_size = 10;
 	uint8_t first_eid = 9;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
 	ret = mctp_encode_allocate_endpoint_id_resp(
 		resp, sizeof(struct mctp_ctrl_cmd_allocate_eids_resp),
-		rq_d_inst, op, eid_pool_size, first_eid);
+		rq_d_inst, op, completion_code, eid_pool_size, first_eid);
 	assert(ret == ENCODE_SUCCESS);
 
 	assert(response.ctrl_hdr.command_code ==
@@ -110,14 +114,16 @@ static void test_negative_encode_allocate_eid_pool_resp()
 	mctp_ctrl_cmd_allocate_eids_resp_op op = allocation_accepted;
 	uint8_t eid_pool_size = 10;
 	uint8_t first_eid = 9;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 
 	ret = mctp_encode_allocate_endpoint_id_resp(
 		response, sizeof(struct mctp_ctrl_cmd_allocate_eids_resp),
-		rq_d_inst, op, eid_pool_size, first_eid);
+		rq_d_inst, op, completion_code, eid_pool_size, first_eid);
 	assert(ret == ENCODE_INPUT_ERROR);
 	struct mctp_msg response1;
-	ret = mctp_encode_allocate_endpoint_id_resp(
-		&response1, 0, rq_d_inst, op, eid_pool_size, first_eid);
+	ret = mctp_encode_allocate_endpoint_id_resp(&response1, 0, rq_d_inst,
+						    op, completion_code,
+						    eid_pool_size, first_eid);
 	assert(ret == ENCODE_GENERIC_ERROR);
 }
 
@@ -130,12 +136,13 @@ static void test_encode_set_eid_resp()
 	uint8_t eid_pool_size = 10;
 	uint8_t eid_set = 9;
 	uint8_t status = 8;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
 	ret = mctp_encode_set_eid_resp(resp,
 				       sizeof(struct mctp_ctrl_resp_set_eid),
-				       rq_d_inst, eid_pool_size, status,
-				       eid_set);
+				       rq_d_inst, completion_code,
+				       eid_pool_size, status, eid_set);
 	assert(ret == ENCODE_SUCCESS);
 
 	assert(response.ctrl_hdr.command_code == MCTP_CTRL_CMD_SET_ENDPOINT_ID);
@@ -155,14 +162,16 @@ static void test_negative_encode_set_eid_resp()
 	uint8_t eid_pool_size = 9;
 	uint8_t eid_set = 10;
 	uint8_t status = 8;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	ret = mctp_encode_set_eid_resp(response,
 				       sizeof(struct mctp_ctrl_resp_set_eid),
-				       rq_d_inst, eid_pool_size, status,
-				       eid_set);
+				       rq_d_inst, completion_code,
+				       eid_pool_size, status, eid_set);
 	assert(ret == ENCODE_INPUT_ERROR);
 	struct mctp_msg response1;
-	ret = mctp_encode_set_eid_resp(&response1, 0, rq_d_inst, eid_pool_size,
-				       status, eid_set);
+	ret = mctp_encode_set_eid_resp(&response1, 0, rq_d_inst,
+				       completion_code, eid_pool_size, status,
+				       eid_set);
 	assert(ret == ENCODE_GENERIC_ERROR);
 }
 
@@ -174,6 +183,7 @@ static void test_encode_get_uuid_resp()
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	/* 16 byte UUID */
 	char sample_uuid[16] = "61a3";
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	guid_t test_uuid;
 
 	/*doing memcpy of string literal*/
@@ -181,7 +191,7 @@ static void test_encode_get_uuid_resp()
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	ret = mctp_encode_get_uuid_resp(resp,
 					sizeof(struct mctp_ctrl_resp_get_uuid),
-					rq_d_inst, &test_uuid);
+					rq_d_inst, completion_code, &test_uuid);
 	assert(ret == ENCODE_SUCCESS);
 
 	assert(response.ctrl_hdr.command_code ==
@@ -197,18 +207,20 @@ static void test_negative_encode_get_uuid_resp()
 	struct mctp_msg *response = NULL;
 	uint8_t expected_instance_id = 0x01;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	guid_t test_uuid;
 
 	ret = mctp_encode_get_uuid_resp(response,
 					sizeof(struct mctp_ctrl_resp_get_uuid),
-					rq_d_inst, &test_uuid);
+					rq_d_inst, completion_code, &test_uuid);
 	assert(ret == ENCODE_INPUT_ERROR);
 	struct mctp_msg response1;
-	ret = mctp_encode_get_uuid_resp(&response1, 0, rq_d_inst, &test_uuid);
+	ret = mctp_encode_get_uuid_resp(&response1, 0, rq_d_inst,
+					completion_code, &test_uuid);
 	assert(ret == ENCODE_GENERIC_ERROR);
 	ret = mctp_encode_get_uuid_resp(&response1,
 					sizeof(struct mctp_ctrl_resp_get_uuid),
-					rq_d_inst, NULL);
+					rq_d_inst, completion_code, NULL);
 	assert(ret == ENCODE_INPUT_ERROR);
 }
 

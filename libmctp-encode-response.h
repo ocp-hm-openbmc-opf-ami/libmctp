@@ -9,21 +9,24 @@ extern "C" {
 encode_rc mctp_encode_resolve_eid_resp(struct mctp_msg *response,
 				       const size_t length,
 				       uint8_t rq_dgram_inst,
+				       uint8_t completion_code,
 				       uint8_t bridge_eid,
 				       struct variable_field *address);
 
 encode_rc mctp_encode_allocate_endpoint_id_resp(
 	struct mctp_msg *response, const size_t length, uint8_t rq_dgram_inst,
-	mctp_ctrl_cmd_allocate_eids_resp_op op, uint8_t eid_pool_size,
-	uint8_t first_eid);
+	mctp_ctrl_cmd_allocate_eids_resp_op op, uint8_t completion_code,
+	uint8_t eid_pool_size, uint8_t first_eid);
 
 encode_rc mctp_encode_set_eid_resp(struct mctp_msg *response,
 				   const size_t length, uint8_t rq_dgram_inst,
+				   uint8_t completion_code,
 				   uint8_t eid_pool_size, uint8_t status,
 				   mctp_eid_t eid_set);
 
 encode_rc mctp_encode_get_uuid_resp(struct mctp_msg *response,
 				    const size_t length, uint8_t rq_dgram_inst,
+				    uint8_t completion_code,
 				    const guid_t *uuid);
 
 #ifdef __cplusplus
