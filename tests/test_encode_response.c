@@ -216,6 +216,7 @@ static void test_encode_get_networkid_resp()
 {
 	encode_rc ret = false;
 	struct mctp *mctp;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	char sample_guid[16] = "61a3";
 	mctp = mctp_init();
 	guid_t networkid;
@@ -230,7 +231,8 @@ static void test_encode_get_networkid_resp()
 	       retrieved_networkid.canonical.data1);
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	ret = mctp_encode_get_networkid_resp(
-		resp, sizeof(struct mctp_ctrl_get_networkid_resp), &networkid);
+		resp, sizeof(struct mctp_ctrl_get_networkid_resp),
+		completion_code, &networkid);
 	assert(ret == ENCODE_SUCCESS);
 	assert(response.completion_code == MCTP_CTRL_CC_SUCCESS);
 	assert(response.networkid.canonical.data1 == networkid.canonical.data1);
@@ -243,15 +245,19 @@ static void test_negative_encode_get_networkid_resp()
 {
 	encode_rc ret;
 	struct mctp_msg response;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	guid_t networkid;
 
 	ret = mctp_encode_get_networkid_resp(
-		NULL, sizeof(struct mctp_ctrl_get_networkid_resp), &networkid);
+		NULL, sizeof(struct mctp_ctrl_get_networkid_resp),
+		completion_code, &networkid);
 	assert(ret == ENCODE_INPUT_ERROR);
-	ret = mctp_encode_get_networkid_resp(&response, 0, &networkid);
+	ret = mctp_encode_get_networkid_resp(&response, 0, completion_code,
+					     &networkid);
 	assert(ret == ENCODE_GENERIC_ERROR);
 	ret = mctp_encode_get_networkid_resp(
-		&response, sizeof(struct mctp_ctrl_get_networkid_resp), NULL);
+		&response, sizeof(struct mctp_ctrl_get_networkid_resp),
+		completion_code, NULL);
 	assert(ret == ENCODE_INPUT_ERROR);
 }
 
@@ -270,16 +276,19 @@ static void test_encode_get_routing_table_resp(void)
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	size_t new_size = 0;
 	uint8_t next_entry_handle = 0x01;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 
 	assert(ENCODE_SUCCESS ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, &new_size, next_entry_handle));
+		       completion_code, entries, 1, next_entry_handle,
+		       &new_size));
 	next_entry_handle = 0xFF;
 	assert(ENCODE_SUCCESS ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, &new_size, next_entry_handle));
+		       completion_code, entries, 1, next_entry_handle,
+		       &new_size));
 
 	size_t exp_new_size =
 		sizeof(struct mctp_ctrl_resp_get_routing_table) +
@@ -296,13 +305,15 @@ static void test_encode_get_routing_table_resp(void)
 	assert(ENCODE_SUCCESS ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 0, &new_size, next_entry_handle));
+		       completion_code, entries, 0, next_entry_handle,
+		       &new_size));
 
 	next_entry_handle = 0x01;
 	assert(ENCODE_SUCCESS ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 0, &new_size, next_entry_handle));
+		       completion_code, entries, 0, next_entry_handle,
+		       &new_size));
 }
 
 static void test_negative_encode_get_routing_table_resp()
@@ -320,39 +331,44 @@ static void test_negative_encode_get_routing_table_resp()
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	size_t new_size = 0;
 	uint8_t next_entry_handle = 0x01;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 
 	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       NULL, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, &new_size, next_entry_handle));
+		       completion_code, entries, 1, next_entry_handle,
+		       &new_size));
 	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       NULL, 1, &new_size, next_entry_handle));
+		       completion_code, NULL, 1, next_entry_handle, &new_size));
 	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, NULL, next_entry_handle));
+		       completion_code, entries, 1, next_entry_handle, NULL));
 	assert(ENCODE_GENERIC_ERROR ==
-	       mctp_encode_get_routing_table_resp(
-		       resp, 0, entries, 1, &new_size, next_entry_handle));
+	       mctp_encode_get_routing_table_resp(resp, 0, completion_code,
+						  entries, 1, next_entry_handle,
+						  &new_size));
 
 	next_entry_handle = 0xFF;
 	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       NULL, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, &new_size, next_entry_handle));
+		       completion_code, entries, 1, next_entry_handle,
+		       &new_size));
 	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       NULL, 1, &new_size, next_entry_handle));
+		       completion_code, NULL, 1, next_entry_handle, &new_size));
 	assert(ENCODE_INPUT_ERROR ==
 	       mctp_encode_get_routing_table_resp(
 		       resp, sizeof(struct mctp_ctrl_resp_get_routing_table),
-		       entries, 1, NULL, next_entry_handle));
+		       completion_code, entries, 1, next_entry_handle, NULL));
 	assert(ENCODE_GENERIC_ERROR ==
-	       mctp_encode_get_routing_table_resp(
-		       resp, 0, entries, 1, &new_size, next_entry_handle));
+	       mctp_encode_get_routing_table_resp(resp, 0, completion_code,
+						  entries, 1, next_entry_handle,
+						  &new_size));
 }
 
 static void test_encode_get_ver_support_resp()
@@ -360,19 +376,29 @@ static void test_encode_get_ver_support_resp()
 	encode_rc ret;
 	uint8_t expected_instance_id = 0x01;
 	uint8_t number_of_entries = 10;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_ctrl_resp_get_mctp_ver_support response;
+	struct version_entry vers;
+	vers.major = 2;
+	vers.minor = 3;
+	vers.update = 4;
+	vers.alpha = 5;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
 	ret = mctp_encode_get_ver_support_resp(
 		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
-		rq_d_inst, number_of_entries);
+		rq_d_inst, completion_code, number_of_entries, &vers);
 	assert(ret == ENCODE_SUCCESS);
 	assert(response.ctrl_hdr.command_code ==
 	       MCTP_CTRL_CMD_GET_VERSION_SUPPORT);
 	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
 	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
 	assert(response.number_of_entries == number_of_entries);
+	assert(response.version.major == vers.major);
+	assert(response.version.minor == vers.minor);
+	assert(response.version.update == vers.update);
+	assert(response.version.alpha == vers.alpha);
 }
 
 static void test_negative_encode_get_ver_support_resp()
@@ -380,16 +406,26 @@ static void test_negative_encode_get_ver_support_resp()
 	encode_rc ret;
 	uint8_t expected_instance_id = 0x01;
 	uint8_t number_of_entries = 10;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
-	struct mctp_msg *response = NULL;
+	struct version_entry vers;
+	struct mctp_ctrl_resp_get_mctp_ver_support response;
+	vers.major = 2;
+	vers.minor = 3;
+	vers.update = 4;
+	vers.alpha = 5;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	ret = mctp_encode_get_ver_support_resp(
-		response, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
-		rq_d_inst, number_of_entries);
+		NULL, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		rq_d_inst, completion_code, number_of_entries, &vers);
 	assert(ret == ENCODE_INPUT_ERROR);
-	struct mctp_msg response1;
-	ret = mctp_encode_get_ver_support_resp(&response1, 0, rq_d_inst,
-					       number_of_entries);
+	ret = mctp_encode_get_ver_support_resp(
+		resp, 0, rq_d_inst, completion_code, number_of_entries, &vers);
 	assert(ret == ENCODE_GENERIC_ERROR);
+	ret = mctp_encode_get_ver_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
+		rq_d_inst, completion_code, number_of_entries, NULL);
+	assert(ret == ENCODE_INPUT_ERROR);
 }
 
 static void test_encode_get_eid_resp()
@@ -401,11 +437,13 @@ static void test_encode_get_eid_resp()
 	mctp_eid_t eid = 10;
 	uint8_t eid_type = 9;
 	uint8_t medium_data = 8;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
 	ret = mctp_encode_get_eid_resp(resp,
 				       sizeof(struct mctp_ctrl_resp_get_eid),
-				       rq_d_inst, eid, eid_type, medium_data);
+				       rq_d_inst, completion_code, eid,
+				       eid_type, medium_data);
 	assert(ret == ENCODE_SUCCESS);
 
 	assert(response.ctrl_hdr.command_code == MCTP_CTRL_CMD_GET_ENDPOINT_ID);
@@ -425,12 +463,15 @@ static void test_negative_encode_get_eid_resp()
 	mctp_eid_t eid = 10;
 	uint8_t eid_type = 9;
 	uint8_t medium_data = 8;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	ret = mctp_encode_get_eid_resp(response,
 				       sizeof(struct mctp_ctrl_resp_get_eid),
-				       rq_d_inst, eid, eid_type, medium_data);
+				       rq_d_inst, completion_code, eid,
+				       eid_type, medium_data);
 	assert(ret == ENCODE_INPUT_ERROR);
 	struct mctp_msg response1;
-	ret = mctp_encode_get_eid_resp(&response1, 0, rq_d_inst, eid, eid_type,
+	ret = mctp_encode_get_eid_resp(&response1, 0, rq_d_inst,
+				       completion_code, eid, eid_type,
 				       medium_data);
 	assert(ret == ENCODE_GENERIC_ERROR);
 }

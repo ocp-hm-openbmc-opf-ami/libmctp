@@ -457,24 +457,32 @@ static void test_decode_get_ver_support_resp()
 	uint8_t expected_instance_id = 0x01;
 	struct mctp_ctrl_resp_get_mctp_ver_support response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct version_entry vers;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
-	response.ctrl_hdr.command_code =
-		MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
 	response.number_of_entries = 9;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	response.version.major = 2;
+	response.version.minor = 3;
+	response.version.update = 4;
+	response.version.alpha = 5;
 
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
 	ret = mctp_decode_get_ver_support_resp(
 		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
-		&ctrl_hdr, &completion_code, &number_of_entries);
+		&ctrl_hdr, &completion_code, &number_of_entries, &vers);
 	assert(ret == DECODE_SUCCESS);
 	assert(ctrl_hdr.command_code == response.ctrl_hdr.command_code);
 	assert(ctrl_hdr.rq_dgram_inst == response.ctrl_hdr.rq_dgram_inst);
 	assert(ctrl_hdr.ic_msg_type == response.ctrl_hdr.ic_msg_type);
 	assert(number_of_entries == response.number_of_entries);
+	assert(vers.major == response.version.major);
+	assert(vers.minor == response.version.minor);
+	assert(vers.update == response.version.update);
+	assert(vers.alpha == response.version.alpha);
 }
 
 static void test_negative_decode_get_ver_support_resp()
@@ -484,39 +492,44 @@ static void test_negative_decode_get_ver_support_resp()
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	uint8_t number_of_entries;
 	uint8_t completion_code;
+	struct version_entry vers;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
-	response.ctrl_hdr.command_code =
-		MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_VERSION_SUPPORT;
+	response.version.major = 2;
+	response.version.minor = 3;
+	response.version.update = 4;
+	response.version.alpha = 5;
 
 	ret = mctp_decode_get_ver_support_resp(
 		NULL, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
-		&ctrl_hdr, &completion_code, &number_of_entries);
+		&ctrl_hdr, &completion_code, &number_of_entries, &vers);
 	assert(ret == DECODE_INPUT_ERROR);
-	ret = mctp_decode_get_ver_support_resp(
-		resp, 0, &ctrl_hdr, &completion_code, &number_of_entries);
+	ret = mctp_decode_get_ver_support_resp(resp, 0, &ctrl_hdr,
+					       &completion_code,
+					       &number_of_entries, &vers);
 	assert(ret == DECODE_GENERIC_ERROR);
 	ret = mctp_decode_get_ver_support_resp(
 		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support), NULL,
-		&completion_code, &number_of_entries);
+		&completion_code, &number_of_entries, &vers);
 	assert(ret == DECODE_INPUT_ERROR);
 	ret = mctp_decode_get_ver_support_resp(
 		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
-		&ctrl_hdr, NULL, &number_of_entries);
+		&ctrl_hdr, NULL, &number_of_entries, &vers);
 	assert(ret == DECODE_INPUT_ERROR);
 	ret = mctp_decode_get_ver_support_resp(
 		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
-		&ctrl_hdr, &completion_code, NULL);
+		&ctrl_hdr, &completion_code, NULL, &vers);
 	assert(ret == DECODE_INPUT_ERROR);
 	response.completion_code = MCTP_CTRL_CC_ERROR;
 	ret = mctp_decode_get_ver_support_resp(
 		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
-		&ctrl_hdr, &completion_code, &number_of_entries);
+		&ctrl_hdr, &completion_code, &number_of_entries, &vers);
 	assert(ret == DECODE_CC_ERROR);
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_UUID;
 	ret = mctp_decode_get_ver_support_resp(
 		resp, sizeof(struct mctp_ctrl_resp_get_mctp_ver_support),
-		&ctrl_hdr, &completion_code, &number_of_entries);
+		&ctrl_hdr, &completion_code, &number_of_entries, &vers);
 	assert(ret == DECODE_GENERIC_ERROR);
 }
 

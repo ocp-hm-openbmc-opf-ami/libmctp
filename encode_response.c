@@ -97,31 +97,32 @@ encode_rc mctp_encode_get_uuid_resp(struct mctp_msg *response,
 }
 
 encode_rc mctp_encode_get_networkid_resp(struct mctp_msg *response,
-					 const size_t length, guid_t *networkid)
+					 const size_t length,
+					 uint8_t completion_code,
+					 guid_t *network_id)
 {
-	if (response == NULL || networkid == NULL)
+	if (response == NULL || network_id == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_get_networkid_resp))
 		return ENCODE_GENERIC_ERROR;
 	struct mctp_ctrl_get_networkid_resp *resp =
 		(struct mctp_ctrl_get_networkid_resp *)(response);
-	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
-	resp->networkid = *networkid;
+	resp->completion_code = completion_code;
+	resp->networkid = *network_id;
 
 	return ENCODE_SUCCESS;
 }
 
 encode_rc mctp_encode_get_routing_table_resp(
-	struct mctp_msg *response, const size_t length,
+	struct mctp_msg *response, const size_t length, uint8_t completion_code,
 	struct get_routing_table_entry_with_address *entries,
-	uint8_t no_of_entries, size_t *resp_size,
-	const uint8_t next_entry_handle)
+	uint8_t no_of_entries, const uint8_t next_entry_handle,
+	size_t *resp_size)
 {
 	uint8_t *cur_entry;
 	uint8_t entry_num;
-	size_t cur_size;
 
-	if (!response || !entries || !resp_size)
+	if (response == NULL || entries == NULL || resp_size == NULL)
 		return ENCODE_INPUT_ERROR;
 
 	if (length < sizeof(struct mctp_ctrl_resp_get_routing_table))
@@ -129,20 +130,16 @@ encode_rc mctp_encode_get_routing_table_resp(
 	struct mctp_ctrl_resp_get_routing_table *resp =
 		(struct mctp_ctrl_resp_get_routing_table *)(response);
 
-	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	resp->completion_code = completion_code;
 
 	resp->next_entry_handle = next_entry_handle;
 	resp->number_of_entries = no_of_entries;
 	cur_entry = (uint8_t *)resp->entries;
-	cur_size = sizeof(struct mctp_ctrl_resp_get_routing_table);
 	for (entry_num = 0; entry_num < no_of_entries; entry_num++) {
 		size_t current_entry_size =
 			sizeof(struct get_routing_table_entry_with_address) +
 			entries[entry_num].routing_info.phys_address_size -
 			MAX_PHYSICAL_ADDRESS_SIZE;
-		cur_size = cur_size + current_entry_size;
-		if (length > cur_size)
-			return ENCODE_GENERIC_ERROR;
 		memcpy(cur_entry, entries + entry_num, current_entry_size);
 		cur_entry += current_entry_size;
 	}
@@ -153,9 +150,11 @@ encode_rc mctp_encode_get_routing_table_resp(
 encode_rc mctp_encode_get_ver_support_resp(struct mctp_msg *response,
 					   const size_t length,
 					   uint8_t rq_dgram_inst,
-					   uint8_t number_of_entries)
+					   uint8_t completion_code,
+					   uint8_t number_of_entries,
+					   struct version_entry *vers)
 {
-	if (response == NULL)
+	if (response == NULL || vers == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_resp_get_mctp_ver_support))
 		return ENCODE_GENERIC_ERROR;
@@ -163,15 +162,19 @@ encode_rc mctp_encode_get_ver_support_resp(struct mctp_msg *response,
 			       MCTP_CTRL_CMD_GET_VERSION_SUPPORT);
 	struct mctp_ctrl_resp_get_mctp_ver_support *resp =
 		(struct mctp_ctrl_resp_get_mctp_ver_support *)(response);
-	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	resp->completion_code = completion_code;
 	resp->number_of_entries = number_of_entries;
+	resp->version.major = vers->major;
+	resp->version.minor = vers->minor;
+	resp->version.update = vers->update;
+	resp->version.alpha = vers->alpha;
 	return ENCODE_SUCCESS;
 }
 
 encode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 				   const size_t length, uint8_t rq_dgram_inst,
-				   mctp_eid_t eid, uint8_t eid_type,
-				   uint8_t medium_data)
+				   uint8_t completion_code, mctp_eid_t eid,
+				   uint8_t eid_type, uint8_t medium_data)
 {
 	if (response == NULL)
 		return ENCODE_INPUT_ERROR;
@@ -181,7 +184,7 @@ encode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 			       MCTP_CTRL_CMD_GET_ENDPOINT_ID);
 	struct mctp_ctrl_resp_get_eid *resp =
 		(struct mctp_ctrl_resp_get_eid *)(response);
-	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
+	resp->completion_code = completion_code;
 	resp->eid = eid;
 	resp->eid_type = eid_type;
 	resp->medium_data = medium_data;
