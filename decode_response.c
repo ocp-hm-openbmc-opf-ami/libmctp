@@ -110,10 +110,10 @@ decode_rc mctp_decode_get_networkid_resp(const struct mctp_msg *response,
 					 const size_t length,
 					 struct mctp_ctrl_msg_hdr *ctrl_hdr,
 					 uint8_t *completion_code,
-					 guid_t *networkid)
+					 guid_t *network_id)
 {
 	if (response == NULL || ctrl_hdr == NULL || completion_code == NULL ||
-	    networkid == NULL)
+	    network_id == NULL)
 		return DECODE_INPUT_ERROR;
 
 	if (length < sizeof(struct mctp_ctrl_get_networkid_resp))
@@ -129,7 +129,7 @@ decode_rc mctp_decode_get_networkid_resp(const struct mctp_msg *response,
 	*completion_code = resp->completion_code;
 	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
 		return DECODE_CC_ERROR;
-	*networkid = resp->networkid;
+	*network_id = resp->networkid;
 	return DECODE_SUCCESS;
 }
 
@@ -162,10 +162,11 @@ decode_rc mctp_decode_get_ver_support_resp(const struct mctp_msg *response,
 					   const size_t length,
 					   struct mctp_ctrl_msg_hdr *ctrl_hdr,
 					   uint8_t *completion_code,
-					   uint8_t *number_of_entries)
+					   uint8_t *number_of_entries,
+					   struct version_entry *vers)
 {
 	if (response == NULL || ctrl_hdr == NULL || completion_code == NULL ||
-	    number_of_entries == NULL)
+	    number_of_entries == NULL || vers == NULL)
 		return DECODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_resp_get_mctp_ver_support))
 		return DECODE_GENERIC_ERROR;
@@ -182,6 +183,10 @@ decode_rc mctp_decode_get_ver_support_resp(const struct mctp_msg *response,
 	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
 		return DECODE_CC_ERROR;
 	*number_of_entries = resp->number_of_entries;
+	vers->major = resp->version.major;
+	vers->minor = resp->version.minor;
+	vers->update = resp->version.update;
+	vers->alpha = resp->version.alpha;
 	return DECODE_SUCCESS;
 }
 

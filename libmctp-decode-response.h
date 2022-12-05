@@ -41,7 +41,8 @@ decode_rc mctp_decode_get_ver_support_resp(const struct mctp_msg *response,
 					   const size_t length,
 					   struct mctp_ctrl_msg_hdr *ctrl_hdr,
 					   uint8_t *completion_code,
-					   uint8_t *number_of_entries);
+					   uint8_t *number_of_entries,
+					   struct version_entry *vers);
 
 decode_rc mctp_decode_get_eid_resp(const struct mctp_msg *response,
 				   const size_t length,

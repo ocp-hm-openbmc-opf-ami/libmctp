@@ -83,7 +83,7 @@ encode_rc mctp_encode_get_networkid_req(struct mctp_msg *request,
 					const size_t length,
 					uint8_t rq_dgram_inst)
 {
-	if (!request)
+	if (request == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_get_networkid_req))
 		return ENCODE_GENERIC_ERROR;
@@ -97,7 +97,7 @@ encode_rc mctp_encode_get_routing_table_req(struct mctp_msg *request,
 					    uint8_t rq_dgram_inst,
 					    uint8_t entry_handle)
 {
-	if (!request)
+	if (request == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_get_routing_table_req))
 		return ENCODE_GENERIC_ERROR;
@@ -114,7 +114,7 @@ encode_rc mctp_encode_get_ver_support_req(struct mctp_msg *request,
 					  uint8_t rq_dgram_inst,
 					  uint8_t msg_type_number)
 {
-	if (!request)
+	if (request == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support))
 		return ENCODE_GENERIC_ERROR;
@@ -130,7 +130,7 @@ encode_rc mctp_encode_get_ver_support_req(struct mctp_msg *request,
 encode_rc mctp_encode_get_eid_req(struct mctp_msg *request, const size_t length,
 				  uint8_t rq_dgram_inst)
 {
-	if (!request)
+	if (request == NULL)
 		return ENCODE_INPUT_ERROR;
 	if (length < sizeof(struct mctp_ctrl_cmd_get_eid))
 		return ENCODE_GENERIC_ERROR;
