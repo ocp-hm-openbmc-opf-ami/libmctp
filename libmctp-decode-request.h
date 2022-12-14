@@ -16,10 +16,10 @@ extern "C" {
  *  @param[out] target_eid - target eid of resolve eid command
  *  @return decode enum type which tells error or success
  */
-decode_rc mctp_decode_resolve_eid_req(const struct mctp_msg *request,
-				      const size_t length,
-				      struct mctp_ctrl_msg_hdr *ctrl_hdr,
-				      uint8_t *target_eid);
+encode_decode_rc mctp_decode_resolve_eid_req(const struct mctp_msg *request,
+					     const size_t length,
+					     struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					     uint8_t *target_eid);
 
 /** @brief Decode function for request structure
  *
@@ -33,7 +33,7 @@ decode_rc mctp_decode_resolve_eid_req(const struct mctp_msg *request,
  *  @param[out] first_eid - first_eid field for allocate eid command
  *  @return decode enum type which tells error or success
  */
-decode_rc mctp_decode_allocate_endpoint_id_req(
+encode_decode_rc mctp_decode_allocate_endpoint_id_req(
 	const struct mctp_msg *request, const size_t length,
 	struct mctp_ctrl_msg_hdr *ctrl_hdr,
 	mctp_ctrl_cmd_allocate_eids_req_op *op, uint8_t *eid_pool_size,
@@ -50,10 +50,11 @@ decode_rc mctp_decode_allocate_endpoint_id_req(
  *  @param[out] eid - eid field for set eid command
  *  @return decode enum type which tells error or success
  */
-decode_rc mctp_decode_set_eid_req(const struct mctp_msg *request,
-				  const size_t length,
-				  struct mctp_ctrl_msg_hdr *ctrl_hdr,
-				  mctp_ctrl_cmd_set_eid_op *op, uint8_t *eid);
+encode_decode_rc mctp_decode_set_eid_req(const struct mctp_msg *request,
+					 const size_t length,
+					 struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					 mctp_ctrl_cmd_set_eid_op *op,
+					 uint8_t *eid);
 
 /** @brief Decode function for request structure
  *
@@ -64,9 +65,9 @@ decode_rc mctp_decode_set_eid_req(const struct mctp_msg *request,
  *			   uint8_t command_code;}
  *  @return decode enum type which tells error or success
  */
-decode_rc mctp_decode_get_uuid_req(const struct mctp_msg *request,
-				   const size_t length,
-				   struct mctp_ctrl_msg_hdr *ctrl_hdr);
+encode_decode_rc mctp_decode_get_uuid_req(const struct mctp_msg *request,
+					  const size_t length,
+					  struct mctp_ctrl_msg_hdr *ctrl_hdr);
 
 #ifdef __cplusplus
 }

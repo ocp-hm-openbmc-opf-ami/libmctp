@@ -25,18 +25,11 @@ struct mctp_msg {
 } __attribute__((__packed__));
 
 typedef enum {
-	ENCODE_SUCCESS = 0,
-	ENCODE_CC_ERROR,
-	ENCODE_INPUT_ERROR,
-	ENCODE_GENERIC_ERROR
-} encode_rc;
-
-typedef enum {
-	DECODE_SUCCESS = 0,
-	DECODE_CC_ERROR,
-	DECODE_INPUT_ERROR,
-	DECODE_GENERIC_ERROR
-} decode_rc;
+	SUCCESS = 0,
+	CC_ERROR,
+	INPUT_ERROR,
+	GENERIC_ERROR
+} encode_decode_rc;
 
 typedef union {
 	struct {

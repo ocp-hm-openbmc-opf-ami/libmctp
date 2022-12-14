@@ -19,12 +19,10 @@ extern "C" {
  *			  resolve eid command
  *  @return decode enum type which tells error or success
  */
-decode_rc mctp_decode_resolve_eid_resp(const struct mctp_msg *response,
-				       const size_t resp_size,
-				       struct mctp_ctrl_msg_hdr *ctrl_hdr,
-				       uint8_t *completion_code,
-				       uint8_t *bridge_eid,
-				       struct variable_field *address);
+encode_decode_rc mctp_decode_resolve_eid_resp(
+	const struct mctp_msg *response, const size_t resp_size,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *completion_code,
+	uint8_t *bridge_eid, struct variable_field *address);
 
 /** @brief Decode function for request structure
  *
@@ -40,7 +38,7 @@ decode_rc mctp_decode_resolve_eid_resp(const struct mctp_msg *response,
  *  @param[out] first_eid - first_eid of response for allocate eid command
  *  @return decode enum type which tells error or success
  */
-decode_rc mctp_decode_allocate_endpoint_id_resp(
+encode_decode_rc mctp_decode_allocate_endpoint_id_resp(
 	const struct mctp_msg *response, const size_t length,
 	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *cc,
 	mctp_ctrl_cmd_allocate_eids_resp_op *op, uint8_t *eid_pool_size,
@@ -60,12 +58,12 @@ decode_rc mctp_decode_allocate_endpoint_id_resp(
  *  @param[out] eid_set - EID Setting field of response for set eid command
  *  @return decode enum type which tells error or success
  */
-decode_rc mctp_decode_set_eid_resp(const struct mctp_msg *response,
-				   const size_t length,
-				   struct mctp_ctrl_msg_hdr *ctrl_hdr,
-				   uint8_t *completion_code,
-				   uint8_t *eid_pool_size, uint8_t *status,
-				   mctp_eid_t *eid_set);
+encode_decode_rc mctp_decode_set_eid_resp(const struct mctp_msg *response,
+					  const size_t length,
+					  struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					  uint8_t *completion_code,
+					  uint8_t *eid_pool_size,
+					  uint8_t *status, mctp_eid_t *eid_set);
 
 /** @brief Decode function for request structure
  *
@@ -78,10 +76,11 @@ decode_rc mctp_decode_set_eid_resp(const struct mctp_msg *response,
  *  @param[out] uuid - UUID field of response for set get uuid command
  *  @return decode enum type which tells error or success
  */
-decode_rc mctp_decode_get_uuid_resp(const struct mctp_msg *response,
-				    const size_t length,
-				    struct mctp_ctrl_msg_hdr *ctrl_hdr,
-				    uint8_t *completion_code, guid_t *uuid);
+encode_decode_rc mctp_decode_get_uuid_resp(const struct mctp_msg *response,
+					   const size_t length,
+					   struct mctp_ctrl_msg_hdr *ctrl_hdr,
+					   uint8_t *completion_code,
+					   guid_t *uuid);
 
 #ifdef __cplusplus
 }
