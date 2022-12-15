@@ -29,12 +29,13 @@ mctp_encode_resolve_eid_resp(struct mctp_msg *response, size_t *length,
 			       MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID);
 	struct mctp_ctrl_cmd_resolve_eid_resp *resp =
 		(struct mctp_ctrl_cmd_resolve_eid_resp *)(response);
-	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
-	resp->bridge_eid = bridge_eid;
+	resp->completion_code = completion_code;
 	if (completion_code != MCTP_CTRL_CC_SUCCESS) {
-		*length = sizeof(struct mctp_ctrl_msg_hdr) + sizeof(uint8_t);
-		return SUCCESS;
+	*length = sizeof(struct mctp_ctrl_msg_hdr) + sizeof(uint8_t);
+	return SUCCESS;
 	}
+
+	resp->bridge_eid = bridge_eid;
 	memcpy(resp->physical_address, address->data, address->data_size);
 	return SUCCESS;
 }
