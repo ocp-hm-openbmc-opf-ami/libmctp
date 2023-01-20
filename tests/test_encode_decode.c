@@ -376,6 +376,8 @@ static void test_decode_ctrl_cmd_query_hop_req(void)
 	cmd_query_hop.target_eid = 8;
 	cmd_query_hop.mctp_ctrl_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	cmd_query_hop.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_QUERY_HOP;
+	cmd_query_hop.ctrl_msg_hdr.ic_msg_type = 0x00;
+	cmd_query_hop.ctrl_msg_hdr.rq_dgram_inst = 0x00;
 	uint8_t sample_eid;
 	uint8_t msg_type;
 
@@ -412,6 +414,9 @@ static void test_negative_decode_ctrl_cmd_resolve_eid_req()
 	uint8_t target_eid;
 	cmd_resolve_eid.ctrl_msg_hdr.command_code =
 		MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+	cmd_resolve_eid.ctrl_msg_hdr.ic_msg_type = 0x00;
+	cmd_resolve_eid.ctrl_msg_hdr.rq_dgram_inst = 0x00;
+	cmd_resolve_eid.target_eid = 0;
 	ret = mctp_decode_ctrl_cmd_resolve_eid_req(NULL, &ctrl_hdr,
 						   &target_eid);
 	assert(ret == false);
@@ -780,6 +785,7 @@ static void test_decode_ctrl_cmd_network_id_resp(void)
 	guid_t network_id;
 
 	network_id.canonical.data1 = 10;
+	cmd_network_id_resp.networkid.canonical.data1 = 0;
 	cmd_network_id_resp.completion_code = MCTP_CTRL_CC_SUCCESS;
 	cmd_network_id_resp.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	cmd_network_id_resp.ctrl_hdr.rq_dgram_inst = 10;

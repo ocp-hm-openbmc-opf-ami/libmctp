@@ -102,16 +102,16 @@ int mctp_asti3c_rx(struct mctp_binding_asti3c *asti3c, int fd)
 		return -1;
 	}
 
-	mctp_trace_rx(&data, read_len);
-
-	/* PEC is verified at hardware level and does not
-	propogate to userspace, thus do not deal with PEC byte */
-
 	if ((read_len > (MCTP_BTU + MCTP_HEADER_SIZE)) ||
 	    (read_len < (MCTP_HEADER_SIZE))) {
 		mctp_prerr("Incorrect packet size: %zd", read_len);
 		return -1;
 	}
+
+	mctp_trace_rx(&data, read_len);
+
+	/* PEC is verified at hardware level and does not
+	propogate to userspace, thus do not deal with PEC byte */
 
 	pkt_prv.fd = fd;
 

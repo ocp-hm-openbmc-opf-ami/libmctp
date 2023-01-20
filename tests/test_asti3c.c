@@ -397,6 +397,7 @@ static void test_asti3c_init(void)
 
 	asti3c = mctp_asti3c_init();
 	assert(asti3c != NULL);
+	mctp_asti3c_free(asti3c);
 }
 
 static void test_asti3c_rx(void)

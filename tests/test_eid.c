@@ -65,6 +65,7 @@ int main(void)
 		uint8_t payload[1];
 	} pktbuf;
 
+	memset(pktbuf.payload, 0, sizeof(pktbuf.payload));
 	mctp_test_stack_init(&ctx->mctp, &ctx->binding, local_eid);
 
 	mctp_set_rx_all(ctx->mctp, test_rx, ctx);
