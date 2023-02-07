@@ -69,6 +69,54 @@ encode_decode_rc mctp_encode_get_uuid_req(struct mctp_msg *request,
 					  const size_t length,
 					  uint8_t rq_dgram_inst);
 
+/** @brief Encode function for get networkid request
+ *
+ *  @param[out] request - Request structure to be encoded
+ *  @param[in] length - Length of request structure
+ *  @param[in] rq_dgram_inst - request datagram instance of header for request structure 
+ *  @return encode_decode enum type which tells error or success
+ */
+encode_decode_rc mctp_encode_get_networkid_req(struct mctp_msg *request,
+					       const size_t length,
+					       uint8_t rq_dgram_inst);
+
+/** @brief Encode function for get routing table request
+ *
+ *  @param[out] request - Request structure to be encoded
+ *  @param[in] length - Length of request structure
+ *  @param[in] rq_dgram_inst - request datagram instance of header for request structure 
+ *  @param[in] entry_handle - entry_handle of request of get_routing_table command
+ *  @return encode_decode enum type which tells error or success
+ */
+encode_decode_rc mctp_encode_get_routing_table_req(struct mctp_msg *request,
+						   const size_t length,
+						   uint8_t rq_dgram_inst,
+						   uint8_t entry_handle);
+
+/** @brief Encode function for get version support request
+ *
+ *  @param[out] request - Request structure to be encoded
+ *  @param[in] length - Length of request structure
+ *  @param[in] rq_dgram_inst - request datagram instance of header for request structure 
+ *  @param[in] msg_type_number - msg_type_number of request of get_ver_support command
+ *  @return encode_decode enum type which tells error or success
+ */
+encode_decode_rc mctp_encode_get_ver_support_req(struct mctp_msg *request,
+						 const size_t length,
+						 uint8_t rq_dgram_inst,
+						 uint8_t msg_type_number);
+
+/** @brief Encode function for get eid request
+ *
+ *  @param[out] request - Request structure to be encoded
+ *  @param[in] length - Length of request structure
+ *  @param[in] rq_dgram_inst - request datagram instance of header for request structure 
+ *  @return encode_decode enum type which tells error or success
+ */
+encode_decode_rc mctp_encode_get_eid_req(struct mctp_msg *request,
+					 const size_t length,
+					 uint8_t rq_dgram_inst);
+
 #ifdef __cplusplus
 }
 #endif

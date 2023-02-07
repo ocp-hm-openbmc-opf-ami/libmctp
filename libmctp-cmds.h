@@ -128,6 +128,11 @@ struct mctp_ctrl_cmd_query_hop_req {
 	uint8_t mctp_ctrl_msg_type;
 } __attribute__((__packed__));
 
+struct mctp_ctrl_cmd_get_routing_table_req {
+	struct mctp_ctrl_msg_hdr ctrl_msg_hdr;
+	uint8_t entry_handle;
+} __attribute__((__packed__));
+
 #define MCTP_CTRL_HDR_MSG_TYPE 0
 #define MCTP_CTRL_HDR_FLAG_REQUEST (1 << 7)
 #define MCTP_CTRL_HDR_FLAG_DGRAM (1 << 6)
@@ -385,22 +390,24 @@ struct msg_type_entry {
 	uint8_t msg_type_no;
 } __attribute__((__packed__));
 
-struct mctp_ctrl_resp_get_mctp_ver_support {
-	struct mctp_ctrl_msg_hdr ctrl_hdr;
-	uint8_t completion_code;
-	uint8_t number_of_entries;
-} __attribute__((__packed__));
-
-struct mctp_ctrl_resp_completion_code {
-	struct mctp_ctrl_msg_hdr ctrl_hdr;
-	uint8_t completion_code;
-} __attribute__((__packed__));
-
 struct version_entry {
 	uint8_t major;
 	uint8_t minor;
 	uint8_t update;
 	uint8_t alpha;
+} __attribute__((__packed__));
+
+struct mctp_ctrl_resp_get_mctp_ver_support {
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
+	uint8_t number_of_entries;
+	struct version_entry version;
+	struct version_entry versions[0];
+} __attribute__((__packed__));
+
+struct mctp_ctrl_resp_completion_code {
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
 } __attribute__((__packed__));
 
 struct mctp_ctrl_get_networkid_resp {

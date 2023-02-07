@@ -4,7 +4,8 @@
 #include "libmctp-cmds.h"
 
 static void encode_ctrl_cmd_header(struct mctp_ctrl_msg_hdr *mctp_ctrl_hdr,
-				   const uint8_t rq_dgram_inst, const uint8_t cmd_code)
+				   const uint8_t rq_dgram_inst,
+				   const uint8_t cmd_code)
 {
 	if (mctp_ctrl_hdr == NULL)
 		return;
@@ -79,6 +80,68 @@ encode_decode_rc mctp_encode_get_uuid_req(struct mctp_msg *request,
 		return GENERIC_ERROR;
 	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
 			       MCTP_CTRL_CMD_GET_ENDPOINT_UUID);
+
+	return SUCCESS;
+}
+
+encode_decode_rc mctp_encode_get_networkid_req(struct mctp_msg *request,
+					       const size_t length,
+					       uint8_t rq_dgram_inst)
+{
+	if (request == NULL)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_networkid_req))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_NETWORK_ID);
+	return SUCCESS;
+}
+
+encode_decode_rc mctp_encode_get_routing_table_req(struct mctp_msg *request,
+						   const size_t length,
+						   uint8_t rq_dgram_inst,
+						   uint8_t entry_handle)
+{
+	if (request == NULL)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_routing_table_req))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_ROUTING_TABLE_ENTRIES);
+	struct mctp_ctrl_cmd_get_routing_table_req *req =
+		(struct mctp_ctrl_cmd_get_routing_table_req *)request;
+	req->entry_handle = entry_handle;
+	return SUCCESS;
+}
+
+encode_decode_rc mctp_encode_get_ver_support_req(struct mctp_msg *request,
+						 const size_t length,
+						 uint8_t rq_dgram_inst,
+						 uint8_t msg_type_number)
+{
+	if (request == NULL)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_mctp_ver_support))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_VERSION_SUPPORT);
+
+	struct mctp_ctrl_cmd_get_mctp_ver_support *req =
+		(struct mctp_ctrl_cmd_get_mctp_ver_support *)request;
+	req->msg_type_number = msg_type_number;
+	return SUCCESS;
+}
+
+encode_decode_rc mctp_encode_get_eid_req(struct mctp_msg *request,
+					 const size_t length,
+					 uint8_t rq_dgram_inst)
+{
+	if (request == NULL)
+		return INPUT_ERROR;
+	if (length < sizeof(struct mctp_ctrl_cmd_get_eid))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_ENDPOINT_ID);
 
 	return SUCCESS;
 }
