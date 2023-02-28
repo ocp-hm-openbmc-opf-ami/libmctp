@@ -5,6 +5,9 @@
 #include "libmctp-cmds.h"
 #include "libmctp-encode-response.h"
 
+// Initialize with invalid values
+struct mctp_ctrl_msg_hdr invalid_header = { 0x01, 0x00, 0xF0 };
+
 static void test_encode_resolve_eid_resp()
 {
 	encode_decode_rc ret;
@@ -252,6 +255,8 @@ static void test_encode_get_networkid_resp()
 	guid_t retrieved_networkid;
 	networkid.canonical.data1 = 10;
 	struct mctp_ctrl_get_networkid_resp response;
+	response.completion_code = MCTP_CTRL_CC_ERROR;
+
 	memcpy(&networkid.raw, sample_guid, sizeof(guid_t));
 	assert(mctp_set_networkid(mctp, &networkid));
 
@@ -304,6 +309,8 @@ static void test_encode_get_routing_table_resp(void)
 	entries[0].phys_address[0] = 0x12;
 
 	struct mctp_ctrl_resp_get_routing_table response;
+	response.completion_code = MCTP_CTRL_CC_ERROR;
+
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	size_t new_size = 0;
 	uint8_t next_entry_handle = 0x01;
@@ -410,6 +417,10 @@ static void test_encode_get_ver_support_resp()
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	vers = (struct version_entry *)malloc(2 *
 					      (sizeof(struct version_entry)));
+	if (vers == NULL) {
+		return;
+	}
+
 	vers[0].major = 2;
 	vers[0].minor = 3;
 	vers[0].update = 4;
@@ -418,6 +429,7 @@ static void test_encode_get_ver_support_resp()
 	vers[1].minor = 7;
 	vers[1].update = 8;
 	vers[1].alpha = 9;
+
 	struct mctp_msg *resp = (struct mctp_msg *)(response);
 
 	ret = mctp_encode_get_ver_support_resp(resp, &length, rq_d_inst,
@@ -480,6 +492,7 @@ static void test_encode_get_eid_resp()
 {
 	encode_decode_rc ret;
 	struct mctp_ctrl_resp_get_eid response;
+	response.ctrl_hdr = invalid_header;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_eid);
 	uint8_t expected_instance_id = 0x01;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;

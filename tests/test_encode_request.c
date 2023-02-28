@@ -4,6 +4,9 @@
 #include "libmctp-cmds.h"
 #include "libmctp-encode-request.h"
 
+// Initialize with invalid values
+struct mctp_ctrl_msg_hdr invalid_header = { 0x01, 0x00, 0xF0 };
+
 static void test_encode_resolve_eid_req()
 {
 	encode_decode_rc ret;
@@ -159,6 +162,7 @@ static void test_encode_get_networkid_req()
 	encode_decode_rc ret;
 	uint8_t instance_id = 0x01;
 	struct mctp_ctrl_cmd_get_networkid_req request;
+	request.ctrl_msg_hdr = invalid_header;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 
 	ret = mctp_encode_get_networkid_req(
@@ -194,6 +198,8 @@ static void test_encode_get_routing_table_req()
 	uint8_t entry_handle = 1;
 	uint8_t expected_instance_id = 0x01;
 	struct mctp_ctrl_cmd_get_routing_table_req request;
+	request.ctrl_msg_hdr = invalid_header;
+	request.entry_handle = 0x80;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 
@@ -232,6 +238,8 @@ static void test_encode_get_ver_support_req()
 	uint8_t msg_type_number = 10;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_ctrl_cmd_get_mctp_ver_support request;
+	request.ctrl_msg_hdr = invalid_header;
+	request.msg_type_number = 0x80;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 
 	ret = mctp_encode_get_ver_support_req(
@@ -267,6 +275,7 @@ static void test_encode_get_eid_req()
 	encode_decode_rc ret;
 	uint8_t expected_instance_id = 0x01;
 	struct mctp_ctrl_cmd_get_eid request;
+	request.ctrl_msg_hdr = invalid_header;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 
