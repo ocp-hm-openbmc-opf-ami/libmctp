@@ -32,17 +32,17 @@
 
 /**
  * struct i2c_msg - an I2C transaction segment beginning with START
- * @addr: Slave address, either seven or ten bits.  When this is a ten
+ * @addr: Target address, either seven or ten bits.  When this is a ten
  *	bit address, I2C_M_TEN must be set in @flags and the adapter
  *	must support I2C_FUNC_10BIT_ADDR.
  * @flags: I2C_M_RD is handled by all adapters.  No other flags may be
  *	provided unless the adapter exported the relevant I2C_FUNC_*
  *	flags through i2c_check_functionality().
  * @len: Number of data bytes in @buf being read from or written to the
- *	I2C slave address.  For read transactions where I2C_M_RECV_LEN
+ *	I2C target address.  For read transactions where I2C_M_RECV_LEN
  *	is set, the caller guarantees that this buffer can hold up to
  *	32 bytes in addition to the initial length byte sent by the
- *	slave (plus, if used, the SMBus PEC); and this value will be
+ *	target (plus, if used, the SMBus PEC); and this value will be
  *	incremented by the number of block data bytes received.
  * @buf: The buffer into which data is read, or from which it's written.
  *
@@ -53,7 +53,7 @@
  *
  * Except when I2C "protocol mangling" is used, all I2C adapters implement
  * the standard rules for I2C transactions.  Each transaction begins with a
- * START.  That is followed by the slave address, and a bit encoding read
+ * START.  That is followed by the target address, and a bit encoding read
  * versus write.  Then follow all the data bytes, possibly including a byte
  * with SMBus PEC.  The transfer terminates with a NAK, or when all those
  * bytes have been transferred and ACKed.  If this is the last message in a
@@ -62,14 +62,14 @@
  *
  * Alternatively, when the adapter supports I2C_FUNC_PROTOCOL_MANGLING then
  * passing certain @flags may have changed those standard protocol behaviors.
- * Those flags are only for use with broken/nonconforming slaves, and with
+ * Those flags are only for use with broken/nonconforming targets, and with
  * adapters which are known to support the specific mangling options they
  * need (one or more of IGNORE_NAK, NO_RD_ACK, NOSTART, and REV_DIR_ADDR).
  */
 struct i2c_msg {
-	__u16 addr; /* slave address			*/
+	__u16 addr; /* target address			*/
 	__u16 flags;
-#define I2C_M_RD 0x0001 /* read data, from slave to master */
+#define I2C_M_RD 0x0001 /* read data, from target to controller */
 	/* I2C_M_RD is guaranteed to be 0x0001! */
 #define I2C_M_TEN 0x0010 /* this is a ten bit chip address */
 #define I2C_M_HOLD 0x0100 /* for holding a mux path */

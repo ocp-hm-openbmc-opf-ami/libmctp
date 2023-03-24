@@ -32,35 +32,35 @@
 #define binding_to_smbus(b) container_of(b, struct mctp_binding_smbus, binding)
 
 #define MCTP_COMMAND_CODE 0x0F
-#define MCTP_SLAVE_ADDR_INDEX 0
-#define DEFAULT_SLAVE_ADDRESS 0x21
+#define MCTP_TARGET_ADDR_INDEX 0
+#define DEFAULT_TARGET_ADDRESS 0x21
 
 #define SMBUS_COMMAND_CODE_SIZE 1
 #define SMBUS_LENGTH_FIELD_SIZE 1
-#define SMBUS_ADDR_OFFSET_SLAVE 0x1000
+#define SMBUS_ADDR_OFFSET_TARGET 0x1000
 
 #ifdef I2C_M_HOLD
 static struct mctp_smbus_pkt_private active_mux_info = { .fd = -1,
 							 .mux_hold_timeout = 0,
 							 .mux_flags = 0,
-							 .slave_addr = 0 };
+							 .target_addr = 0 };
 static struct mctp_smbus_pkt_private reserve_mux_info = { .fd = -1,
 							  .mux_hold_timeout = 0,
 							  .mux_flags = 0,
-							  .slave_addr = 0 };
+							  .target_addr = 0 };
 #endif
 
 struct mctp_smbus_header_tx {
 	uint8_t command_code;
 	uint8_t byte_count;
-	uint8_t source_slave_address;
+	uint8_t source_target_address;
 };
 
 struct mctp_smbus_header_rx {
-	uint8_t destination_slave_address;
+	uint8_t destination_target_address;
 	uint8_t command_code;
 	uint8_t byte_count;
-	uint8_t source_slave_address;
+	uint8_t source_target_address;
 };
 
 static uint8_t crc8_calculate(uint16_t d)
@@ -103,7 +103,7 @@ static void cleanup_reserve_mux_info(void)
 	reserve_mux_info.fd = -1;
 	reserve_mux_info.mux_hold_timeout = 0;
 	reserve_mux_info.mux_flags = 0;
-	reserve_mux_info.slave_addr = 0;
+	reserve_mux_info.target_addr = 0;
 }
 
 static int smbus_model_mux(const uint16_t holdtimeout)
@@ -156,13 +156,13 @@ int mctp_smbus_init_pull_model(const struct mctp_smbus_pkt_private *prvt)
 	}
 	reserve_mux_info.fd = prvt->fd;
 	reserve_mux_info.mux_flags = prvt->mux_flags;
-	reserve_mux_info.slave_addr = prvt->slave_addr;
+	reserve_mux_info.target_addr = prvt->target_addr;
 	rc = smbus_pull_model_hold_mux();
 	if (rc < 0) {
 		cleanup_reserve_mux_info();
 		mctp_prerr(
 			"%s: Failed to hold the bus for device address: 0X%x",
-			__func__, prvt->slave_addr);
+			__func__, prvt->target_addr);
 		return rc;
 	}
 	pull_model_active = true;
@@ -178,18 +178,18 @@ int mctp_smbus_exit_pull_model(const struct mctp_smbus_pkt_private *prvt)
 	int rc = -1;
 
 	if (!(pull_model_active &&
-	      reserve_mux_info.slave_addr == prvt->slave_addr &&
+	      reserve_mux_info.target_addr == prvt->target_addr &&
 	      reserve_mux_info.fd == prvt->fd)) {
 		mctp_prerr(
 			"%s: pull model is not active for device address: 0X%x.",
-			__func__, prvt->slave_addr);
+			__func__, prvt->target_addr);
 		return rc;
 	}
 	rc = smbus_pull_model_unhold_mux();
 	if (rc < 0) {
 		mctp_prerr(
 			"%s: Failed to unhold the bus for device address: 0X%x",
-			__func__, prvt->slave_addr);
+			__func__, prvt->target_addr);
 		return rc;
 	}
 	pull_model_active = false;
@@ -216,7 +216,7 @@ static int mctp_smbus_tx(struct mctp_binding_smbus *smbus, const uint8_t len,
 	if (pkt_pvt->mux_flags) {
 		uint16_t holdtimeout =
 			pkt_pvt->mux_hold_timeout; /*timeout in ms. */
-		struct i2c_msg msg[2] = { { .addr = pkt_pvt->slave_addr >>
+		struct i2c_msg msg[2] = { { .addr = pkt_pvt->target_addr >>
 						    1, /* seven bit address */
 					    .flags = 0,
 					    .len = len,
@@ -233,7 +233,7 @@ static int mctp_smbus_tx(struct mctp_binding_smbus *smbus, const uint8_t len,
 		/* Store active mux info */
 		active_mux_info.fd = pkt_pvt->fd;
 		active_mux_info.mux_flags = pkt_pvt->mux_flags;
-		active_mux_info.slave_addr = pkt_pvt->slave_addr;
+		active_mux_info.target_addr = pkt_pvt->target_addr;
 
 		return rc;
 	}
@@ -241,7 +241,7 @@ static int mctp_smbus_tx(struct mctp_binding_smbus *smbus, const uint8_t len,
 #endif
 	mctp_trace_tx(smbus->txbuf, len);
 
-	struct i2c_msg msg[1] = { { .addr = pkt_pvt->slave_addr >>
+	struct i2c_msg msg[1] = { { .addr = pkt_pvt->target_addr >>
 					    1, /* seven bit address */
 				    .flags = 0,
 				    .len = len,
@@ -253,8 +253,8 @@ static int mctp_smbus_tx(struct mctp_binding_smbus *smbus, const uint8_t len,
 #ifdef I2C_M_HOLD
 static int mctp_smbus_unhold_bus(const uint8_t source_addr)
 {
-	/* If we received a packet from a different slave, don't unhold mux */
-	if (active_mux_info.slave_addr != source_addr)
+	/* If we received a packet from a different target, don't unhold mux */
+	if (active_mux_info.target_addr != source_addr)
 		return 0;
 	/* Unhold message */
 	uint16_t holdtimeout = 0;
@@ -293,7 +293,7 @@ static int mctp_binding_smbus_tx(struct mctp_binding *b,
 	*/
 	size_t pkt_length = mctp_pktbuf_size(pkt);
 	smbus_hdr_tx->byte_count = pkt_length + 1;
-	smbus_hdr_tx->source_slave_address = smbus->src_slave_addr;
+	smbus_hdr_tx->source_target_address = smbus->src_target_addr;
 
 	size_t tx_buf_len = sizeof(*smbus_hdr_tx);
 	uint8_t i2c_message_len = tx_buf_len + pkt_length + SMBUS_PEC_BYTE_SIZE;
@@ -307,7 +307,7 @@ static int mctp_binding_smbus_tx(struct mctp_binding *b,
 	tx_buf_len += pkt_length;
 
 	smbus->txbuf[tx_buf_len] = calculate_pec_byte(smbus->txbuf, tx_buf_len,
-						      pkt_pvt->slave_addr);
+						      pkt_pvt->target_addr);
 
 	int ret = mctp_smbus_tx(smbus, i2c_message_len, pkt_pvt);
 	if (ret == -EPERM) {
@@ -369,10 +369,10 @@ int mctp_smbus_read(struct mctp_binding_smbus *smbus)
 		return 0;
 	}
 
-	if (smbus_hdr_rx->destination_slave_address !=
-	    (smbus->src_slave_addr & ~1)) {
-		mctp_prerr("Got bad slave address %d",
-			   smbus_hdr_rx->destination_slave_address);
+	if (smbus_hdr_rx->destination_target_address !=
+	    (smbus->src_target_addr & ~1)) {
+		mctp_prerr("Got bad target address %d",
+			   smbus_hdr_rx->destination_target_address);
 		return 0;
 	}
 
@@ -414,7 +414,7 @@ int mctp_smbus_read(struct mctp_binding_smbus *smbus)
 
 	memset(&pvt_data, 0, sizeof(struct mctp_smbus_pkt_private));
 
-	pvt_data.slave_addr = (smbus_hdr_rx->source_slave_address & ~1);
+	pvt_data.target_addr = (smbus_hdr_rx->source_target_address & ~1);
 
 	pvt_data.fd = smbus->out_fd;
 
@@ -424,7 +424,7 @@ int mctp_smbus_read(struct mctp_binding_smbus *smbus)
 
 #ifdef I2C_M_HOLD
 	/* Unhold mux only for packets with EOM */
-	if (eom && mctp_smbus_unhold_bus(pvt_data.slave_addr)) {
+	if (eom && mctp_smbus_unhold_bus(pvt_data.target_addr)) {
 		mctp_prerr("Can't hold mux");
 		return -1;
 	}
@@ -478,8 +478,8 @@ struct mctp_binding_smbus *mctp_smbus_init(void)
 
 	smbus->binding.tx = mctp_binding_smbus_tx;
 
-	/* Setting the default slave address */
-	smbus->src_slave_addr = DEFAULT_SLAVE_ADDRESS;
+	/* Setting the default target address */
+	smbus->src_target_addr = DEFAULT_TARGET_ADDRESS;
 
 	return smbus;
 }
@@ -496,8 +496,8 @@ void mctp_smbus_free(struct mctp_binding_smbus *smbus)
 	__mctp_free(smbus);
 }
 
-void mctp_smbus_set_src_slave_addr(struct mctp_binding_smbus *smbus,
-				   uint8_t slave_addr)
+void mctp_smbus_set_src_target_addr(struct mctp_binding_smbus *smbus,
+				   uint8_t target_addr)
 {
-	smbus->src_slave_addr = slave_addr;
+	smbus->src_target_addr = target_addr;
 }

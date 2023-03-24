@@ -166,7 +166,7 @@ static void run_smbus_rx_test(mctp_rx_fn rx_fn)
 	ext_params.fd = stubbed_smbus_fd;
 	ext_params.mux_flags = IS_MUX_PORT;
 	ext_params.mux_hold_timeout = 1000;
-	ext_params.slave_addr = 0x11;
+	ext_params.target_addr = 0x11;
 
 	pkt.msg_binding_private = (void *)&ext_params;
 	pkt.next = NULL;
@@ -203,7 +203,7 @@ static void run_smbus_tx_test(mctp_rx_fn rx_fn)
 	ext_params.fd = stubbed_smbus_fd;
 	ext_params.mux_flags = IS_MUX_PORT;
 	ext_params.mux_hold_timeout = 1000;
-	ext_params.slave_addr = 0x11;
+	ext_params.target_addr = 0x11;
 
 	pkt.msg_binding_private = (void *)&ext_params;
 	pkt.next = NULL;
@@ -232,7 +232,7 @@ static void run_smbus_rx_test_negative(mctp_rx_fn rx_fn)
 	ext_params.fd = -1;
 	ext_params.mux_flags = IS_MUX_PORT;
 	ext_params.mux_hold_timeout = 1000;
-	ext_params.slave_addr = 0x11;
+	ext_params.target_addr = 0x11;
 
 	pkt.msg_binding_private = (void *)&ext_params;
 	pkt.next = NULL;
@@ -270,7 +270,7 @@ static void run_smbus_rx_test_pec(mctp_rx_fn rx_fn)
 	ext_params.fd = stubbed_smbus_fd;
 	ext_params.mux_flags = IS_MUX_PORT;
 	ext_params.mux_hold_timeout = 1000;
-	ext_params.slave_addr = 0x11;
+	ext_params.target_addr = 0x11;
 
 	pkt.msg_binding_private = (void *)&ext_params;
 	pkt.next = NULL;
@@ -320,7 +320,7 @@ static void run_smbus_rx_test_negative_pec(mctp_rx_fn rx_fn)
 	ext_params.fd = -1;
 	ext_params.mux_flags = IS_MUX_PORT;
 	ext_params.mux_hold_timeout = 1000;
-	ext_params.slave_addr = 0x11;
+	ext_params.target_addr = 0x11;
 
 	pkt.msg_binding_private = (void *)&ext_params;
 	pkt.next = NULL;

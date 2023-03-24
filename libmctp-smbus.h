@@ -36,15 +36,15 @@ struct mctp_binding_smbus {
 	/* temporary transmit buffer */
 	uint8_t txbuf[SMBUS_TX_BUFF_SIZE];
 
-	/* slave address */
-	uint8_t src_slave_addr;
+	/* target address */
+	uint8_t src_target_addr;
 };
 
 struct mctp_smbus_pkt_private {
 	int fd;
 	uint32_t mux_hold_timeout;
 	uint8_t mux_flags;
-	uint8_t slave_addr;
+	uint8_t target_addr;
 } __attribute__((packed));
 
 struct mctp_binding_smbus *mctp_smbus_init(void);
@@ -57,8 +57,8 @@ void mctp_smbus_free(struct mctp_binding_smbus *smbus);
 int mctp_smbus_close_mux(const int fd, const int address);
 void mctp_smbus_set_in_fd(struct mctp_binding_smbus *smbus, int fd);
 void mctp_smbus_set_out_fd(struct mctp_binding_smbus *smbus, int fd);
-void mctp_smbus_set_src_slave_addr(struct mctp_binding_smbus *smbus,
-				   uint8_t slave_addr);
+void mctp_smbus_set_src_target_addr(struct mctp_binding_smbus *smbus,
+				   uint8_t target_addr);
 #ifdef __cplusplus
 }
 #endif
