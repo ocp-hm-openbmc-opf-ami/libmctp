@@ -88,8 +88,8 @@ void mctp_trace_common(const char *tag, const void *const payload,
 		       const size_t len)
 {
 	char tracebuf[MAX_TRACE_BYTES * TRACE_FORMAT_SIZE + sizeof('\0')];
-	/* if len is bigger than ::MAX_TRACE_BYTES, loop will leave place for '..'
-	 * at the end to indicate that whole payload didn't fit
+	/* if len is bigger than ::MAX_TRACE_BYTES, loop will leave place for
+	 * '..' at the end to indicate that whole payload didn't fit
 	 */
 	const size_t limit = len > MAX_TRACE_BYTES ? MAX_TRACE_BYTES - 1 : len;
 	char *ptr = tracebuf;

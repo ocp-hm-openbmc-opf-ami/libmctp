@@ -214,8 +214,8 @@ static int mctp_smbus_tx(struct mctp_binding_smbus *smbus, const uint8_t len,
 		}
 	}
 	if (pkt_pvt->mux_flags) {
-		uint16_t holdtimeout =
-			pkt_pvt->mux_hold_timeout; /*timeout in ms. */
+		uint16_t holdtimeout = pkt_pvt->mux_hold_timeout; /*timeout in
+								     ms. */
 		struct i2c_msg msg[2] = { { .addr = pkt_pvt->target_addr >>
 						    1, /* seven bit address */
 					    .flags = 0,
@@ -241,8 +241,10 @@ static int mctp_smbus_tx(struct mctp_binding_smbus *smbus, const uint8_t len,
 #endif
 	mctp_trace_tx(smbus->txbuf, len);
 
-	struct i2c_msg msg[1] = { { .addr = pkt_pvt->target_addr >>
-					    1, /* seven bit address */
+	struct i2c_msg msg[1] = { { .addr = pkt_pvt->target_addr >> 1, /* seven
+									  bit
+									  address
+									*/
 				    .flags = 0,
 				    .len = len,
 				    .buf = smbus->txbuf } };
@@ -289,8 +291,8 @@ static int mctp_binding_smbus_tx(struct mctp_binding *b,
 		return -EINVAL;
 	}
 	/* the length field in the header excludes smbus framing
-	* and escape sequences.
-	*/
+	 * and escape sequences.
+	 */
 	size_t pkt_length = mctp_pktbuf_size(pkt);
 	smbus_hdr_tx->byte_count = pkt_length + 1;
 	smbus_hdr_tx->source_target_address = smbus->src_target_addr;
@@ -497,7 +499,7 @@ void mctp_smbus_free(struct mctp_binding_smbus *smbus)
 }
 
 void mctp_smbus_set_src_target_addr(struct mctp_binding_smbus *smbus,
-				   uint8_t target_addr)
+				    uint8_t target_addr)
 {
 	smbus->src_target_addr = target_addr;
 }

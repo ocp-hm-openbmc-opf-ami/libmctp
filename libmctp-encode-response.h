@@ -10,12 +10,14 @@ extern "C" {
  *
  *  @param[out] response - Response structure to be encoded
  *  @param[in] length - Length of response structure
- *  @param[in] rq_dgram_inst - request datagram instance of header  structure 
- *			   definition: {uint8_t ic_msg_type;uint8_t rq_dgram_inst;
- *			   uint8_t command_code;}
+ *  @param[in] rq_dgram_inst - request datagram instance of header structure
+ *				definition: {uint8_t ic_msg_type;uint8_t
+ *				rq_dgram_inst; uint8_t command_code;}
  *  @param[in] completion_code - completion code for response structure
- *  @param[in] bridge_eid - Bridge eid field of response structure for  resolve eid command
- *  @param[in] address - Physical address field of response structure for  resolve eid command
+ *  @param[in] bridge_eid - Bridge eid field of response structure for  resolve
+ *				eid command
+ *  @param[in] address - Physical address field of response structure for
+ *				resolve eid command
  *  @return encode enum type which tells error or success
  */
 encode_decode_rc mctp_encode_resolve_eid_resp(struct mctp_msg *response,
@@ -29,13 +31,16 @@ encode_decode_rc mctp_encode_resolve_eid_resp(struct mctp_msg *response,
  *
  *  @param[out] response - Response structure to be encoded
  *  @param[in] length - Length of response structure
- *  @param[in] rq_dgram_inst - request datagram instance of header  structure 
- *			   definition: {uint8_t ic_msg_type;uint8_t rq_dgram_inst;
- *			   uint8_t command_code;}
+ *  @param[in] rq_dgram_inst - request datagram instance of header structure
+ *				definition: {uint8_t ic_msg_type;uint8_t
+ *				rq_dgram_inst; uint8_t command_code;}
  *  @param[in] completion_code - completion code for response structure
- *  @param[in] op - operation field of response structure for  allocate eid command
- *  @param[in] eid_pool_size - eid pool size field of response structure for  allocate eid command
- *  @param[in] first_eid - first eid field of response structure for  allocate eid command
+ *  @param[in] op - operation field of response structure for  allocate eid
+ *				command
+ *  @param[in] eid_pool_size - eid pool size field of response structure for
+ *				allocate eid command
+ *  @param[in] first_eid - first eid field of response structure for  allocate
+ *				eid command
  *  @return encode enum type which tells error or success
  */
 encode_decode_rc mctp_encode_allocate_endpoint_id_resp(
@@ -47,13 +52,15 @@ encode_decode_rc mctp_encode_allocate_endpoint_id_resp(
  *
  *  @param[out] response - Response structure to be encoded
  *  @param[in] length - Length of response structure
- *  @param[in] rq_dgram_inst - request datagram instance of header  structure 
- *			   definition: {uint8_t ic_msg_type;uint8_t rq_dgram_inst;
- *			   uint8_t command_code;}
+ *  @param[in] rq_dgram_inst - request datagram instance of header  structure
+ *			   definition: {uint8_t ic_msg_type;uint8_t
+ *				rq_dgram_inst; uint8_t command_code;}
  *  @param[in] completion_code - completion code for response structure
- *  @param[in] eid_pool_size - eid pool size field of response structure for  set eid command
+ *  @param[in] eid_pool_size - eid pool size field of response structure for set
+ *				eid command
  *  @param[in] status - status field of response structure for  set eid command
- *  @param[in] eid_set - eid setting field of response structure for  set eid command
+ *  @param[in] eid_set - eid setting field of response structure for  set eid
+ *				command
  *  @return encode enum type which tells error or success
  */
 encode_decode_rc mctp_encode_set_eid_resp(struct mctp_msg *response,
@@ -66,9 +73,9 @@ encode_decode_rc mctp_encode_set_eid_resp(struct mctp_msg *response,
  *
  *  @param[out] response - Response structure to be encoded
  *  @param[in] length - Length of response structure
- *  @param[in] rq_dgram_inst - request datagram instance of header  structure 
- *			   definition: {uint8_t ic_msg_type;uint8_t rq_dgram_inst;
- *			   uint8_t command_code;}
+ *  @param[in] rq_dgram_inst - request datagram instance of header  structure
+ *			   definition: {uint8_t ic_msg_type;uint8_t
+ *				rq_dgram_inst; uint8_t command_code;}
  *  @param[in] completion_code - completion code for response structure
  *  @param[in] uuid - UUID field of response structure for  get uuid command
  *  @return encode enum type which tells error or success
@@ -83,9 +90,10 @@ encode_decode_rc mctp_encode_get_uuid_resp(struct mctp_msg *response,
  *
  *  @param[out] response - Response structure to be encoded
  *  @param[inout] length - Length of response structure
- *  @param[in] rq_dgram_inst - request datagram instance of header  structure 
+ *  @param[in] rq_dgram_inst - request datagram instance of header  structure
  *  @param[in] completion_code - completion code for response structure
- *  @param[in] network_id - network_id field of response structure for  get_networkid command
+ *  @param[in] network_id - network_id field of response structure for
+ * 				get_networkid command
  *  @return encode_decode enum type which tells error or success
  */
 encode_decode_rc mctp_encode_get_networkid_resp(struct mctp_msg *response,
@@ -97,11 +105,14 @@ encode_decode_rc mctp_encode_get_networkid_resp(struct mctp_msg *response,
  *
  *  @param[out] response - Response structure to be encoded
  *  @param[inout] length - Length of response structure
- *  @param[in] rq_dgram_inst - request datagram instance of header  structure 
+ *  @param[in] rq_dgram_inst - request datagram instance of header  structure
  *  @param[in] completion_code - completion code for response structure
- *  @param[in] entries - entries field of response structure for  get_routing_table command
- *  @param[in] no_of_entries - no_of_entries field of response structure for  get_routing_table command
- *  @param[in] next_entry_handle - next_entry_handle of response structure for  get_routing_table command
+ *  @param[in] entries - entries field of response structure for
+ * 				get_routing_table command
+ *  @param[in] no_of_entries - no_of_entries field of response structure for
+ * 				get_routing_table command
+ *  @param[in] next_entry_handle - next_entry_handle of response structure for
+ * 				get_routing_table command
  *  @param[out] resp_size - resp_size of response structure
  *  @return encode_decode enum type which tells error or success
  */
@@ -115,10 +126,12 @@ encode_decode_rc mctp_encode_get_routing_table_resp(
  *
  *  @param[out] response - Response structure to be encoded
  *  @param[inout] length - Length of response structure
- *  @param[in] rq_dgram_inst - request datagram instance of header  structure 
+ *  @param[in] rq_dgram_inst - request datagram instance of header  structure
  *  @param[in] completion_code - completion code for response structure
- *  @param[in] number_of_entries - number_of_entries field of response structure for  get_ver_support command
- *  @param[in] vers - vers field of response structure for  get_ver_support command
+ *  @param[in] number_of_entries - number_of_entries field of response structure
+ * 				for  get_ver_support command
+ *  @param[in] vers - vers field of response structure for  get_ver_support
+ * 				command
  *  @return encode_decode enum type which tells error or success
  */
 encode_decode_rc mctp_encode_get_ver_support_resp(struct mctp_msg *request,
@@ -132,11 +145,13 @@ encode_decode_rc mctp_encode_get_ver_support_resp(struct mctp_msg *request,
  *
  *  @param[out] response - Response structure to be encoded
  *  @param[inout] length - Length of response structure
- *  @param[in] rq_dgram_inst - request datagram instance of header  structure 
+ *  @param[in] rq_dgram_inst - request datagram instance of header  structure
  *  @param[in] completion_code - completion code for response structure
  *  @param[in] eid - eid field of response structure for  get_eid command
- *  @param[in] eid_type - eid_type field of response structure for  get_eid command
- *  @param[in] medium_data - medium_data field of response structure for  get_eid command
+ *  @param[in] eid_type - eid_type field of response structure for  get_eid
+ * 				command
+ *  @param[in] medium_data - medium_data field of response structure for get_eid
+ * 				command
  *  @return encode_decode enum type which tells error or success
  */
 encode_decode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,

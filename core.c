@@ -500,10 +500,11 @@ static void mctp_rx(struct mctp *mctp, struct mctp_bus *bus, mctp_eid_t src,
 		if (mctp_is_mctp_ctrl_message(buf, len)) {
 			if (mctp_ctrl_msg_is_request(buf, len)) {
 				/*
-			 * mctp_ctrl_handle_msg returning true means that the message
-			 * was handled by the control callbacks. There is no need to
-			 * handle it in the default callback.
-			 */
+				 * mctp_ctrl_handle_msg returning true means
+				 * that the message was handled by the control
+				 * callbacks. There is no need to handle it in
+				 * the default callback.
+				 */
 				if (mctp_ctrl_handle_msg(mctp, bus, src, dest,
 							 buf, len, tag_owner,
 							 tag,
@@ -683,7 +684,7 @@ static void flush_message(struct mctp_bus *bus)
 
 	while ((pkt = bus->tx_queue_head)) {
 		bus->tx_queue_head = pkt->next;
-		//If EOM of the message is reached then stop flushing
+		// If EOM of the message is reached then stop flushing
 		if (mctp_pktbuf_hdr(pkt)->flags_seq_tag & MCTP_HDR_FLAG_EOM) {
 			mctp_pktbuf_free(pkt);
 			break;
@@ -767,7 +768,8 @@ static int mctp_message_tx_on_bus(struct mctp *mctp, struct mctp_bus *bus,
 		pkt = mctp_pktbuf_alloc(bus->binding,
 					payload_len + sizeof(*hdr));
 		if (!pkt) {
-			/* Low on memory. Better to flush all messages in tx queue */
+			/* Low on memory. Better to flush all messages in tx
+			 * queue */
 			flush_all_messages(bus);
 			return -1;
 		}
@@ -889,9 +891,10 @@ bool mctp_ctrl_handle_msg(struct mctp *mctp, struct mctp_bus *bus,
 	struct mctp_ctrl_msg_hdr *msg_hdr = (struct mctp_ctrl_msg_hdr *)buffer;
 	/* Control message is received.
 	 * If dedicated control messages handler is provided, it will be used.
-	 * If there is no dedicated handler, this function returns false and data
-	 * can be handled by the generic message handler. If the control command
-	 * is not transport specific it will be handled by registered callback. */
+	 * If there is no dedicated handler, this function returns false and
+	 * data can be handled by the generic message handler. If the control
+	 * command is not transport specific it will be handled by registered
+	 * callback. */
 	if (mctp_ctrl_cmd_is_transport(msg_hdr)) {
 		if (bus->binding->control_rx != NULL) {
 			/* MCTP bus binding handler */
@@ -1330,8 +1333,8 @@ int mctp_ctrl_cmd_get_vdm_support(
 }
 
 /*
- * @brief resolve the EID accordingly to the provided policy and creates response.
- * See DSP0236 1.3.0 12.3
+ * @brief resolve the EID accordingly to the provided policy and creates
+ * response. See DSP0236 1.3.0 12.3
  */
 bool mctp_encode_ctrl_cmd_resolve_eid_resp(
 	struct mctp_ctrl_cmd_resolve_eid_resp *response, uint8_t rq_dgram_inst,
@@ -1409,9 +1412,9 @@ bool mctp_encode_ctrl_cmd_get_routing_table_resp(
 	resp->completion_code = MCTP_CTRL_CC_SUCCESS;
 
 	/* All entries will be enclosed in a single response.
-	*  So next entry handle will be 0xFF to indicate that
-	*  there is no more entries
-	*/
+	 *  So next entry handle will be 0xFF to indicate that
+	 *  there is no more entries
+	 */
 	resp->next_entry_handle = next_entry_handle;
 	resp->number_of_entries = no_of_entries;
 	cur_entry = (uint8_t *)resp->entries;

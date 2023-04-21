@@ -10,9 +10,9 @@ extern "C" {
  *
  *  @param[in] response - Response structure to be decoded
  *  @param[in] resp_size - Length of response structure
- *  @param[out] ctrl_hdr - header for response structure 
- *			   definition: {uint8_t ic_msg_type;uint8_t rq_dgram_inst;
- *			   uint8_t command_code;}
+ *  @param[out] ctrl_hdr - header for response structure
+ *			   definition: {uint8_t ic_msg_type;uint8_t
+ *				rq_dgram_inst; uint8_t command_code;}
  *  @param[out] completion_code - completion code for response structure
  *  @param[out] bridge_eid - bridge eid of response for resolve eid command
  *  @param[out] address - Physical address field of response structure for
@@ -28,9 +28,9 @@ encode_decode_rc mctp_decode_resolve_eid_resp(
  *
  *  @param[in] response - Response structure to be decoded
  *  @param[in] length - Length of response structure
- *  @param[out] ctrl_hdr - header for response structure 
- *			   definition: {uint8_t ic_msg_type;uint8_t rq_dgram_inst;
- *			   uint8_t command_code;}
+ *  @param[out] ctrl_hdr - header for response structure
+ *			   definition: {uint8_t ic_msg_type;uint8_t
+ *				rq_dgram_inst; uint8_t command_code;}
  *  @param[out] cc - completion code for response structure
  *  @param[out] op - operation field of response for allocate eid command
  *  @param[out] eid_pool_size - eid_pool_size field of response structure for
@@ -48,13 +48,14 @@ encode_decode_rc mctp_decode_allocate_endpoint_id_resp(
  *
  *  @param[in] response - Response structure to be decoded
  *  @param[in] length - Length of response structure
- *  @param[out] ctrl_hdr - header for response structure 
- *			   definition: {uint8_t ic_msg_type;uint8_t rq_dgram_inst;
- *			   uint8_t command_code;}
+ *  @param[out] ctrl_hdr - header for response structure
+ *			   definition: {uint8_t ic_msg_type;uint8_t
+ *				rq_dgram_inst; uint8_t command_code;}
  *  @param[out] completion_code - completion code for response structure
- *  @param[out] eid_pool_size - EID Pool Size field of response for set eid command
+ *  @param[out] eid_pool_size - EID Pool Size field of response for set eid
+ *				command
  *  @param[out] status - status field of response structure for
- *			  set eid command
+ *			  	set eid command
  *  @param[out] eid_set - EID Setting field of response for set eid command
  *  @return decode enum type which tells error or success
  */
@@ -69,9 +70,9 @@ encode_decode_rc mctp_decode_set_eid_resp(const struct mctp_msg *response,
  *
  *  @param[in] response - Response structure to be decoded
  *  @param[in] length - Length of response structure
- *  @param[out] ctrl_hdr - header for response structure 
- *			   definition: {uint8_t ic_msg_type;uint8_t rq_dgram_inst;
- *			   uint8_t command_code;}
+ *  @param[out] ctrl_hdr - header for response structure
+ *			   definition: {uint8_t ic_msg_type;uint8_t
+ *				rq_dgram_inst; uint8_t command_code;}
  *  @param[out] completion_code - completion code for response structure
  *  @param[out] uuid - UUID field of response for set get uuid command
  *  @return decode enum type which tells error or success
@@ -86,9 +87,10 @@ encode_decode_rc mctp_decode_get_uuid_resp(const struct mctp_msg *response,
  *
  *  @param[in] response - Response structure to be decoded
  *  @param[in] length - Length of response structure
- *  @param[out] ctrl_hdr - header for response structure 
+ *  @param[out] ctrl_hdr - header for response structure
  *  @param[out] completion_code - completion code for response structure
- *  @param[out] network_id - network_id field of response for get_networkid command
+ *  @param[out] network_id - network_id field of response for get_networkid
+ * 				command
  *  @return encode_decode enum type which tells error or success
  */
 encode_decode_rc
@@ -101,11 +103,12 @@ mctp_decode_get_networkid_resp(const struct mctp_msg *response,
  *
  *  @param[in] response - Response structure to be decoded
  *  @param[in] length - Length of response structure
- *  @param[out] ctrl_hdr - header for response structure 
+ *  @param[out] ctrl_hdr - header for response structure
  *  @param[out] completion_code - completion code for response structure
- *  @param[out] number_of_entries - number_of_entries field of response for 
+ *  @param[out] number_of_entries - number_of_entries field of response for
  *				    get_ver_support command
- *  @param[out] vers - 		    array to hold parsed version_entry values from the response 
+ *  @param[out] vers - array to hold parsed version_entry values
+ *				from the response
  *  @param[in] verslen - capacity of vers array
  *  @return encode_decode enum type which tells error or success
  */
@@ -119,7 +122,7 @@ encode_decode_rc mctp_decode_get_ver_support_resp(
  *
  *  @param[in] response - Response structure to be decoded
  *  @param[in] length - Length of response structure
- *  @param[out] ctrl_hdr - header for response structure 
+ *  @param[out] ctrl_hdr - header for response structure
  *  @param[out] completion_code - completion code for response structure
  *  @param[out] eid - eid field of response for get_eid command
  *  @param[out] eid_type - eid type field of response for get_eid command
