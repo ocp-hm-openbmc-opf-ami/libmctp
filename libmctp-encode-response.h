@@ -160,6 +160,29 @@ encode_decode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 					  mctp_eid_t eid, uint8_t eid_type,
 					  uint8_t medium_data);
 
+/** @brief Encode function for get VDM support response
+ *
+ *  @param[out] response - Response structure to be encoded
+ *  @param[inout] length - Length of response structure
+ *  @param[in] rq_dgram_inst - request datagram instance of header  structure
+ *  @param[in] completion_code - completion code for response structure
+ *  @param[in] vendor_id_set_selector - vendor_id_set_selector field of response
+ * 				structure for getVDM support command
+ *  @param[in] vendor_id_format - vendor_id_format field of response structure
+ * 				for getVDM support command
+ *  @param[in] vendor_id_data - vendor_id_data field of response structure with
+ * 				structure type named variable_field for getVDM support
+ * 				command
+ *  @param[in] cmd_set_type - cmd_set_type field of response structure for
+ * 				getVDM support command
+ *  @return encode_decode enum type which tells error or success
+ */
+encode_decode_rc mctp_encode_get_vdm_support_resp(
+	struct mctp_msg *response, size_t *length, uint8_t rq_dgram_inst,
+	uint8_t completion_code, uint8_t vendor_id_set_selector,
+	uint8_t vendor_id_format, const struct variable_field *vendor_id_data,
+	uint16_t cmd_set_type);
+
 #ifdef __cplusplus
 }
 #endif

@@ -225,3 +225,50 @@ encode_decode_rc mctp_encode_get_eid_resp(struct mctp_msg *response,
 	resp->medium_data = medium_data;
 	return SUCCESS;
 }
+
+encode_decode_rc mctp_encode_get_vdm_support_resp(
+	struct mctp_msg *response, size_t *length, uint8_t rq_dgram_inst,
+	uint8_t completion_code, uint8_t vendor_id_set_selector,
+	uint8_t vendor_id_format, struct variable_field *vendor_id_data,
+	uint16_t cmd_set_type)
+{
+	if (response == NULL || length == NULL || vendor_id_data == NULL ||
+	    vendor_id_data->data == NULL)
+		return INPUT_ERROR;
+
+	size_t min_len =
+		vendor_id_format == MCTP_GET_VDM_SUPPORT_IANA_FORMAT_ID ?
+			sizeof(struct mctp_ctrl_resp_get_vdm_support) :
+			sizeof(struct mctp_ctrl_resp_get_vdm_support) -
+				sizeof(uint16_t);
+	if (*length < min_len)
+		return GENERIC_ERROR;
+
+	encode_ctrl_cmd_header(&response->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	struct mctp_ctrl_resp_get_vdm_support *resp =
+		(struct mctp_ctrl_resp_get_vdm_support *)response;
+
+	resp->completion_code = completion_code;
+	if (completion_code != MCTP_CTRL_CC_SUCCESS) {
+		*length = sizeof(struct mctp_ctrl_msg_hdr) + sizeof(uint8_t);
+		return SUCCESS;
+	}
+	resp->vendor_id_set_selector = vendor_id_set_selector;
+	resp->vendor_id_format = vendor_id_format;
+
+	if (resp->vendor_id_format == MCTP_GET_VDM_SUPPORT_IANA_FORMAT_ID) {
+		uint32_t *iana_val = (uint32_t *)vendor_id_data->data;
+		resp->vendor_id_data_iana = htobe32(*iana_val);
+		*length = sizeof(struct mctp_ctrl_resp_get_vdm_support);
+		resp->cmd_set_type = htobe16(cmd_set_type);
+	} else if (resp->vendor_id_format ==
+		   MCTP_GET_VDM_SUPPORT_PCIE_FORMAT_ID) {
+		uint16_t *pcie_val = (uint16_t *)vendor_id_data->data;
+		resp->vendor_id_data_pcie = htobe16(*pcie_val);
+		*length = sizeof(struct mctp_ctrl_resp_get_vdm_support) -
+			  sizeof(uint16_t);
+		*(&(resp->cmd_set_type) - 1) = htobe16(cmd_set_type);
+	}
+	return SUCCESS;
+}

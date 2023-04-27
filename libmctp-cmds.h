@@ -369,6 +369,7 @@ struct mctp_ctrl_resp_get_vdm_support {
 	};
 	/* following bytes are dependent on vendor id format
 	 * and shall be interpreted by appropriate binding handler */
+	uint16_t cmd_set_type;
 } __attribute__((__packed__));
 
 struct mctp_pci_ctrl_resp_get_vdm_support {

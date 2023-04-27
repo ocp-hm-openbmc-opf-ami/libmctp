@@ -224,3 +224,51 @@ encode_decode_rc mctp_decode_get_eid_resp(const struct mctp_msg *response,
 	*medium_data = resp->medium_data;
 	return SUCCESS;
 }
+
+encode_decode_rc mctp_decode_get_vdm_support_resp(
+	const struct mctp_msg *response, const size_t length,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *completion_code,
+	uint8_t *vendor_id_set_selector, uint8_t *vendor_id_format,
+	struct variable_field *vendor_id_data, uint16_t *cmd_set_type)
+{
+	if (response == NULL || ctrl_hdr == NULL || completion_code == NULL ||
+	    vendor_id_set_selector == NULL || vendor_id_format == NULL ||
+	    vendor_id_data == NULL || cmd_set_type == NULL)
+		return INPUT_ERROR;
+
+	struct mctp_ctrl_resp_get_vdm_support *resp =
+		(struct mctp_ctrl_resp_get_vdm_support *)(response);
+	if (response->msg_hdr.command_code !=
+	    MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT)
+		return GENERIC_ERROR;
+
+	*completion_code = resp->completion_code;
+	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return CC_ERROR;
+
+	if (resp->vendor_id_format == MCTP_GET_VDM_SUPPORT_IANA_FORMAT_ID) {
+		if (length < sizeof(struct mctp_ctrl_resp_get_vdm_support))
+			return GENERIC_ERROR;
+	} else if (resp->vendor_id_format ==
+		   MCTP_GET_VDM_SUPPORT_PCIE_FORMAT_ID) {
+		if (length < (sizeof(struct mctp_ctrl_resp_get_vdm_support) -
+			      sizeof(uint16_t)))
+			return GENERIC_ERROR;
+	}
+
+	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	*vendor_id_set_selector = resp->vendor_id_set_selector;
+	*vendor_id_format = resp->vendor_id_format;
+	if (*vendor_id_format == MCTP_GET_VDM_SUPPORT_IANA_FORMAT_ID) {
+		vendor_id_data->data = (uint8_t *)&resp->vendor_id_data_iana;
+		vendor_id_data->data_size = sizeof(uint32_t);
+		*cmd_set_type = be16toh(resp->cmd_set_type);
+	} else if (*vendor_id_format == MCTP_GET_VDM_SUPPORT_PCIE_FORMAT_ID) {
+		vendor_id_data->data = (uint8_t *)&resp->vendor_id_data_pcie;
+		vendor_id_data->data_size = sizeof(uint16_t);
+		*cmd_set_type = be16toh(*(&resp->cmd_set_type - 1));
+	}
+	return SUCCESS;
+}

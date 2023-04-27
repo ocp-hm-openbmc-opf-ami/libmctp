@@ -4,6 +4,7 @@
 
 #include "libmctp-cmds.h"
 #include "libmctp-decode-response.h"
+#include "test_sample_ids.h"
 
 static void test_decode_resolve_eid_resp()
 {
@@ -662,6 +663,143 @@ static void test_negative_decode_get_eid_resp()
 	assert(ret == GENERIC_ERROR);
 }
 
+static void test_decode_get_vdm_support_pcie_resp()
+{
+	encode_decode_rc ret;
+	const uint8_t sample[] = {
+		0, 200, 6, 0, 0xFF, 0, 0x80, 0x86, 0x12, 0x34
+	};
+	struct mctp_ctrl_resp_get_vdm_support *response =
+		(struct mctp_ctrl_resp_get_vdm_support *)sample;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
+	uint8_t vendor_id_set_selector;
+	uint8_t vendor_id_format;
+	struct variable_field vendor_id_data;
+	uint16_t cmd_set_type;
+	const uint8_t rq_d_inst = 200;
+
+	struct mctp_msg *resp = (struct mctp_msg *)(response);
+
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, &vendor_id_set_selector, &vendor_id_format,
+		&vendor_id_data, &cmd_set_type);
+	assert(ret == SUCCESS);
+	assert(ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	assert(ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(vendor_id_set_selector == 0xFF);
+	assert(vendor_id_format == MCTP_GET_VDM_SUPPORT_PCIE_FORMAT_ID);
+	assert(memcmp((sample + 6), vendor_id_data.data, sizeof(uint16_t)) ==
+	       0);
+	assert(vendor_id_data.data_size == sizeof(uint16_t));
+	assert(cmd_set_type == 0x1234);
+}
+
+static void test_decode_get_vdm_support_iana_resp()
+{
+	encode_decode_rc ret;
+	const uint8_t sample[] = { 0,	 200,  6,    0,	   0xFF, 1,
+				   0x12, 0x34, 0x56, 0x78, 0x12, 0x34 };
+	struct mctp_ctrl_resp_get_vdm_support *response =
+		(struct mctp_ctrl_resp_get_vdm_support *)sample;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
+	uint8_t vendor_id_set_selector;
+	uint8_t vendor_id_format;
+	struct variable_field vendor_id_data;
+	uint16_t cmd_set_type;
+	const uint8_t rq_d_inst = 200;
+
+	struct mctp_msg *resp = (struct mctp_msg *)(response);
+
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, &vendor_id_set_selector, &vendor_id_format,
+		&vendor_id_data, &cmd_set_type);
+	assert(ret == SUCCESS);
+	assert(response->ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
+	assert(response->ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response->ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+	assert(response->vendor_id_set_selector == vendor_id_set_selector);
+	assert(response->vendor_id_format == vendor_id_format);
+	assert(memcmp(&response->vendor_id_data_iana, vendor_id_data.data,
+		      sizeof(uint32_t)) == 0);
+	assert(vendor_id_data.data_size == sizeof(uint32_t));
+	assert(be16toh(response->cmd_set_type) == cmd_set_type);
+}
+
+static void test_negative_decode_get_vdm_support_resp()
+{
+	encode_decode_rc ret;
+	struct mctp_ctrl_resp_get_vdm_support response;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	uint8_t completion_code;
+	uint8_t vendor_id_set_selector;
+	uint8_t vendor_id_format;
+	struct variable_field vendor_id_data;
+	uint16_t cmd_set_type;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+	response.completion_code = MCTP_CTRL_CC_SUCCESS;
+	response.ctrl_hdr.command_code =
+		MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT;
+
+	ret = mctp_decode_get_vdm_support_resp(
+		NULL, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, &vendor_id_set_selector, &vendor_id_format,
+		&vendor_id_data, &cmd_set_type);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, 0, &ctrl_hdr, &completion_code, &vendor_id_set_selector,
+		&vendor_id_format, &vendor_id_data, &cmd_set_type);
+	assert(ret == GENERIC_ERROR);
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), NULL,
+		&completion_code, &vendor_id_set_selector, &vendor_id_format,
+		&vendor_id_data, &cmd_set_type);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		NULL, &vendor_id_set_selector, &vendor_id_format,
+		&vendor_id_data, &cmd_set_type);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, NULL, &vendor_id_format, &vendor_id_data,
+		&cmd_set_type);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, &vendor_id_set_selector, NULL,
+		&vendor_id_data, &cmd_set_type);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_vdm_support_resp(
+		NULL, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, &vendor_id_set_selector, &vendor_id_format,
+		NULL, &cmd_set_type);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, &vendor_id_set_selector, &vendor_id_format,
+		&vendor_id_data, NULL);
+	assert(ret == INPUT_ERROR);
+	response.completion_code = MCTP_CTRL_CC_ERROR;
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, &vendor_id_set_selector, &vendor_id_format,
+		&vendor_id_data, &cmd_set_type);
+	assert(ret == CC_ERROR);
+	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_RESERVED;
+	ret = mctp_decode_get_vdm_support_resp(
+		resp, sizeof(struct mctp_ctrl_resp_get_vdm_support), &ctrl_hdr,
+		&completion_code, &vendor_id_set_selector, &vendor_id_format,
+		&vendor_id_data, &cmd_set_type);
+	assert(ret == GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_decode_resolve_eid_resp();
@@ -671,6 +809,8 @@ int main(int argc, char *argv[])
 	test_decode_get_networkid_resp();
 	test_decode_get_ver_support_resp();
 	test_decode_get_eid_resp();
+	test_decode_get_vdm_support_pcie_resp();
+	test_decode_get_vdm_support_iana_resp();
 
 	/*Negative test cases */
 	test_negative_decode_resolve_eid_resp();
@@ -680,6 +820,7 @@ int main(int argc, char *argv[])
 	test_negative_decode_get_networkid_resp();
 	test_negative_decode_get_ver_support_resp();
 	test_negative_decode_get_eid_resp();
+	test_negative_decode_get_vdm_support_resp();
 
 	return EXIT_SUCCESS;
 }

@@ -116,6 +116,18 @@ encode_decode_rc mctp_decode_get_eid_req(const struct mctp_msg *request,
 					 const size_t length,
 					 struct mctp_ctrl_msg_hdr *ctrl_hdr);
 
+/** @brief Decode function for get VDM support request
+ *
+ *  @param[in] request - Request structure to be decoded
+ *  @param[in] length - Length of request structure
+ *  @param[out] ctrl_hdr - header for request structure
+ *  @param[out] vid_set_selector - vid_set_selector of getVDM support command
+ *  @return encode_decode enum type which tells error or success
+ */
+encode_decode_rc mctp_decode_get_vdm_support_req(
+	const struct mctp_msg *request, const size_t length,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *vid_set_selector);
+
 #ifdef __cplusplus
 }
 #endif
