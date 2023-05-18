@@ -310,6 +310,8 @@ static void test_encode_get_vdm_support_req()
 	uint8_t vid_set_selector = MCTP_TEST_SAMPLE_VID;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	struct mctp_ctrl_cmd_get_vdm_support request;
+	request.ctrl_msg_hdr = invalid_header;
+	request.vendor_id_set_selector = 0x00;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 

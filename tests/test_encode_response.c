@@ -557,6 +557,10 @@ static void test_encode_get_vdm_support_pcie_resp()
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_ctrl_resp_get_vdm_support response;
+	response.vendor_id_set_selector = 0x00;
+	response.vendor_id_format = 0x01;
+	response.vendor_id_data_pcie = 0xFFFF;
+	response.cmd_set_type = 0x1234;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
@@ -593,6 +597,10 @@ static void test_encode_get_vdm_support_iana_resp()
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_ctrl_resp_get_vdm_support response;
+	response.vendor_id_set_selector = 0x00;
+	response.vendor_id_format = 0x00;
+	response.vendor_id_data_iana = 0x00000000;
+	response.cmd_set_type = 0x1234;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
