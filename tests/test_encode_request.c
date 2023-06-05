@@ -11,8 +11,8 @@ struct mctp_ctrl_msg_hdr invalid_header = { 0x01, 0x00, 0xF0 };
 static void test_encode_resolve_eid_req()
 {
 	encode_decode_rc ret;
-	const uint8_t target_eid = 9;
-	const uint8_t instance_id = 0x01;
+	const uint8_t target_eid = MCTP_TEST_SAMPLE_EID;
+	const uint8_t instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	struct mctp_ctrl_cmd_resolve_eid_req request;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
 	ret = mctp_encode_resolve_eid_req(
@@ -31,8 +31,8 @@ static void test_negative_encode_resolve_eid_req()
 {
 	encode_decode_rc ret;
 	struct mctp_msg request;
-	const uint8_t target_eid = 9;
-	const uint8_t instance_id = 0x01;
+	const uint8_t target_eid = MCTP_TEST_SAMPLE_EID;
+	const uint8_t instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 
 	ret = mctp_encode_resolve_eid_req(
 		NULL, sizeof(struct mctp_ctrl_cmd_resolve_eid_req),
@@ -47,9 +47,9 @@ static void test_negative_encode_resolve_eid_req()
 static void test_encode_allocate_eid_pool_req()
 {
 	encode_decode_rc ret;
-	const uint8_t first_eid = 9;
-	const uint8_t eid_pool_size = 10;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t first_eid = MCTP_TEST_SAMPLE_EID;
+	const uint8_t eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	mctp_ctrl_cmd_allocate_eids_req_op operation = allocate_eids;
 	struct mctp_ctrl_cmd_allocate_eids_req request;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
@@ -71,9 +71,9 @@ static void test_encode_allocate_eid_pool_req()
 static void test_negative_encode_allocate_eid_pool_req()
 {
 	encode_decode_rc ret;
-	uint8_t sample_eid = 10;
-	const uint8_t eid_pool_size = 10;
-	uint8_t expected_instance_id = 0x01;
+	uint8_t sample_eid = MCTP_TEST_SAMPLE_EID;
+	const uint8_t eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	mctp_ctrl_cmd_allocate_eids_req_op operation = allocate_eids;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *request = NULL;
@@ -91,8 +91,8 @@ static void test_negative_encode_allocate_eid_pool_req()
 static void test_encode_set_eid_req()
 {
 	encode_decode_rc ret;
-	const uint8_t eid = 9;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t eid = MCTP_TEST_SAMPLE_EID;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	struct mctp_ctrl_cmd_set_eid request;
 	mctp_ctrl_cmd_set_eid_op operation = set_eid;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
@@ -112,8 +112,8 @@ static void test_encode_set_eid_req()
 static void test_negative_encode_set_eid_req()
 {
 	encode_decode_rc ret;
-	uint8_t eid = 10;
-	uint8_t expected_instance_id = 0x01;
+	uint8_t eid = MCTP_TEST_SAMPLE_EID;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	mctp_ctrl_cmd_set_eid_op operation = set_eid;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *request = NULL;
@@ -129,7 +129,7 @@ static void test_negative_encode_set_eid_req()
 static void test_encode_get_uuid_req()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	struct mctp_ctrl_cmd_get_uuid request;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
@@ -146,7 +146,7 @@ static void test_encode_get_uuid_req()
 static void test_negative_encode_get_uuid_req()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *request = NULL;
 
@@ -161,7 +161,7 @@ static void test_negative_encode_get_uuid_req()
 static void test_encode_get_networkid_req()
 {
 	encode_decode_rc ret;
-	uint8_t instance_id = 0x01;
+	const uint8_t instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	struct mctp_ctrl_cmd_get_networkid_req request;
 	request.ctrl_msg_hdr = invalid_header;
 	struct mctp_msg *req = (struct mctp_msg *)(&request);
@@ -180,7 +180,7 @@ static void test_encode_get_networkid_req()
 static void test_negative_encode_get_networkid_req()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *request = NULL;
 
@@ -197,7 +197,7 @@ static void test_encode_get_routing_table_req()
 {
 	encode_decode_rc ret;
 	uint8_t entry_handle = 1;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	struct mctp_ctrl_cmd_get_routing_table_req request;
 	request.ctrl_msg_hdr = invalid_header;
 	request.entry_handle = 0x80;
@@ -219,7 +219,7 @@ static void test_negative_encode_get_routing_table_req()
 {
 	encode_decode_rc ret;
 	uint8_t entry_handle = 1;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *request = NULL;
 	ret = mctp_encode_get_routing_table_req(
@@ -235,8 +235,8 @@ static void test_negative_encode_get_routing_table_req()
 static void test_encode_get_ver_support_req()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
-	uint8_t msg_type_number = 10;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
+	uint8_t msg_type_number = MCTP_TEST_SAMPLE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_ctrl_cmd_get_mctp_ver_support request;
 	request.ctrl_msg_hdr = invalid_header;
@@ -257,8 +257,8 @@ static void test_encode_get_ver_support_req()
 static void test_negative_encode_get_ver_support_req()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
-	uint8_t msg_type_number = 10;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
+	uint8_t msg_type_number = MCTP_TEST_SAMPLE_MSG_TYPE_NUMBER;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *request = NULL;
 	ret = mctp_encode_get_ver_support_req(
@@ -274,7 +274,7 @@ static void test_negative_encode_get_ver_support_req()
 static void test_encode_get_eid_req()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	struct mctp_ctrl_cmd_get_eid request;
 	request.ctrl_msg_hdr = invalid_header;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
@@ -292,7 +292,7 @@ static void test_encode_get_eid_req()
 static void test_negative_encode_get_eid_req()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	struct mctp_msg *request = NULL;
 

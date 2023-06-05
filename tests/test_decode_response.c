@@ -105,14 +105,14 @@ static void test_decode_allocate_eid_pool_resp()
 	struct mctp_ctrl_cmd_allocate_eids_resp response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	response.operation = allocation_accepted;
-	response.eid_pool_size = 10;
-	response.first_eid = 9;
+	response.eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	response.first_eid = MCTP_TEST_SAMPLE_EID;
 	uint8_t completion_code;
 	mctp_ctrl_cmd_allocate_eids_resp_op op;
 	uint8_t eid_pool_size;
@@ -139,14 +139,14 @@ static void test_negative_decode_allocate_eid_pool_resp()
 	struct mctp_ctrl_cmd_allocate_eids_resp response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	response.operation = allocation_accepted;
-	response.eid_pool_size = 10;
-	response.first_eid = 9;
+	response.eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	response.first_eid = MCTP_TEST_SAMPLE_EID;
 	uint8_t completion_code;
 	mctp_ctrl_cmd_allocate_eids_resp_op op;
 	uint8_t eid_pool_size;
@@ -202,13 +202,13 @@ static void test_decode_set_eid_resp()
 	struct mctp_ctrl_resp_set_eid response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_SET_ENDPOINT_ID;
-	response.eid_pool_size = 9;
-	response.eid_set = 12;
-	response.status = 8;
+	response.eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	response.eid_set = MCTP_TEST_SAMPLE_EID_SET;
+	response.status = MCTP_TEST_SAMPLE_STATUS;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	uint8_t eid_pool_size;
 	uint8_t eid_set;
@@ -237,13 +237,13 @@ static void test_negative_decode_set_eid_resp()
 	struct mctp_ctrl_resp_set_eid response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_SET_ENDPOINT_ID;
-	response.eid_pool_size = 9;
-	response.eid_set = 12;
-	response.status = 8;
+	response.eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	response.eid_set = MCTP_TEST_SAMPLE_EID_SET;
+	response.status = MCTP_TEST_SAMPLE_STATUS;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	uint8_t eid_pool_size;
 	uint8_t eid_set;
@@ -311,7 +311,7 @@ static void test_decode_get_uuid_resp()
 	response.uuid.canonical.data1 = 10;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_UUID;
@@ -341,7 +341,7 @@ static void test_negative_decode_get_uuid_resp()
 	response.uuid.canonical.data1 = 10;
 	response.completion_code = MCTP_CTRL_CC_ERROR;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_UUID;
@@ -378,7 +378,7 @@ static void test_decode_get_networkid_resp()
 	struct mctp_ctrl_get_networkid_resp response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	guid_t network_id;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 
 	response.networkid.canonical.data1 = 10;
@@ -409,7 +409,7 @@ static void test_negative_decode_get_networkid_resp()
 	struct mctp_ctrl_get_networkid_resp response;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 	guid_t network_id;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 
 	response.networkid.canonical.data1 = 10;
@@ -456,7 +456,7 @@ static void test_decode_get_ver_support_resp()
 	encode_decode_rc ret;
 	uint8_t number_of_entries;
 	uint8_t completion_code;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t response_buffer
 		[13]; // sizeof(mctp_get_ver_support_resp) + sizeof(single_version)
 	struct mctp_ctrl_resp_get_mctp_ver_support *response =
@@ -565,13 +565,13 @@ static void test_decode_get_eid_resp()
 	struct mctp_ctrl_resp_get_eid response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_ID;
-	response.eid = 12;
-	response.eid_type = 1;
-	response.medium_data = 8;
+	response.eid = MCTP_TEST_SAMPLE_ID;
+	response.eid_type = MCTP_TEST_SAMPLE_EID_TYPE;
+	response.medium_data = MCTP_TEST_SAMPLE_MEDIUM_DATA;
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	uint8_t eid;
 	uint8_t eid_type;
@@ -603,16 +603,16 @@ static void test_negative_decode_get_eid_resp()
 	uint8_t eid;
 	uint8_t eid_type;
 	uint8_t medium_data;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 
 	response.completion_code = MCTP_CTRL_CC_SUCCESS;
 	response.ctrl_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
 	response.ctrl_hdr.rq_dgram_inst = rq_d_inst;
 	response.ctrl_hdr.command_code = MCTP_CTRL_CMD_GET_ENDPOINT_ID;
-	response.eid = 12;
-	response.eid_type = 1;
-	response.medium_data = 8;
+	response.eid = MCTP_TEST_SAMPLE_ID;
+	response.eid_type = MCTP_TEST_SAMPLE_EID_TYPE;
+	response.medium_data = MCTP_TEST_SAMPLE_MEDIUM_DATA;
 
 	uint8_t completion_code;
 	ret = mctp_decode_get_eid_resp(NULL,

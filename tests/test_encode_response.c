@@ -22,7 +22,7 @@ static void test_encode_resolve_eid_resp()
 	response = (struct mctp_ctrl_cmd_resolve_eid_resp *)malloc(
 		sizeof(struct mctp_ctrl_cmd_resolve_eid_resp) +
 		sizeof(phy_address));
-	const uint8_t instance_id = 0x01;
+	const uint8_t instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	const uint8_t bridge_eid = 10;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
@@ -54,8 +54,8 @@ static void test_negative_encode_resolve_eid_resp()
 			sizeof(phy_address);
 	address.data = phy_address;
 	address.data_size = sizeof(phy_address);
-	const uint8_t instance_id = 0x01;
-	const uint8_t bridge_eid = 10;
+	const uint8_t instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
+	const uint8_t bridge_eid = MCTP_TEST_SAMPLE_ID;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	ret = mctp_encode_resolve_eid_resp(
 		NULL, &length, (instance_id | MCTP_CTRL_HDR_FLAG_REQUEST),
@@ -87,11 +87,11 @@ static void test_encode_allocate_eid_pool_resp()
 	encode_decode_rc ret;
 	struct mctp_ctrl_cmd_allocate_eids_resp response;
 	size_t length = sizeof(struct mctp_ctrl_cmd_allocate_eids_resp);
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	mctp_ctrl_cmd_allocate_eids_resp_op op = allocation_accepted;
-	uint8_t eid_pool_size = 10;
-	uint8_t first_eid = 9;
+	uint8_t eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	uint8_t first_eid = MCTP_TEST_SAMPLE_EID;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
@@ -115,11 +115,11 @@ static void test_negative_encode_allocate_eid_pool_resp()
 	struct mctp_msg *response = NULL;
 	size_t temp_length = 0;
 	size_t length = sizeof(struct mctp_ctrl_cmd_allocate_eids_resp);
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	mctp_ctrl_cmd_allocate_eids_resp_op op = allocation_accepted;
-	uint8_t eid_pool_size = 10;
-	uint8_t first_eid = 9;
+	uint8_t eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	uint8_t first_eid = MCTP_TEST_SAMPLE_EID;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 
 	ret = mctp_encode_allocate_endpoint_id_resp(response, &length,
@@ -144,11 +144,11 @@ static void test_encode_set_eid_resp()
 	encode_decode_rc ret;
 	struct mctp_ctrl_resp_set_eid response;
 	size_t length = sizeof(struct mctp_ctrl_resp_set_eid);
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
-	uint8_t eid_pool_size = 10;
-	uint8_t eid_set = 9;
-	uint8_t status = 8;
+	uint8_t eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	uint8_t eid_set = MCTP_TEST_SAMPLE_EID_SET;
+	uint8_t status = MCTP_TEST_SAMPLE_STATUS;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
@@ -171,11 +171,11 @@ static void test_negative_encode_set_eid_resp()
 	struct mctp_msg *response = NULL;
 	size_t temp_length = 0;
 	size_t length = sizeof(struct mctp_ctrl_resp_set_eid);
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
-	uint8_t eid_pool_size = 9;
-	uint8_t eid_set = 10;
-	uint8_t status = 8;
+	uint8_t eid_pool_size = MCTP_TEST_SAMPLE_EID_POOL_SIZE;
+	uint8_t eid_set = MCTP_TEST_SAMPLE_EID_SET;
+	uint8_t status = MCTP_TEST_SAMPLE_STATUS;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	ret = mctp_encode_set_eid_resp(response, &length, rq_d_inst,
 				       completion_code, eid_pool_size, status,
@@ -197,7 +197,7 @@ static void test_encode_get_uuid_resp()
 	encode_decode_rc ret;
 	struct mctp_ctrl_resp_get_uuid response;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_uuid);
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	/* 16 byte UUID */
 	char sample_uuid[16] = "61a3";
@@ -224,7 +224,7 @@ static void test_negative_encode_get_uuid_resp()
 	struct mctp_msg *response = NULL;
 	size_t temp_length = 0;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_uuid);
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	guid_t test_uuid;
@@ -406,7 +406,7 @@ static void test_negative_encode_get_routing_table_resp()
 static void test_encode_get_ver_support_resp()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_mctp_ver_support);
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	uint8_t response_buffer[13]; // sizeof(mctp_get_ver_support_resp) +
@@ -458,7 +458,7 @@ static void test_encode_get_ver_support_resp()
 static void test_negative_encode_get_ver_support_resp()
 {
 	encode_decode_rc ret;
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	size_t temp_length = 0;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_mctp_ver_support);
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
@@ -495,11 +495,11 @@ static void test_encode_get_eid_resp()
 	struct mctp_ctrl_resp_get_eid response;
 	response.ctrl_hdr = invalid_header;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_eid);
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
-	mctp_eid_t eid = 10;
-	uint8_t eid_type = 9;
-	uint8_t medium_data = 8;
+	mctp_eid_t eid = MCTP_TEST_SAMPLE_ID;
+	uint8_t eid_type = MCTP_TEST_SAMPLE_EID_TYPE;
+	uint8_t medium_data = MCTP_TEST_SAMPLE_MEDIUM_DATA;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	struct mctp_msg *resp = (struct mctp_msg *)(&response);
 
@@ -522,11 +522,11 @@ static void test_negative_encode_get_eid_resp()
 	struct mctp_msg *response = NULL;
 	size_t temp_length = 0;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_eid);
-	uint8_t expected_instance_id = 0x01;
+	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
-	mctp_eid_t eid = 10;
-	uint8_t eid_type = 9;
-	uint8_t medium_data = 8;
+	mctp_eid_t eid = MCTP_TEST_SAMPLE_ID;
+	uint8_t eid_type = MCTP_TEST_SAMPLE_EID_TYPE;
+	uint8_t medium_data = MCTP_TEST_SAMPLE_MEDIUM_DATA;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	ret = mctp_encode_get_eid_resp(response, &length, rq_d_inst,
 				       completion_code, eid, eid_type,
