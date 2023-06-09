@@ -410,7 +410,7 @@ static void test_encode_get_ver_support_resp()
 	size_t length = sizeof(struct mctp_ctrl_resp_get_mctp_ver_support);
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
 	uint8_t response_buffer[13]; // sizeof(mctp_get_ver_support_resp) +
-		// sizeof(single_version)
+				     // sizeof(single_version)
 	struct mctp_ctrl_resp_get_mctp_ver_support *response =
 		(struct mctp_ctrl_resp_get_mctp_ver_support *)(response_buffer);
 	struct version_entry *vers;
@@ -630,6 +630,8 @@ static void test_negative_encode_get_vdm_support_resp()
 	uint8_t vendor_id_set_selector = MCTP_TEST_SAMPLE_VID;
 	uint8_t vendor_id_format = MCTP_GET_VDM_SUPPORT_PCIE_FORMAT_ID;
 	struct variable_field vendor_id_data;
+	vendor_id_data.data = malloc(sizeof(uint8_t) * 0);
+	vendor_id_data.data_size = 0;
 	uint16_t cmd_set_type = 0x1234;
 	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
