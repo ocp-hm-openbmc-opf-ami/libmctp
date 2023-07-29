@@ -110,7 +110,7 @@ int main(void)
 			  9);
 
 	/* Set a 4500 bytes/packet limit for B */
-        const uint32_t max_message_size = 4500;
+	const uint32_t max_message_size = 4500;
 	mctp_set_max_message_size(scenario[1].mctp, max_message_size);
 
 	/* Transmit a message from A to B */
@@ -124,9 +124,9 @@ int main(void)
 	assert(seen);
 
 	/* Negative testcase: In case of a large payload receieved, buffer
-         * allocations will fail and thus the message received callback
-         * shouldn't be invoked - i.e. seen flag will remain false */
-        const uint32_t large_payload_size = max_message_size + 100;
+	 * allocations will fail and thus the message received callback
+	 * shouldn't be invoked - i.e. seen flag will remain false */
+	const uint32_t large_payload_size = max_message_size + 100;
 	uint8_t large_payload[large_payload_size];
 	rc = mctp_message_tx(scenario[0].mctp, 9, large_payload,
 			     sizeof(large_payload), true, 0, NULL);

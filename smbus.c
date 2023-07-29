@@ -241,10 +241,11 @@ static int mctp_smbus_tx(struct mctp_binding_smbus *smbus, const uint8_t len,
 #endif
 	mctp_trace_tx(smbus->txbuf, len);
 
-	struct i2c_msg msg[1] = { { .addr = pkt_pvt->target_addr >> 1, /* seven
-									  bit
-									  address
-									*/
+	struct i2c_msg msg[1] = { { .addr = pkt_pvt->target_addr >>
+					    1, /* seven
+						  bit
+						  address
+						*/
 				    .flags = 0,
 				    .len = len,
 				    .buf = smbus->txbuf } };

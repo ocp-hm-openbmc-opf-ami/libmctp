@@ -251,9 +251,9 @@ static void run_smbus_rx_test_negative(mctp_rx_fn rx_fn)
 	mctp_smbus_read(smbus_ctx.bind_smbus);
 
 	/*
-     * since for negative cases the call should not happen
-     * so this counter wont be incremented
-     */
+	 * since for negative cases the call should not happen
+	 * so this counter wont be incremented
+	 */
 	assert(fn_call_cnt == 0);
 
 	destroy_smbus_test_ctx(&smbus_ctx);
@@ -338,9 +338,9 @@ static void run_smbus_rx_test_negative_pec(mctp_rx_fn rx_fn)
 	assert(mctp_smbus_read(smbus_ctx.bind_smbus) == -1);
 
 	/*
-     * since for negative cases the call should not happen
-     * so this counter wont be incremented
-     */
+	 * since for negative cases the call should not happen
+	 * so this counter wont be incremented
+	 */
 	assert(fn_call_cnt_pec == 0);
 
 	destroy_smbus_test_ctx(&smbus_ctx);

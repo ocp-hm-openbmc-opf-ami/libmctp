@@ -147,8 +147,8 @@ encode_decode_rc mctp_decode_get_eid_resp(const struct mctp_msg *response,
  *  @param[out] vendor_id_format - vendor_id_format field of response structure
  * 				for getVDM support command
  *  @param[out] vendor_id_data - vendor_id_data field of response structure with
- * 				structure type named variable_field for getVDM support
- * 				command
+ * 				structure type named variable_field for getVDM
+ *				support command
  *  @param[out] cmd_set_type - cmd_set_type field of response structure for
  * 				getVDM support command
  *  @return encode_decode enum type which tells error or success

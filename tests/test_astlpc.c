@@ -250,9 +250,9 @@ int main(void)
 	rc = mctp_astlpc_poll(astlpc);
 	assert(rc == 0);
 	/* Since we transmitted a 3 byte packet to BMC, BMC should discard
-         * the packet since size is less than MCTP header. Confirm using the
-         * received packet counter which get incremented only on reception of
-         * valid MCTP message */
+	 * the packet since size is less than MCTP header. Confirm using the
+	 * received packet counter which get incremented only on reception of
+	 * valid MCTP message */
 	assert(g_received_packet_count == 1);
 
 	mctp_astlpc_destroy(astlpc);

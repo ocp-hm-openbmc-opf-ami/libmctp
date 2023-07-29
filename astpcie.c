@@ -323,7 +323,8 @@ int mctp_astpcie_rx(struct mctp_binding_astpcie *astpcie)
 	hdr = (struct mctp_pcie_hdr *)data;
 	payload_len = mctp_astpcie_rx_get_payload_size(hdr);
 
-	mctp_trace_rx(&data, payload_len + sizeof(struct mctp_pcie_hdr) + sizeof(struct mctp_hdr));
+	mctp_trace_rx(&data, payload_len + sizeof(struct mctp_pcie_hdr) +
+				     sizeof(struct mctp_hdr));
 
 	pkt_prv.routing = PCIE_GET_ROUTING(hdr);
 

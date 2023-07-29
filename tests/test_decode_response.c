@@ -457,8 +457,8 @@ static void test_decode_get_ver_support_resp()
 	uint8_t number_of_entries;
 	uint8_t completion_code;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
-	uint8_t response_buffer
-		[13]; // sizeof(mctp_get_ver_support_resp) + sizeof(single_version)
+	uint8_t response_buffer[13]; // sizeof(mctp_get_ver_support_resp) +
+				     // sizeof(single_version)
 	struct mctp_ctrl_resp_get_mctp_ver_support *response =
 		(struct mctp_ctrl_resp_get_mctp_ver_support *)(response_buffer);
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
