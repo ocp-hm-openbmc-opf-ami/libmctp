@@ -16,6 +16,7 @@ extern "C" {
 #define MCTP_TEST_SAMPLE_VID 0x09
 #define MCTP_TEST_SAMPLE_ID 0x0A
 #define MCTP_TEST_SAMPLE_EID_POOL_SIZE 0x0A
+#define MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE 0xFF
 
 #ifdef __cplusplus
 }

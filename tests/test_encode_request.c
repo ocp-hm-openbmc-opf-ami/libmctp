@@ -234,7 +234,7 @@ static void test_negative_encode_get_routing_table_req()
 
 static void test_encode_get_ver_support_req()
 {
-	encode_decode_rc ret;
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t msg_type_number = MCTP_TEST_SAMPLE_ID;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
@@ -256,7 +256,7 @@ static void test_encode_get_ver_support_req()
 
 static void test_negative_encode_get_ver_support_req()
 {
-	encode_decode_rc ret;
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	uint8_t msg_type_number = MCTP_TEST_SAMPLE_MSG_TYPE_NUMBER;
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;

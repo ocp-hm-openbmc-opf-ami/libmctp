@@ -331,7 +331,7 @@ static void test_negative_decode_get_routing_table_req()
 
 static void test_decode_get_ver_support_req()
 {
-	encode_decode_rc ret;
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
 	uint8_t msg_type_number;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	struct mctp_ctrl_cmd_get_mctp_ver_support request;
@@ -355,7 +355,7 @@ static void test_decode_get_ver_support_req()
 
 static void test_negative_decode_get_ver_support_req()
 {
-	encode_decode_rc ret;
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
 	struct mctp_ctrl_cmd_get_mctp_ver_support request;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	uint8_t msg_type_number;

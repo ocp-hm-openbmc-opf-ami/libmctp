@@ -405,7 +405,7 @@ static void test_negative_encode_get_routing_table_resp()
 
 static void test_encode_get_ver_support_resp()
 {
-	encode_decode_rc ret;
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_mctp_ver_support);
 	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
@@ -457,7 +457,7 @@ static void test_encode_get_ver_support_resp()
 
 static void test_negative_encode_get_ver_support_resp()
 {
-	encode_decode_rc ret;
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
 	size_t temp_length = 0;
 	size_t length = sizeof(struct mctp_ctrl_resp_get_mctp_ver_support);
@@ -482,6 +482,9 @@ static void test_negative_encode_get_ver_support_resp()
 	ret = mctp_encode_get_ver_support_resp(resp, &temp_length, rq_d_inst,
 					       completion_code,
 					       number_of_entries, &vers);
+	assert(ret == GENERIC_ERROR);
+	ret = mctp_encode_get_ver_support_resp(resp, &temp_length, rq_d_inst,
+					       completion_code, 0, &vers);
 	assert(ret == GENERIC_ERROR);
 	ret = mctp_encode_get_ver_support_resp(resp, &length, rq_d_inst,
 					       completion_code,

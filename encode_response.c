@@ -193,6 +193,8 @@ encode_decode_rc mctp_encode_get_ver_support_resp(struct mctp_msg *response,
 		*length = sizeof(struct mctp_ctrl_msg_hdr) + sizeof(uint8_t);
 		return SUCCESS;
 	}
+	if (number_of_entries == 0)
+		return GENERIC_ERROR;
 	resp->number_of_entries = number_of_entries;
 	resp->version = vers[0];
 	for (int i = 0; i < number_of_entries - 1; i++) {

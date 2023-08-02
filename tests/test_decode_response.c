@@ -453,7 +453,7 @@ static void test_negative_decode_get_networkid_resp()
 
 static void test_decode_get_ver_support_resp()
 {
-	encode_decode_rc ret;
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
 	uint8_t number_of_entries;
 	uint8_t completion_code;
 	const uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
@@ -503,7 +503,7 @@ static void test_decode_get_ver_support_resp()
 
 static void test_negative_decode_get_ver_support_resp()
 {
-	encode_decode_rc ret;
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
 	struct mctp_ctrl_resp_get_mctp_ver_support response;
 	struct mctp_ctrl_msg_hdr ctrl_hdr;
 	uint8_t number_of_entries;
