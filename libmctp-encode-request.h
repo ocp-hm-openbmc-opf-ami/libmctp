@@ -140,6 +140,17 @@ encode_decode_rc mctp_encode_get_vdm_support_req(struct mctp_msg *request,
 						 uint8_t rq_dgram_inst,
 						 uint8_t vid_set_selector);
 
+/** @brief Encode function for prepare endpoint discovery request
+ *
+ *  @param[out] request - Request structure to be encoded
+ *  @param[in] length - Length of request structure
+ *  @param[in] rq_dgram_inst - request datagram instance of header for request
+ * 				structure
+ *  @return encode_decode enum type which tells error or success
+ */
+encode_decode_rc mctp_encode_prepare_endpoint_discovery_req(
+	struct mctp_msg *request, const size_t length, uint8_t rq_dgram_inst);
+
 #ifdef __cplusplus
 }
 #endif

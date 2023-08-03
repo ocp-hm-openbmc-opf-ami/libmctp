@@ -163,3 +163,16 @@ encode_decode_rc mctp_encode_get_vdm_support_req(struct mctp_msg *request,
 	req->vendor_id_set_selector = vid_set_selector;
 	return SUCCESS;
 }
+
+encode_decode_rc mctp_encode_prepare_endpoint_discovery_req(
+	struct mctp_msg *request, const size_t length, uint8_t rq_dgram_inst)
+{
+	if (request == NULL)
+		return INPUT_ERROR;
+	if (length <
+	    sizeof(struct mctp_ctrl_cmd_prepare_for_endpoint_discovery))
+		return GENERIC_ERROR;
+	encode_ctrl_cmd_header(&request->msg_hdr, rq_dgram_inst,
+			       MCTP_CTRL_CMD_PREPARE_ENDPOINT_DISCOVERY);
+	return SUCCESS;
+}

@@ -481,6 +481,58 @@ static void test_negative_decode_get_vdm_support_req()
 	assert(ret == GENERIC_ERROR);
 }
 
+static void test_decode_prepare_endpoint_discovery_req()
+{
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
+	uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
+	struct mctp_ctrl_cmd_prepare_for_endpoint_discovery request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	request.ctrl_msg_hdr.ic_msg_type = MCTP_CTRL_HDR_MSG_TYPE;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	request.ctrl_msg_hdr.rq_dgram_inst = rq_d_inst;
+	request.ctrl_msg_hdr.command_code =
+		MCTP_CTRL_CMD_PREPARE_ENDPOINT_DISCOVERY;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+
+	ret = mctp_decode_prepare_endpoint_discovery_req(
+		req,
+		sizeof(struct mctp_ctrl_cmd_prepare_for_endpoint_discovery),
+		&ctrl_hdr);
+	assert(ret == SUCCESS);
+	assert(ctrl_hdr.command_code == request.ctrl_msg_hdr.command_code);
+	assert(ctrl_hdr.rq_dgram_inst == request.ctrl_msg_hdr.rq_dgram_inst);
+	assert(ctrl_hdr.ic_msg_type == request.ctrl_msg_hdr.ic_msg_type);
+}
+
+static void test_negative_decode_prepare_endpoint_discovery_req()
+{
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
+	struct mctp_ctrl_cmd_prepare_for_endpoint_discovery request;
+	struct mctp_ctrl_msg_hdr ctrl_hdr;
+	struct mctp_msg *req = (struct mctp_msg *)(&request);
+	request.ctrl_msg_hdr.command_code =
+		MCTP_CTRL_CMD_PREPARE_ENDPOINT_DISCOVERY;
+
+	ret = mctp_decode_prepare_endpoint_discovery_req(
+		NULL,
+		sizeof(struct mctp_ctrl_cmd_prepare_for_endpoint_discovery),
+		&ctrl_hdr);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_prepare_endpoint_discovery_req(
+		req,
+		sizeof(struct mctp_ctrl_cmd_prepare_for_endpoint_discovery),
+		NULL);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_decode_prepare_endpoint_discovery_req(req, 0, &ctrl_hdr);
+	assert(ret == GENERIC_ERROR);
+	request.ctrl_msg_hdr.command_code = MCTP_CTRL_CMD_RESOLVE_ENDPOINT_ID;
+	ret = mctp_decode_prepare_endpoint_discovery_req(
+		req,
+		sizeof(struct mctp_ctrl_cmd_prepare_for_endpoint_discovery),
+		&ctrl_hdr);
+	assert(ret == GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_decode_resolve_eid_req();
@@ -492,6 +544,7 @@ int main(int argc, char *argv[])
 	test_decode_get_ver_support_req();
 	test_decode_get_eid_req();
 	test_decode_get_vdm_support_req();
+	test_decode_prepare_endpoint_discovery_req();
 
 	/*Negative test cases */
 	test_negative_decode_resolve_eid_req();
@@ -503,6 +556,7 @@ int main(int argc, char *argv[])
 	test_negative_decode_get_ver_support_req();
 	test_negative_decode_get_eid_req();
 	test_negative_decode_get_vdm_support_req();
+	test_negative_decode_prepare_endpoint_discovery_req();
 
 	return EXIT_SUCCESS;
 }

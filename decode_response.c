@@ -272,3 +272,28 @@ encode_decode_rc mctp_decode_get_vdm_support_resp(
 	}
 	return SUCCESS;
 }
+
+encode_decode_rc mctp_decode_prepare_endpoint_discovery_resp(
+	const struct mctp_msg *response, const size_t length,
+	struct mctp_ctrl_msg_hdr *ctrl_hdr, uint8_t *completion_code)
+{
+	if (response == NULL || ctrl_hdr == NULL || completion_code == NULL)
+		return INPUT_ERROR;
+
+	if (length < sizeof(struct mctp_ctrl_resp_prepare_discovery))
+		return GENERIC_ERROR;
+
+	if (response->msg_hdr.command_code !=
+	    MCTP_CTRL_CMD_PREPARE_ENDPOINT_DISCOVERY)
+		return GENERIC_ERROR;
+
+	decode_ctrl_cmd_header(&response->msg_hdr, &ctrl_hdr->ic_msg_type,
+			       &ctrl_hdr->rq_dgram_inst,
+			       &ctrl_hdr->command_code);
+	struct mctp_ctrl_resp_prepare_discovery *resp =
+		(struct mctp_ctrl_resp_prepare_discovery *)(response);
+	*completion_code = resp->completion_code;
+	if (resp->completion_code != MCTP_CTRL_CC_SUCCESS)
+		return CC_ERROR;
+	return SUCCESS;
+}

@@ -666,6 +666,46 @@ static void test_negative_encode_get_vdm_support_resp()
 	assert(ret == GENERIC_ERROR);
 }
 
+static void test_encode_prepare_endpoint_discovery_resp()
+{
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
+	struct mctp_ctrl_resp_prepare_discovery response;
+	size_t length = sizeof(struct mctp_ctrl_resp_prepare_discovery);
+	uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	struct mctp_msg *resp = (struct mctp_msg *)(&response);
+
+	ret = mctp_encode_prepare_endpoint_discovery_resp(
+		resp, &length, rq_d_inst, completion_code);
+	assert(ret == SUCCESS);
+	assert(response.ctrl_hdr.command_code ==
+	       MCTP_CTRL_CMD_PREPARE_ENDPOINT_DISCOVERY);
+	assert(response.ctrl_hdr.rq_dgram_inst == rq_d_inst);
+	assert(response.ctrl_hdr.ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE);
+}
+
+static void test_negative_encode_prepare_endpoint_discovery_resp()
+{
+	encode_decode_rc ret = MCTP_TEST_SAMPLE_ENCODE_DECODE_RC_RET_VALUE;
+	struct mctp_msg *response = NULL;
+	size_t temp_length = 0;
+	size_t length = sizeof(struct mctp_ctrl_resp_prepare_discovery);
+	uint8_t expected_instance_id = MCTP_TEST_SAMPLE_INSTANCE_ID;
+	uint8_t completion_code = MCTP_CTRL_CC_SUCCESS;
+	uint8_t rq_d_inst = expected_instance_id | MCTP_CTRL_HDR_FLAG_REQUEST;
+	ret = mctp_encode_prepare_endpoint_discovery_resp(
+		response, &length, rq_d_inst, completion_code);
+	assert(ret == INPUT_ERROR);
+	struct mctp_msg response1;
+	ret = mctp_encode_prepare_endpoint_discovery_resp(
+		&response1, NULL, rq_d_inst, completion_code);
+	assert(ret == INPUT_ERROR);
+	ret = mctp_encode_prepare_endpoint_discovery_resp(
+		&response1, &temp_length, rq_d_inst, completion_code);
+	assert(ret == GENERIC_ERROR);
+}
+
 int main(int argc, char *argv[])
 {
 	test_encode_resolve_eid_resp();
@@ -678,6 +718,7 @@ int main(int argc, char *argv[])
 	test_encode_get_eid_resp();
 	test_encode_get_vdm_support_pcie_resp();
 	test_encode_get_vdm_support_iana_resp();
+	test_encode_prepare_endpoint_discovery_resp();
 
 	/*Negative test cases */
 	test_negative_encode_resolve_eid_resp();
@@ -689,6 +730,7 @@ int main(int argc, char *argv[])
 	test_negative_encode_get_ver_support_resp();
 	test_negative_encode_get_eid_resp();
 	test_negative_encode_get_vdm_support_resp();
+	test_negative_encode_prepare_endpoint_discovery_resp();
 
 	return EXIT_SUCCESS;
 }

@@ -183,6 +183,18 @@ encode_decode_rc mctp_encode_get_vdm_support_resp(
 	uint8_t vendor_id_format, const struct variable_field *vendor_id_data,
 	uint16_t cmd_set_type);
 
+/** @brief Encode function for prepare endpoint discovery response
+ *
+ *  @param[out] response - Response structure to be encoded
+ *  @param[inout] length - Length of response structure
+ *  @param[in] rq_dgram_inst - request datagram instance of header  structure
+ *  @param[in] completion_code - completion code for response structure
+ *  @return encode_decode enum type which tells error or success
+ */
+encode_decode_rc mctp_encode_prepare_endpoint_discovery_resp(
+	struct mctp_msg *response, size_t *length, uint8_t rq_dgram_inst,
+	uint8_t completion_code);
+
 #ifdef __cplusplus
 }
 #endif
