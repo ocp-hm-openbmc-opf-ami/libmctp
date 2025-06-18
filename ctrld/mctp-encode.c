@@ -35,8 +35,8 @@ static uint8_t createInstanceId()
 {
 	static uint8_t instanceId = 0x00;
 
-	instanceId = (instanceId + 1) & MCTP_CTRL_HDR_INSTANCE_ID_MASK;
-	//instanceId = (instanceId)&MCTP_CTRL_HDR_INSTANCE_ID_MASK;
+	//instanceId = (instanceId + 1) & MCTP_CTRL_HDR_INSTANCE_ID_MASK;
+	instanceId = (instanceId)&MCTP_CTRL_HDR_INSTANCE_ID_MASK;
 	return instanceId;
 }
 
@@ -313,19 +313,6 @@ bool mctp_encode_ctrl_cmd_get_vdm_support(
 	encode_ctrl_cmd_header(&vdm_support_cmd->ctrl_msg_hdr, getRqDgramInst(),
 			       MCTP_CTRL_CMD_GET_VENDOR_MESSAGE_SUPPORT);
 	vdm_support_cmd->vendor_id_set_selector = v_id_set_selector;
-	return true;
-}
-
-bool mctp_decode_ctrl_cmd_get_vdm_support(
-	struct mctp_pci_ctrl_resp_get_vdm_support *get_vdm_resp
-	)
-{
-	if (!get_vdm_resp)
-		return false;
-
-	if (get_vdm_resp->completion_code != MCTP_CTRL_CC_SUCCESS)
-		return false;
-
 	return true;
 }
 

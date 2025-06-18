@@ -15,7 +15,6 @@ sources = [
   'dbus_log_event.c',
   '../vdm/nvidia/mctp-vdm-commands.c',
   '../vdm/nvidia/mctp-vdm-encode.c',
-  'mctp-oem-extensions.c'
 ]
 
 if get_option('enable-mockup-endpoint').enabled()
@@ -44,13 +43,12 @@ comp = meson.get_compiler('c')
 
 systemd = declare_dependency(dependencies: [comp.find_library('systemd')])
 json_c = declare_dependency(dependencies: [comp.find_library('json-c')])
-i2c = declare_dependency(dependencies: [comp.find_library('i2c')])
 
 executable(
   'mctp-ctrl',
   sources,
   include_directories: include_directories(headers),
-  dependencies: [systemd, json_c, i2c],
-  link_with: [libmctp, libmctp_common_api],
+  dependencies: [systemd, json_c],
+  link_with: libmctp,
   install: true
 )

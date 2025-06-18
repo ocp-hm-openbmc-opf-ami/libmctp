@@ -700,12 +700,11 @@ int mctp_get_routing_table_get_response(mctp_ctrl_t *ctrl, mctp_eid_t eid,
 		while (routing_entry != NULL) {
 			uint8_t current_eid =
 				routing_entry->routing_table.starting_eid;
-			uint8_t current_binding = routing_entry->routing_table.phys_transport_binding_id;
 			mctp_routing_table_t *walker = routing_entry->next;
 			mctp_routing_table_t *walkedFrom = routing_entry;
 			while (walker != NULL) {
 				if (walker->routing_table.starting_eid ==
-				    current_eid && walker->routing_table.phys_transport_binding_id == current_binding) {
+				    current_eid) {
 					MCTP_CTRL_DEBUG(
 						"WARNING: EID %d was duplicated in routing table. Removing duplicate entry.\n",
 						current_eid);
@@ -952,8 +951,6 @@ int mctp_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
 	msg_type_table.eid = eid;
 	msg_type_table.data_len = ((struct mctp_ctrl_resp *)mctp_resp_msg)
 					  ->data[MCTP_MSG_TYPE_DATA_LEN_OFFSET];
-	memset(msg_type_table.slot, 0, sizeof(msg_type_table.slot));
-
 	if (msg_type_table.data_len > (MCTP_BTU - 1)) {
 		MCTP_CTRL_INFO(
 			"%s: EID: %d, Data length: %u, but in the response there is only: %zi\n",
@@ -1261,20 +1258,16 @@ mctp_ret_codes_t mctp_discover_endpoints(const mctp_cmdline_args_t *cmd,
 			break;
 
 		case MCTP_SET_EP_RESPONSE:
-			if (!mctp_resp_msg) {
-				MCTP_CTRL_ERR(
-					"%s: MCTP_SET_EP_RESPONSE Failed EID: %d\n",
-					__func__, eid);
-			} else {
-				/* Process the MCTP_SET_EP_RESPONSE */
-				mctp_ret = mctp_set_eid_get_response(mctp_resp_msg,
-									resp_msg_len,
-									g_bridge_eid,
-									&eid_count);
-				/* Free Rx packet */
-				free(mctp_resp_msg);
-				mctp_resp_msg = NULL;
-			}
+
+			/* Process the MCTP_SET_EP_RESPONSE */
+			mctp_ret = mctp_set_eid_get_response(mctp_resp_msg,
+							     resp_msg_len,
+							     g_bridge_eid,
+							     &eid_count);
+			/* Free Rx packet */
+			free(mctp_resp_msg);
+			mctp_resp_msg = NULL;
+
 			/* Retry if the device is not ready */
 			if (mctp_ret == MCTP_RET_DEVICE_NOT_READY) {
 				/* Make sure it's not timedout before continuing */
@@ -1344,19 +1337,15 @@ mctp_ret_codes_t mctp_discover_endpoints(const mctp_cmdline_args_t *cmd,
 			break;
 
 		case MCTP_ALLOCATE_EP_ID_RESPONSE:
-			if (!mctp_resp_msg) {
-				MCTP_CTRL_ERR(
-					"%s: MCTP_ALLOCATE_EP_ID_RESPONSE Failed EID: %d\n",
-					__func__, eid);
-			} else {
-				/* Process the MCTP_ALLOCATE_EP_ID_RESPONSE */
-				mctp_ret = mctp_alloc_eid_get_response(mctp_resp_msg,
-									resp_msg_len);
 
-				/* Free Rx packet */
-				free(mctp_resp_msg);
-				mctp_resp_msg = NULL;
-			}
+			/* Process the MCTP_ALLOCATE_EP_ID_RESPONSE */
+			mctp_ret = mctp_alloc_eid_get_response(mctp_resp_msg,
+							       resp_msg_len);
+
+			/* Free Rx packet */
+			free(mctp_resp_msg);
+			mctp_resp_msg = NULL;
+
 			if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 				MCTP_CTRL_ERR(
 					"%s: Failed MCTP_ALLOCATE_EP_ID_RESPONSE\n",
@@ -1408,20 +1397,16 @@ mctp_ret_codes_t mctp_discover_endpoints(const mctp_cmdline_args_t *cmd,
 			break;
 
 		case MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE:
-			if (!mctp_resp_msg) {
-				MCTP_CTRL_ERR(
-					"%s: MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE Failed EID: %d\n",
-					__func__, eid);
-			} else {
-				/* Process the MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE */
-				mctp_ret = mctp_get_routing_table_get_response(
-					ctrl, eid, mctp_resp_msg, resp_msg_len,
-					cmd->pcie.remove_duplicates);
 
-				/* Free Rx packet */
-				free(mctp_resp_msg);
-				mctp_resp_msg = NULL;
-			}			
+			/* Process the MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE */
+			mctp_ret = mctp_get_routing_table_get_response(
+				ctrl, eid, mctp_resp_msg, resp_msg_len,
+				cmd->pcie.remove_duplicates);
+
+			/* Free Rx packet */
+			free(mctp_resp_msg);
+			mctp_resp_msg = NULL;
+
 			/* Retry if the device is not ready */
 			if (mctp_ret == MCTP_RET_DEVICE_NOT_READY) {
 				/* Make sure it's not timedout before continuing */
@@ -1525,7 +1510,7 @@ mctp_ret_codes_t mctp_discover_endpoints(const mctp_cmdline_args_t *cmd,
 
 		case MCTP_GET_EP_UUID_RESPONSE:
 
-			if (!mctp_resp_msg) {
+			if (mctp_ret == MCTP_RET_REQUEST_FAILED) {
 				MCTP_CTRL_ERR(
 					"%s: MCTP_GET_EP_UUID_RESPONSE Failed EID: %d\n",
 					__func__, eid_start);
@@ -1623,7 +1608,7 @@ mctp_ret_codes_t mctp_discover_endpoints(const mctp_cmdline_args_t *cmd,
 
 		case MCTP_GET_MSG_TYPE_RESPONSE:
 
-			if (!mctp_resp_msg) {
+			if (mctp_ret == MCTP_RET_REQUEST_FAILED) {
 				MCTP_CTRL_ERR(
 					"%s: MCTP_GET_MSG_TYPE_RESPONSE Failed EID: %d\n",
 					__func__, eid_start);

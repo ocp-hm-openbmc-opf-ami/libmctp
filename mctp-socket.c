@@ -111,90 +111,6 @@ mctp_requester_rc_t mctp_usr_socket_init(int *fd, const char *path,
 	return MCTP_REQUESTER_SUCCESS;
 }
 
-static mctp_requester_rc_t mctp_msg_recv(mctp_eid_t eid, int mctp_fd,
-				     uint8_t **mctp_resp_msg,
-				     size_t *resp_msg_len, uint8_t **mctp_hdr_msg, uint16_t *remote_id, mctp_eid_t *resp_eid)
-{
-	uint8_t tag = 0;
-	size_t mctp_prefix_len = sizeof(tag) + sizeof(eid);
-	uint8_t mctp_prefix[mctp_prefix_len];
-	struct iovec iov[3];
-	size_t mctp_len;
-	size_t min_len = sizeof(tag) + sizeof(eid) + sizeof(MCTP_MSG_TYPE_HDR) +
-			 sizeof(struct mctp_hdr);
-	ssize_t length;
-
-	length = recv(mctp_fd, NULL, 0, MSG_PEEK | MSG_TRUNC);
-
-	if (length < 0 && errno == EAGAIN) {
-		mctp_prinfo("%s: Recv failed: due to timedout\n", __func__);
-		return MCTP_REQUESTER_TIMEOUT;
-	}
-
-	if ((length <= 0) || (length > MCTP_MAX_MESSAGE_SIZE)) {
-		mctp_prinfo(
-			"%s: Recv failed: Invalid length: %zi or timedout\n",
-			__func__, length);
-		return MCTP_REQUESTER_RECV_FAIL;
-	} else if (length < (ssize_t)min_len) {
-		/* read and discard */
-		uint8_t buf[length];
-
-		length = recv(mctp_fd, buf, length, 0);
-		mctp_trace_common("mctp_recv_msg_invalid_len", buf,
-				       length);
-		return MCTP_REQUESTER_INVALID_RECV_LEN;
-	} else {
-		mctp_len = length - mctp_prefix_len - sizeof(struct mctp_hdr);
-
-		iov[0].iov_len = mctp_prefix_len;
-		iov[0].iov_base = mctp_prefix;
-
-		*mctp_resp_msg = malloc(mctp_len);
-		*mctp_hdr_msg = malloc(sizeof(struct mctp_hdr));
-
-		MCTP_ASSERT_RET(*mctp_resp_msg != NULL,
-				MCTP_REQUESTER_RECV_FAIL,
-				"fail to allocate %zu bytes memory\n",
-				mctp_len);
-
-		iov[1].iov_len = mctp_len;
-		iov[1].iov_base = *mctp_resp_msg;
-
-		iov[2].iov_len = sizeof(struct mctp_hdr);
-		iov[2].iov_base = *mctp_hdr_msg;
-
-		struct msghdr msg = { 0 };
-		msg.msg_iov = iov;
-		msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
-		int bytes = recvmsg(mctp_fd, &msg, 0);
-
-		mctp_trace_common("mctp_prefix_msg", mctp_prefix,
-				       mctp_prefix_len);
-		mctp_trace_common("mctp_resp_msg", *mctp_resp_msg,
-				       mctp_len);
-
-		if (length != bytes) {
-			MCTP_CTRL_ERR(
-				"%s: free mctp_resp_msg MCTP_REQUESTER_INVALID_RECV_LEN\n",
-				__func__);
-			free(*mctp_resp_msg);
-			return MCTP_REQUESTER_INVALID_RECV_LEN;
-		}
-		*resp_eid = mctp_prefix[1];
-		*remote_id = (**mctp_hdr_msg << 8) | *(*mctp_hdr_msg + 1);
-
-		/* Update the response length */
-		*resp_msg_len = mctp_len;
-
-		mctp_prdebug("%s: resp_msg_len: %zu, mctp_len: %zu\n",
-				__func__, *resp_msg_len, mctp_len);
-		return MCTP_REQUESTER_SUCCESS;
-	}
-
-	return MCTP_REQUESTER_SUCCESS;
-}
-
 static mctp_requester_rc_t mctp_recv(mctp_eid_t eid, int mctp_fd,
 				     uint8_t **mctp_resp_msg,
 				     size_t *resp_msg_len, mctp_eid_t *resp_eid)
@@ -282,38 +198,6 @@ mctp_requester_rc_t mctp_client_recv(mctp_eid_t eid, int mctp_fd,
 	return mctp_recv(eid, mctp_fd, mctp_resp_msg, resp_msg_len, resp_eid);
 }
 
-
-/* The function will check EID and ignore the incomming response and receive
- * the response again if EID mismatches.
- * */
-mctp_requester_rc_t mctp_client_sync_recv(mctp_eid_t *eid,
-						     int mctp_fd,
-						     uint8_t **mctp_resp_msg,
-						     size_t *resp_msg_len,
- 						     uint8_t **mctp_hdr_msg,
-							 uint16_t *remote_id)
-{
-	mctp_eid_t resp_eid;
-	mctp_requester_rc_t rc;
-    struct pollfd fds[1];
-    fds[0].fd = mctp_fd;
-    fds[0].events = POLLIN;
-
-	int ret = poll(fds, 1, 1000); 
-	if (ret == -1) {
-		return MCTP_REQUESTER_RECV_FAIL;
-	}
-	rc = mctp_msg_recv(*eid, mctp_fd, mctp_resp_msg, resp_msg_len, mctp_hdr_msg, remote_id,
-			       &resp_eid);
-	if (rc == MCTP_REQUESTER_SUCCESS) {
-		mctp_prdebug("%s: I'm not the requester - %d, EID: %d\n",
-			__func__, *eid, resp_eid);
-		*eid = resp_eid;
-		return rc;
-	}
-	return MCTP_REQUESTER_TIMEOUT;
-}
-
 /* The function will check EID and ignore the incomming response and receive
  * the response again if EID mismatches.
  * */
@@ -349,12 +233,6 @@ mctp_client_recv_from_eid(mctp_eid_t eid, int mctp_fd, uint8_t cmd_code,
 		/* Remember command code before freeing the message */
 		uint8_t resp_command_code = resp->command_code;
 
-		if (cmd_code != resp_command_code) {
-			mctp_prdebug(
-				"%s: Command code 0x%02x is not requested command code 0x%02x\n",
-				__func__, resp->command_code, cmd_code);
-		}
-		
 		/* free the msg and will read it again */
 		free(*mctp_resp_msg);
 		*mctp_resp_msg = NULL;
@@ -374,6 +252,12 @@ mctp_client_recv_from_eid(mctp_eid_t eid, int mctp_fd, uint8_t cmd_code,
 			mctp_prdebug(
 				"%s: I'm not the requester - %d, EID: %d\n",
 				__func__, eid, resp_eid[0]);
+		}
+
+		if (cmd_code != resp_command_code) {
+			mctp_prdebug(
+				"%s: Command code 0x%02x is not requested command code 0x%02x\n",
+				__func__, resp->command_code, cmd_code);
 		}
 
 	} while (1);

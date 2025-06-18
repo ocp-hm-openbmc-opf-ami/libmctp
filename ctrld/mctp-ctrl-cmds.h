@@ -69,7 +69,6 @@ typedef uint8_t mctp_eid_t;
 #define MCTP_BINDING_KCS      0x04
 #define MCTP_BINDING_SERIAL   0x05
 #define MCTP_BINDING_SPI      0x06
-#define MCTP_BINDING_VDM      0xFF
 
 #define MCTP_GET_VDM_SUPPORT_PCIE_FORMAT_ID  0x00
 #define MCTP_GET_VDM_SUPPORT_IANA_FORMAT_ID  0x01
@@ -308,7 +307,6 @@ struct get_routing_table_entry {
 	uint8_t phys_transport_binding_id;
 	uint8_t phys_media_type_id;
 	uint8_t phys_address_size;
-	uint8_t phys_address[2];
 } __attribute__((__packed__));
 
 struct mctp_ctrl_resp_get_vdm_support {
@@ -357,6 +355,11 @@ struct version_entry {
 } __attribute__((__packed__));
 
 /* Function prototypes */
+bool mctp_ctrl_handle_msg(struct mctp *mctp, struct mctp_bus *bus,
+			  mctp_eid_t src, mctp_eid_t dest, void *buffer,
+			  size_t length, bool tag_owner, uint8_t tag,
+			  void *msg_binding_private);
+
 bool mctp_encode_ctrl_cmd_set_eid(struct mctp_ctrl_cmd_set_eid *set_eid_cmd,
 				  mctp_ctrl_cmd_set_eid_op op, uint8_t eid);
 

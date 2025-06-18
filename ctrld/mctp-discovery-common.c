@@ -29,10 +29,6 @@ int g_routing_table_length = 0;
 mctp_uuid_table_t *g_uuid_entries = NULL;
 int g_uuid_table_len = 0;
 
-/* Global pointer for VDM and its length */
-mctp_vdm_table_t *g_vdm_entries = NULL;
-int g_vdm_table_len = 0;
-
 /* Global pointer for Message types and its length */
 mctp_msg_type_table_t *g_msg_type_entries = NULL;
 int g_msg_type_table_len = 0;
@@ -238,36 +234,6 @@ static void mctp_print_uuid_table_entry(mctp_uuid_table_t *uuid_tbl)
 	}
 }
 
-/* Tracing function to print VDM */
-static void mctp_print_vdm_table_entry(mctp_vdm_table_t *vdm_tbl)
-{
-    MCTP_CTRL_TRACE("\n-----------------------------------------------\n");
-    MCTP_CTRL_TRACE("MCTP-VDM-ENTRY-FOR-EID                 :  0x%x\n",
-                    vdm_tbl->eid);
-
-    /* Print only if message exist */
-    if (vdm_tbl) {
-        MCTP_CTRL_TRACE("-----------------------------------------------\n");
-
-        MCTP_CTRL_TRACE("\t\tEID                             :  0x%x\n",
-                        vdm_tbl->eid);
-        MCTP_CTRL_TRACE("\t\tVendor ID                       :  0x%x\n",
-                        vdm_tbl->vendor_id);
-
-        MCTP_CTRL_TRACE("\t\tSupport CMD Type                :");
-        vendor_id_set_cmd_type_node_t *current = vdm_tbl->vendor_id_set_cmd_type;
-        while (current != NULL) {
-            MCTP_CTRL_TRACE(" 0x%x", current->data);
-            current = current->next;
-        }
-        MCTP_CTRL_TRACE("\n");
-
-        MCTP_CTRL_TRACE("\n-----------------------------------------------\n");
-    } else {
-        MCTP_CTRL_TRACE("-----------------< empty/invalid >------------------\n");
-    }
-}
-
 void mctp_routing_entry_display(void)
 {
 	mctp_routing_table_t *display_entry;
@@ -300,7 +266,7 @@ int mctp_routing_entry_add(struct get_routing_table_entry *routing_table_entry)
 
 	new_entry->valid = true;
 	new_entry->old_valid = false;
-	
+
 	/* Check if any entry exist */
 	if (g_routing_table_entries == NULL) {
 		g_routing_table_entries = new_entry;
@@ -319,8 +285,7 @@ int mctp_routing_entry_add(struct get_routing_table_entry *routing_table_entry)
 	temp_entry = g_routing_table_entries;
 	while (temp_entry->next != NULL) {
 		if (temp_entry->routing_table.starting_eid ==
-		    new_entry->routing_table.starting_eid &&
-			temp_entry->routing_table.entry_type == new_entry->routing_table.entry_type) {
+		    new_entry->routing_table.starting_eid) {
 			MCTP_CTRL_DEBUG(
 				"%s: Routing table entry with EID: %d already exists, ignoring\n",
 				__func__,
@@ -334,8 +299,7 @@ int mctp_routing_entry_add(struct get_routing_table_entry *routing_table_entry)
 	}
 
 	if (temp_entry->routing_table.starting_eid ==
-	    new_entry->routing_table.starting_eid && 
-		temp_entry->routing_table.entry_type == new_entry->routing_table.entry_type) {
+	    new_entry->routing_table.starting_eid) {
 		MCTP_CTRL_DEBUG(
 			"%s: Routing table entry with EID: %d already exists, ignoring\n",
 			__func__, temp_entry->routing_table.starting_eid);
@@ -412,13 +376,8 @@ int mctp_uuid_entry_add(mctp_uuid_table_t *uuid_tbl)
 	/* Traverse the message type table */
 	temp_entry = g_uuid_entries;
 	while (temp_entry->next != NULL)
-	{
-		if (temp_entry->eid == new_entry->eid) {
-			free(new_entry);
-			return 0;
-		}
 		temp_entry = temp_entry->next;
-	}
+
 	/* Add at the last */
 	temp_entry->next = new_entry;
 	new_entry->next = NULL;
@@ -465,145 +424,6 @@ void mctp_uuid_delete_all(void)
 	}
 }
 
-void mctp_vdm_display(void)
-{
-	mctp_vdm_table_t *display_entry;
-
-	/* Get the start pointer */
-	display_entry = g_vdm_entries;
-
-	while (display_entry != NULL) {
-		mctp_print_vdm_table_entry(display_entry);
-		display_entry = display_entry->next;
-	}
-}
-
-/* To create a new vdm entry and add to global vdm table */
-int mctp_vdm_entry_add(mctp_vdm_table_t *vdm_tbl, vendor_id_set_cmd_type_node_t *new_cmd_type_node)
-{
-    mctp_vdm_table_t *new_entry = NULL, *temp_entry = g_vdm_entries;
-    vendor_id_set_cmd_type_node_t *new_cmd_type_entry = NULL, *temp_cmd_type_entry = NULL;
-    bool find_entry = false;
-
-    if (g_vdm_entries == NULL) {
-        new_entry = (mctp_vdm_table_t *)malloc(sizeof(mctp_vdm_table_t));
-        new_cmd_type_entry = (vendor_id_set_cmd_type_node_t *)malloc(sizeof(vendor_id_set_cmd_type_node_t));
-
-        if (new_entry == NULL || new_cmd_type_entry == NULL) {
-            free(new_entry);
-            free(new_cmd_type_entry);
-            return -1;
-        }
-
-        memcpy(new_entry, vdm_tbl, sizeof(mctp_vdm_table_t));
-        memcpy(new_cmd_type_entry, new_cmd_type_node, sizeof(vendor_id_set_cmd_type_node_t));
-		new_entry->next = NULL;
-        new_cmd_type_entry->next = NULL;
-        new_entry->vendor_id_set_cmd_type = new_cmd_type_entry;
-
-        g_vdm_entries = new_entry;
-        g_vdm_table_len++;
-        return 0;
-    }
-
-    while (temp_entry != NULL) {
-        if (temp_entry->eid == vdm_tbl->eid) {
-            if (temp_entry->v_id_set_selector != 0xFF) {
-                find_entry = true;
-                break;
-            } else {
-                return 0;
-            }
-        }
-        if (temp_entry->next == NULL) break;
-        temp_entry = temp_entry->next;
-    }
-
-    new_cmd_type_entry = (vendor_id_set_cmd_type_node_t *)malloc(sizeof(vendor_id_set_cmd_type_node_t));
-    if (new_cmd_type_entry == NULL) {
-        return -1;
-    }
-    memcpy(new_cmd_type_entry, new_cmd_type_node, sizeof(vendor_id_set_cmd_type_node_t));
-    new_cmd_type_entry->next = NULL;
-
-    if (find_entry) {
-        temp_cmd_type_entry = temp_entry->vendor_id_set_cmd_type;
-        while (temp_cmd_type_entry->next != NULL) {
-            temp_cmd_type_entry = temp_cmd_type_entry->next;
-        }
-        temp_cmd_type_entry->next = new_cmd_type_entry;
-        temp_entry->v_id_set_selector = vdm_tbl->v_id_set_selector;
-    } else {
-        new_entry = (mctp_vdm_table_t *)malloc(sizeof(mctp_vdm_table_t));
-        if (new_entry == NULL) {
-            free(new_cmd_type_entry);
-            return -1;
-        }
-        memcpy(new_entry, vdm_tbl, sizeof(mctp_vdm_table_t));
-        new_entry->vendor_id_set_cmd_type = new_cmd_type_entry;
-        new_entry->next = NULL;
-
-        temp_entry->next = new_entry;
-        g_vdm_table_len++;
-    }
-
-    return 0;
-}
-
-/** To remove single entry by vdm key */
-int mctp_vdm_entry_remove(uint8_t eid)
-{
-    mctp_vdm_table_t *current = g_vdm_entries;
-    mctp_vdm_table_t *prev = NULL;
-
-    while (current != NULL) {
-        if (current->eid == eid) {
-            if (prev == NULL) {
-                g_vdm_entries = current->next;
-            } else {
-                prev->next = current->next;
-            }
-
-            vendor_id_set_cmd_type_node_t *cmd_current = current->vendor_id_set_cmd_type;
-            while (cmd_current != NULL) {
-                vendor_id_set_cmd_type_node_t *cmd_next = cmd_current->next;
-                free(cmd_current);
-                cmd_current = cmd_next;
-            }
-
-            free(current);
-            return 0;
-        }
-        prev = current;
-        current = current->next;
-    }
-
-    return -1;
-}
-
-/* To delete all the VDM information */
-void mctp_vdm_delete_all(void)
-{
-    mctp_vdm_table_t *current = g_vdm_entries;
-    mctp_vdm_table_t *next;
-
-    while (current != NULL) {
-        next = current->next;
-
-        vendor_id_set_cmd_type_node_t *cmd_current = current->vendor_id_set_cmd_type;
-        while (cmd_current != NULL) {
-            vendor_id_set_cmd_type_node_t *cmd_next = cmd_current->next;
-            free(cmd_current);
-            cmd_current = cmd_next;
-        }
-
-        free(current);
-        current = next;
-    }
-
-    g_vdm_entries = NULL;
-}
-
 void mctp_msg_types_display(void)
 {
 	mctp_msg_type_table_t *display_entry;
@@ -646,12 +466,10 @@ int mctp_msg_type_entry_add(mctp_msg_type_table_t *msg_type_tbl)
 			MCTP_CTRL_DEBUG(
 				"%s: EID %d already exists in message type list, ignoring.\n",
 				__func__, temp_entry->eid);
-			//temp_entry->enabled = true;
+			temp_entry->enabled = true;
 			free(new_entry);
 			return 0;
 		}
-		if (temp_entry->eid == new_entry->eid)
-			return 0;
 		temp_entry = temp_entry->next;
 	}
 
@@ -708,36 +526,4 @@ void mctp_msg_types_delete_all(void)
 
 		free(del_entry);
 	}
-}
-
-uint16_t match_bridge_routing_entry(mctp_routing_table_t *routing_entry, int g_target_bdf) {
-
-	mctp_routing_table_t *bridge_routing_entries = g_routing_table_entries;
-
-	while (bridge_routing_entries != NULL)
-	{
-		if (bridge_routing_entries->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE &&
-		    (GET_ROUTING_ENTRY_TYPE(bridge_routing_entries->routing_table.entry_type) == MCTP_ROUTING_ENTRY_BRIDGE_AND_ENDPOINTS ||
-		     GET_ROUTING_ENTRY_TYPE(bridge_routing_entries->routing_table.entry_type) == MCTP_ROUTING_ENTRY_ENDPOINTS) &&
-		     routing_entry->routing_table.starting_eid >= bridge_routing_entries->routing_table.starting_eid &&
-		     routing_entry->routing_table.starting_eid < bridge_routing_entries->routing_table.starting_eid + bridge_routing_entries->routing_table.eid_range_size) {
-		        return  bridge_routing_entries->routing_table.phys_address[0]<<8|bridge_routing_entries->routing_table.phys_address[1];
-		}
-		bridge_routing_entries = bridge_routing_entries->next;
-	}
-
-	bridge_routing_entries = g_routing_table_entries;
-
-	while (bridge_routing_entries != NULL)
-	{
-		if (bridge_routing_entries->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE &&
-		    (GET_ROUTING_ENTRY_TYPE(bridge_routing_entries->routing_table.entry_type) == MCTP_ROUTING_ENTRY_ENDPOINT  ||
-		     GET_ROUTING_ENTRY_TYPE(bridge_routing_entries->routing_table.entry_type) == MCTP_ROUTING_ENTRY_BRIDGE) &&
-		     routing_entry->routing_table.starting_eid == bridge_routing_entries->routing_table.starting_eid ) {
-		        return  bridge_routing_entries->routing_table.phys_address[0]<<8|bridge_routing_entries->routing_table.phys_address[1];
-		}
-		bridge_routing_entries = bridge_routing_entries->next;
-	}
-
-	return g_target_bdf;
 }

@@ -16,7 +16,7 @@ extern "C" {
 #define MCTP_I2C_SRC_SLAVE_ADDR_DEFAULT	 0x18
 #define MCTP_SMBUS_READ_TIMEOUT_WAIT	 100 // microseconds
 #define MCTP_SMBUS_READ_TIMEOUT_REPEAT	 20
-#define MCTP_I2C_MAX_BUSES		 32
+#define MCTP_I2C_MAX_BUSES		 4
 
 struct mctp_binding_smbus;
 
@@ -41,7 +41,7 @@ struct mctp_static_endpoint_mapper {
 struct mctp_binding_smbus *
 mctp_smbus_init(uint8_t bus, uint8_t bus_smq, uint8_t dest_addr,
 		uint8_t src_addr, uint8_t static_endpoints_len,
-		struct mctp_static_endpoint_mapper *static_endpoints, uint8_t chosen_eid_type);
+		struct mctp_static_endpoint_mapper *static_endpoints);
 
 int mctp_smbus_open_in_bus(struct mctp_binding_smbus *smbus, int in_bus,
 			   int src_slv_addr);
@@ -54,9 +54,6 @@ void mctp_smbus_free(struct mctp_binding_smbus *smbus);
 
 int send_get_udid_command(struct mctp_binding_smbus *smbus, size_t idx,
 			  uint8_t *inbuf, uint8_t len);
-int send_set_slave_addr_command(struct mctp_binding_smbus *smbus, size_t idx,
-			  uint8_t *inbuf, uint8_t len);
-
 int send_mctp_get_ver_support_command(struct mctp_binding_smbus *smbus,
 				      uint8_t which_endpoint);
 int check_mctp_get_ver_support(struct mctp_binding_smbus *smbus, size_t idx,

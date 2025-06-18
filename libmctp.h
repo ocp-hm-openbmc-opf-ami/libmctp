@@ -183,12 +183,7 @@ int mctp_bridge_busses(struct mctp *mctp, struct mctp_binding *b1,
 typedef void (*mctp_rx_fn)(uint8_t src_eid, bool tag_owner, uint8_t msg_tag,
 			   void *data, void *msg, size_t len);
 
-typedef void (*mctp_control_rx_fn)(uint8_t src_eid, bool tag_owner, uint8_t msg_tag,
-			   void *data, void *msg, size_t len, void* header, uint16_t remote_id);
-
 int mctp_set_rx_all(struct mctp *mctp, mctp_rx_fn fn, void *data);
-
-int mctp_set_control_rx_all(struct mctp *mctp, mctp_control_rx_fn fn, void *data);
 
 int mctp_message_tx(struct mctp *mctp, mctp_eid_t eid, bool tag_owner,
 		    uint8_t msg_tag, void *msg, size_t msg_len);
@@ -196,8 +191,6 @@ int mctp_message_tx(struct mctp *mctp, mctp_eid_t eid, bool tag_owner,
 int mctp_message_pvt_bind_tx(struct mctp *mctp, mctp_eid_t eid, bool tag_owner,
 			     uint8_t msg_tag, void *msg, size_t msg_len,
 			     void *msg_binding_private);
-
-int mctp_update_bus_for_eid(struct mctp *mctp, mctp_eid_t dest);
 
 /* hardware bindings */
 struct mctp_binding {
@@ -214,7 +207,6 @@ struct mctp_binding {
 	void (*mctp_send_tx_queue)(struct mctp_bus *bus);
 	mctp_rx_fn control_rx;
 	void *control_rx_data;
-	bool transport_header;
 };
 
 enum mctp_bus_state {
