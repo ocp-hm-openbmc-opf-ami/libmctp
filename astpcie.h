@@ -23,7 +23,7 @@ struct mctp_binding_astpcie {
 #define ASTPCIE_PACKET_SIZE(x) (ASPEED_MCTP_PCIE_VDM_HDR_SIZE + x)
 
 /* driver device file */
-#define AST_DRV_FILE "/dev/aspeed-mctp"
+#define AST_DRV_FILE "/dev/aspeed-mctp0"
 
 struct mctp_pcie_hdr {
 	uint8_t fmt_type;

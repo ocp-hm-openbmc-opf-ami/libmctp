@@ -18,6 +18,7 @@
 #define __MCTP_SOCKET_H__
 
 /* MCTP default Tx/Rx timeouts */
+#define MCTP_CTRL_TXRX_TIMEOUT_1SECS  1
 #define MCTP_CTRL_TXRX_TIMEOUT_5SECS  5
 #define MCTP_CTRL_TXRX_TIMEOUT_16SECS 16
 
@@ -57,6 +58,27 @@ mctp_requester_rc_t mctp_usr_socket_init(int *intf, const char *path,
 mctp_requester_rc_t mctp_client_recv(mctp_eid_t eid, int mctp_fd,
 				     uint8_t **mctp_resp_msg,
 				     size_t *resp_msg_len);
+
+/**
+ * @brief Read MCTP socket. If there's data available, return success only if
+ *        data is a MCTP message.
+ *
+ * @param[in] eid - destination MCTP eid
+ * @param[in] mctp_fd - MCTP socket fd
+ * @param[out] mctp_resp_msg - *mctp_resp_msg will point to MCTP msg,
+ *             this function allocates memory, caller to free(*mctp_resp_msg) on
+ *             success.
+ * @param[out] resp_msg_len - caller owned pointer that will be made point to
+ *             the size of the MCTP msg.
+ *
+ * @return int (errno may be set). failure is returned even
+ *         when data was read, but wasn't a MCTP response message
+ */
+mctp_requester_rc_t mctp_client_sync_recv(mctp_eid_t *eid, int mctp_fd,
+				     uint8_t **mctp_resp_msg,
+				     size_t *resp_msg_len,
+				     uint8_t **mctp_hdr_msg,
+					 uint16_t * remote_id);
 
 /**
  * @brief Write MCTP socket. If the data is sent out, return success.
