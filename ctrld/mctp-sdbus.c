@@ -48,11 +48,23 @@
 #include "mctp-discovery-common.h"
 #include "mctp-discovery-i2c.h"
 #include "mctp-discovery.h"
+#include "mctp-common-api/mctp-discovery-endpoint.h"
+#include "mctp-common-api/mctp-discovery-busowner.h"
+#include "mctp-json.h"
+#include "mctp-common-api/mctp-host-state.h"
+#include "mctp-oem-extensions.h"
+#include "mctp-common-api/mctp-ext-sdbus.h"
+#include "mctp-common-api/mctp-i2c-arp.h"
+#include "mctp-common-api/mctp-utils.h"
+
 
 extern mctp_routing_table_t *g_routing_table_entries;
 
 extern mctp_uuid_table_t *g_uuid_entries;
 extern int g_uuid_table_len;
+
+extern mctp_vdm_table_t *g_vdm_entries;
+extern int g_vdm_table_len;
 
 extern mctp_msg_type_table_t *g_msg_type_entries;
 extern int g_msg_type_table_len;
@@ -63,6 +75,11 @@ extern const char *mctp_medium_type;
 extern int g_disc_timer_fd;
 extern void mctp_handle_discovery_notify();
 int mctp_ctrl_running = 1;
+
+typedef struct {
+	mctp_ctrl_t *mctp_ctrl;
+	mctp_sdbus_context_t *context;
+} PARTIAL_DISOCVERY_MODE_PARAM;
 
 /* String map for supported bus type */
 char g_mctp_ctrl_supported_buses[MCTP_CTRL_MAX_BUS_TYPES][10] = {
@@ -320,6 +337,27 @@ static int mctp_ctrl_sdbus_get_bus(sd_bus *bus, const char *path,
 	return sd_bus_message_append(reply, "u", i2c_bus);
 }
 
+static int mctp_ctrl_sdbus_get_location(sd_bus *bus, const char *path,
+				   const char *interface, const char *property,
+				   sd_bus_message *reply, void *userdata,
+				   sd_bus_error *error)
+{
+	const int eid = mctp_ctrl_get_eid_from_sdbus_path(path);
+	const uint32_t i2c_bus = mctp_i2c_get_i2c_bus(eid);
+
+	(void)bus;
+	(void)path;
+	(void)interface;
+	(void)property;
+	(void)userdata;
+	(void)error;
+	char mux_name[256] = {0};
+
+	i2c_smbus_find_location(i2c_bus, "/dev/i2c-mux", NULL, mux_name);
+
+	return sd_bus_message_append(reply, "s", mux_name);
+}
+
 static int mctp_ctrl_sdbus_get_address(sd_bus *bus, const char *path,
 				       const char *interface,
 				       const char *property,
@@ -363,7 +401,10 @@ const char *phy_transport_binding_to_string(uint8_t id)
 	} else if (id == 0x06) {
 		/* MCTP over I3C*/
 		return "I3C";
-	}
+	}else if (id == 0xFF) {
+		/* MCTP over VDM*/
+		return "Vendor-Defined";
+    }
 	return "Unknown";
 }
 
@@ -408,6 +449,78 @@ static int mctp_ctrl_sdbus_get_medium_type(sd_bus *bus, const char *path,
 
 	/* append the message */
 	return sd_bus_message_append(reply, "s", str);
+}
+
+static int mctp_ctrl_sdbus_get_vdm_support_message_type(sd_bus *bus, const char *path,
+                                                     const char *interface, const char *property,
+                                                     sd_bus_message *reply, void *userdata,
+                                                     sd_bus_error *error)
+{
+    int r;
+    uint8_t eid_req = 0;
+    mctp_vdm_table_t *entry = g_vdm_entries;
+
+    (void)bus;
+    (void)interface;
+    (void)property;
+    (void)userdata;
+    (void)error;
+
+    eid_req = mctp_ctrl_get_eid_from_sdbus_path(path);
+
+    r = sd_bus_message_open_container(reply, 'a', "q");
+    if (r < 0)
+        return r;
+
+    while (entry != NULL) {
+        if (entry->eid == eid_req) {
+            vendor_id_set_cmd_type_node_t *current = entry->vendor_id_set_cmd_type;
+
+            while (current != NULL) {
+                r = sd_bus_message_append(reply, "q", (uint16_t)(current->data));
+                if (r < 0) {
+                    MCTP_CTRL_ERR("Failed sd-Bus message append: %s", strerror(-r));
+                    return r;
+                }
+
+                current = current->next;
+            }
+
+            break;
+        }
+
+        entry = entry->next;
+    }
+
+    return sd_bus_message_close_container(reply);
+}
+
+static int mctp_ctrl_sdbus_get_vendor_id(sd_bus *bus, const char *path,
+                                         const char *interface, const char *property,
+                                         sd_bus_message *reply, void *userdata,
+                                         sd_bus_error *error)
+{
+    uint8_t eid_req = 0;
+    mctp_vdm_table_t *entry = g_vdm_entries;
+    char vendor_id_str[MCTP_CTRL_SDBUS_NMAE_SIZE] = {0};
+
+    (void)bus;
+    (void)interface;
+    (void)property;
+    (void)userdata;
+    (void)error;
+
+    eid_req = mctp_ctrl_get_eid_from_sdbus_path(path);
+
+    while (entry != NULL) {
+        if (entry->eid == eid_req) {
+            snprintf(vendor_id_str, sizeof(vendor_id_str), "0x%x", entry->vendor_id);
+            break;
+        }
+        entry = entry->next;
+    }
+
+    return sd_bus_message_append(reply, "s", vendor_id_str);
 }
 
 static int mctp_ctrl_sdbus_get_uuid(sd_bus *bus, const char *path,
@@ -707,6 +820,16 @@ static const sd_bus_vtable mctp_ctrl_endpoint_vtable[] = {
 	SD_BUS_VTABLE_END
 };
 
+/* Properties for xyz.openbmc_project.MCTP.PCIVendorDefined */
+static const sd_bus_vtable mctp_ctrl_vendor_defined_vtable[] = {
+	SD_BUS_VTABLE_START(0),
+	SD_BUS_PROPERTY("MessageTypeProperty", "aq", mctp_ctrl_sdbus_get_vdm_support_message_type, 0,
+			SD_BUS_VTABLE_PROPERTY_CONST),
+	SD_BUS_PROPERTY("VendorID", "s", mctp_ctrl_sdbus_get_vendor_id, 0,
+			SD_BUS_VTABLE_PROPERTY_CONST),
+	SD_BUS_VTABLE_END
+};
+
 /* Properties for xyz.openbmc_project.Common.UUID */
 static const sd_bus_vtable mctp_ctrl_common_uuid_vtable[] = {
 	SD_BUS_VTABLE_START(0),
@@ -740,6 +863,13 @@ static const sd_bus_vtable mctp_ctrl_decorator_vtable[] = {
 	SD_BUS_PROPERTY("Bus", "u", mctp_ctrl_sdbus_get_bus, 0,
 			SD_BUS_VTABLE_PROPERTY_CONST),
 	SD_BUS_PROPERTY("Address", "u", mctp_ctrl_sdbus_get_address, 0,
+			SD_BUS_VTABLE_PROPERTY_CONST),
+	SD_BUS_VTABLE_END
+};
+
+static const sd_bus_vtable mctp_ctrl_location_vtable[] = {
+	SD_BUS_VTABLE_START(0),
+	SD_BUS_PROPERTY("LocationCode", "s", mctp_ctrl_sdbus_get_location, 0,
 			SD_BUS_VTABLE_PROPERTY_CONST),
 	SD_BUS_VTABLE_END
 };
@@ -815,13 +945,14 @@ static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 
 		/* Create object only if this is a new endpoint not previously seen and
 		set the new property to false after creation */
+		int slot = 0;
 
 		if (entry->new) {
 			MCTP_CTRL_TRACE(
 				"Registering object '%s' for Endpoint: %d\n",
 				mctp_ctrl_objpath, entry->eid);
 			r = sd_bus_add_object_vtable(
-				context->bus, NULL, mctp_ctrl_objpath,
+				context->bus, (sd_bus_slot**)&(entry->slot[slot++]), mctp_ctrl_objpath,
 				MCTP_CTRL_DBUS_EP_INTERFACE,
 				mctp_ctrl_endpoint_vtable, context);
 			if (r < 0) {
@@ -835,7 +966,7 @@ static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 				"Registering object '%s' for UUID: %d\n",
 				mctp_ctrl_objpath, entry->eid);
 			r = sd_bus_add_object_vtable(
-				context->bus, NULL, mctp_ctrl_objpath,
+				context->bus, (sd_bus_slot**)&(entry->slot[slot++]), mctp_ctrl_objpath,
 				MCTP_CTRL_DBUS_UUID_INTERFACE,
 				mctp_ctrl_common_uuid_vtable, context);
 			if (r < 0) {
@@ -845,10 +976,24 @@ static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 			}
 
 			MCTP_CTRL_TRACE(
+				"Registering object '%s' for PCIVendorDefined: %d\n",
+				mctp_ctrl_objpath, entry->eid);
+			r = sd_bus_add_object_vtable(
+				context->bus, (sd_bus_slot**)&(entry->slot[slot++]), mctp_ctrl_objpath,
+				MCTP_CTRL_DBUS_VDM_INTERFACE,
+				mctp_ctrl_vendor_defined_vtable, context);
+			if (r < 0) {
+				MCTP_CTRL_ERR(
+					"Failed to add VDM object: %s\n",
+					strerror(-r));
+				return r;
+			}
+
+			MCTP_CTRL_TRACE(
 				"Registering object '%s' for UnixSocket: %d\n",
 				mctp_ctrl_objpath, entry->eid);
 			r = sd_bus_add_object_vtable(
-				context->bus, NULL, mctp_ctrl_objpath,
+				context->bus, (sd_bus_slot**)&(entry->slot[slot++]), mctp_ctrl_objpath,
 				MCTP_CTRL_DBUS_SOCK_INTERFACE,
 				mctp_ctrl_common_sock_vtable, context);
 			if (r < 0) {
@@ -862,7 +1007,7 @@ static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 				"Registering object '%s' for Binding: %d\n",
 				mctp_ctrl_objpath, entry->eid);
 			r = sd_bus_add_object_vtable(
-				context->bus, NULL, mctp_ctrl_objpath,
+				context->bus, (sd_bus_slot**)&(entry->slot[slot++]), mctp_ctrl_objpath,
 				MCTP_CTRL_DBUS_BINDING_INTERFACE,
 				mctp_ctrl_binding_vtable, context);
 			if (r < 0) {
@@ -877,7 +1022,7 @@ static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 					"Registering object '%s' for Inventory: %d\n",
 					mctp_ctrl_objpath, entry->eid);
 				r = sd_bus_add_object_vtable(
-					context->bus, NULL, mctp_ctrl_objpath,
+					context->bus, (sd_bus_slot**)&(entry->slot[slot++]), mctp_ctrl_objpath,
 					MCTP_CTRL_DBUS_DECORATOR_INTERFACE,
 					mctp_ctrl_decorator_vtable, context);
 				if (r < 0) {
@@ -886,13 +1031,26 @@ static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 						strerror(-r));
 					return r;
 				}
+				MCTP_CTRL_TRACE(
+					"Registering object '%s' for Inventory: %d\n",
+					mctp_ctrl_objpath, entry->eid);
+				r = sd_bus_add_object_vtable(
+					context->bus, (sd_bus_slot**)&(entry->slot[slot++]), mctp_ctrl_objpath,
+					MCTP_CTRL_DBUS_LOCATION_CODE_INTERFACE,
+					mctp_ctrl_location_vtable, context);
+				if (r < 0) {
+					MCTP_CTRL_ERR(
+						"Failed to add Binding object: %s\n",
+						strerror(-r));
+					return r;
+				}				
 			}
 
 			MCTP_CTRL_TRACE(
 				"Registering object '%s' for Enable: %d\n",
 				mctp_ctrl_objpath, entry->eid);
 			r = sd_bus_add_object_vtable(
-				context->bus, NULL, mctp_ctrl_objpath,
+				context->bus, (sd_bus_slot**)&(entry->slot[slot++]), mctp_ctrl_objpath,
 				MCTP_CTRL_DBUS_ENABLE_INTERFACE,
 				mctp_ctrl_object_enable_vtable, context);
 			if (r < 0) {
@@ -911,7 +1069,8 @@ static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 				return r;
 			}
 			entry->new = false;
-		} else {
+		} else if (!((cmdline->binding_type == MCTP_BINDING_PCIE && cmdline->pcie.mode != 0) ||
+				cmdline->binding_type == MCTP_BINDING_SMBUS)) {
 			/* Not a new entry, check if enabled was toggled*/
 			if (entry->old_enabled != entry->enabled) {
 				/* Emit a properties changed signal for entry */
@@ -1043,31 +1202,40 @@ static int mctp_ctrl_handle_timer(mctp_ctrl_t *mctp_ctrl,
 			MCTP_CTRL_ERR("%s: Bad read from timer FD\n", __func__);
 		}
 
-		/* Prime the endpoints by setting all their enabled to false */
-		if (g_routing_table_entries) {
-			mctp_routing_table_t *entry = g_routing_table_entries;
-			while (entry) {
-				entry->old_valid = entry->valid;
-				entry->valid = false;
-				entry = entry->next;
+		if (!((mctp_ctrl->cmdline->binding_type == MCTP_BINDING_PCIE && mctp_ctrl->cmdline->pcie.mode != 0) ||
+			 mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS)) {
+
+			/* Prime the endpoints by setting all their enabled to false */
+			if (g_routing_table_entries) {
+				mctp_routing_table_t *entry = g_routing_table_entries;
+				while (entry) {
+					entry->old_valid = entry->valid;
+					entry->valid = false;
+					entry = entry->next;
+				}
+			}
+
+			if (g_msg_type_entries) {
+				mctp_msg_type_table_t *entry = g_msg_type_entries;
+				while (entry) {
+					entry->old_enabled = entry->enabled;
+					entry->enabled = false;
+					entry = entry->next;
+				}
+			}
+
+			/* Perform a re-discovery, but start with getting routing table entries
+			directly since we don't really need to repeat the whole process */
+			mctp_discover_endpoints(mctp_ctrl->cmdline, mctp_ctrl,
+						MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST);
+		} else {
+			mctp_ctrl->perform_rediscovery = true;
+			int reset = mctp_check_host_reset_event();
+			if (reset) {
+				mctp_ctrl_sdbus_object_remove_all_signal(mctp_ctrl->bus);
+				return -1;
 			}
 		}
-		if (g_msg_type_entries) {
-			mctp_msg_type_table_t *entry = g_msg_type_entries;
-			while (entry) {
-				entry->old_enabled = entry->enabled;
-				entry->enabled = false;
-				entry = entry->next;
-			}
-		}
-
-		/* Perform a re-discovery, but start with getting routing table entries
-		directly since we don't really need to repeat the whole process */
-		mctp_discover_endpoints(mctp_ctrl->cmdline, mctp_ctrl,
-					MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST);
-
-		/* Refresh D-Bus states */
-		mctp_sdbus_refresh_endpoints(mctp_ctrl->cmdline, context);
 
 		/* Re-arm the timer if we received a discovery notify during our
 		handling of the discovery notify */
@@ -1080,6 +1248,72 @@ static int mctp_ctrl_handle_timer(mctp_ctrl_t *mctp_ctrl,
 		}
 	}
 	return 0;
+}
+
+void* partial_discovery_mode(void* args)
+{
+	PARTIAL_DISOCVERY_MODE_PARAM * partial_discovery_mode_param = (PARTIAL_DISOCVERY_MODE_PARAM * )args;
+
+	mctp_ctrl_t * mctp_ctrl = partial_discovery_mode_param->mctp_ctrl;
+	mctp_sdbus_context_t *context = partial_discovery_mode_param->context;
+	static int t_update_routing_begin = 0, t_update_routing_end;
+	t_update_routing_begin = mctp_millis();
+	
+	while (mctp_ctrl_running)
+	{
+		mctp_ret_codes_t mctp_err_ret = MCTP_RET_DISCOVERY_SUCCESS;
+		t_update_routing_end = mctp_millis();				
+
+		if (t_update_routing_end - t_update_routing_begin > 60*1000) {
+			t_update_routing_begin = t_update_routing_end;
+			mctp_ctrl->update_routing_table = true;
+			/* Prime the endpoints by setting all their enabled to false */
+			if (g_routing_table_entries) {
+				mctp_routing_table_t *entry = g_routing_table_entries;
+				while (entry) {
+					entry->old_valid = entry->valid;
+					entry->valid = false;
+					entry = entry->next;
+				}
+			}			
+		} else {
+			mctp_ctrl->update_routing_table = false;
+		}
+
+		if(mctp_ctrl->cmdline->binding_type == MCTP_BINDING_PCIE) {
+			MCTP_CTRL_DEBUG("%s Start MCTP partial discover \n", __func__);						
+
+			if (g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] != NULL) {
+				mctp_err_ret = 	g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] (mctp_ctrl->cmdline, mctp_ctrl);
+			} else {
+				if (mctp_ctrl->cmdline->pcie.mode == 1) {
+					mctp_err_ret = mctp_endpoint_mode_discover_endpoints((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
+							mctp_ctrl);
+				} else if (mctp_ctrl->cmdline->pcie.mode == 2) {
+					mctp_err_ret = mctp_busowner_mode_discover_endpoints((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
+							mctp_ctrl);
+				} else {
+					continue;
+				}					
+			}
+		} else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
+			if ((mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC)){
+				sleep(20);
+				mctp_err_ret = mctp_i2c_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
+							mctp_ctrl);
+			} else {
+				continue;
+			}
+		}
+
+		MCTP_CTRL_DEBUG("%s MCTP-Ctrl partial discovery successful %d\n", __func__, mctp_err_ret);
+		if (mctp_err_ret == MCTP_RET_DISCOVERY_SUCCESS) {		
+			mctp_ctrl_sdbus_object_remove_invalid_eid(mctp_ctrl->bus);					
+			/* Refresh D-Bus states */
+			mctp_sdbus_refresh_endpoints(mctp_ctrl->cmdline, context);
+		}
+	}
+	return (void*) NULL;
 }
 
 int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
@@ -1110,10 +1344,14 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 		return -1;
 	}
 
-	r = mctp_ctrl_handle_socket(mctp_ctrl, context);
-	if (r < 0) {
-		MCTP_CTRL_ERR("Error handling socket event: %d\n", r);
-		return -1;
+	/*Only support busowner mode commands, need to skip in endpoint mode*/
+	if (!((mctp_ctrl->cmdline->binding_type == MCTP_BINDING_PCIE && mctp_ctrl->cmdline->pcie.mode != 0) ||
+			mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS)) {
+		r = mctp_ctrl_handle_socket(mctp_ctrl, context);
+		if (r < 0) {
+			MCTP_CTRL_ERR("Error handling socket event: %d\n", r);
+			return -1;
+		}
 	}
 
 	r = mctp_ctrl_handle_timer(mctp_ctrl, context);
@@ -1173,12 +1411,30 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 #endif
 	MCTP_CTRL_DEBUG("%s: Entering polling loop\n", __func__);
 
+	/*Create thread for background mode*/
+	pthread_t partial_discovery_thread = 0;
+	PARTIAL_DISOCVERY_MODE_PARAM *partial_disovery_mode_param = (PARTIAL_DISOCVERY_MODE_PARAM*)malloc(sizeof(PARTIAL_DISOCVERY_MODE_PARAM));
+	if ((cmdline->binding_type == MCTP_BINDING_PCIE && cmdline->pcie.mode != 0) || 
+		(cmdline->binding_type == MCTP_BINDING_SMBUS && (cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC)))
+	{
+		partial_disovery_mode_param->mctp_ctrl = mctp_ctrl;
+		partial_disovery_mode_param->context = context;
+		if(pthread_create(&partial_discovery_thread, NULL, partial_discovery_mode, partial_disovery_mode_param) == -1){
+			MCTP_CTRL_INFO("%s: Partail discover thread create fail\n", __func__);
+		}
+	}
+
 	while (mctp_ctrl_running) {
 		if ((r = mctp_ctrl_sdbus_dispatch(mctp_ctrl, context)) < 0) {
+			mctp_ctrl_sdbus_stop();
 			break;
 		}
 	}
 
+	if (partial_discovery_thread > 0)
+		pthread_join(partial_discovery_thread, NULL);
+	
+	free(partial_disovery_mode_param);
 	free(context);
 	return r;
 }
