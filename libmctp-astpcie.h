@@ -26,8 +26,6 @@ struct mctp_binding_astpcie;
 
 struct mctp_binding_astpcie *mctp_astpcie_init_fileio(void);
 
-struct mctp_binding_astpcie *mctp_astpcie_ep_init_fileio(void);
-
 struct mctp_binding *mctp_astpcie_core(struct mctp_binding_astpcie *b);
 
 struct mctp_binding *

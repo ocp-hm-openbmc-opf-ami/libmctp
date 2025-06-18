@@ -97,9 +97,6 @@ bool mctp_encode_ctrl_cmd_get_vdm_support(
 	struct mctp_ctrl_cmd_get_vdm_support *vdm_support_cmd,
 	uint8_t v_id_set_selector);
 
-bool mctp_decode_ctrl_cmd_get_vdm_support(
-	struct mctp_pci_ctrl_resp_get_vdm_support *get_vdm_resp);
-
 /* Get Discovery notify request */
 bool mctp_encode_ctrl_cmd_discovery_notify(
 	struct mctp_ctrl_cmd_discovery_notify *discovery_notify_cmd);

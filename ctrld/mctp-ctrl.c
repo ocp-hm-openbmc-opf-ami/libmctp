@@ -59,20 +59,12 @@
 #include "mctp-encode.h"
 #include "mctp-sdbus.h"
 #include "mctp-discovery.h"
-#include "mctp-common-api/mctp-discovery-endpoint.h"
-#include "mctp-common-api/mctp-discovery-busowner.h"
 #include "mctp-discovery-i2c.h"
 #include "mctp-socket.h"
 #include "mctp-json.h"
 #ifdef MOCKUP_ENDPOINT
 #include "fsdyn-endpoint.h"
 #endif
-#include <dirent.h>
-#include "mctp-oem-extensions.h"
-#include "mctp-common-api/mctp-share-mutex.h"
-#include "mctp-common-api/mctp-i2c-arp.h"
-#include "mctp-common-api/mctp-ext-sdbus.h"
-#include "mctp-common-api/mctp-host-state.h"
 
 /* MCTP Tx/Rx waittime in milli-seconds */
 #define MCTP_CTRL_WAIT_SECONDS (1 * 1000)
@@ -140,8 +132,7 @@ static void mctp_emu_dyn_ep_create(const fsdyn_ep_config_t *cfg)
 				       .data_len = cfg->data_size,
 				       .new = true,
 				       .old_enabled = false,
-				       .enabled = true ,
-				       .slot = {0}};
+				       .enabled = true };
 	memcpy(type.data, cfg->data, cfg->data_size);
 	ret = mctp_msg_type_entry_add(&type);
 	if (ret < 0) {
@@ -205,53 +196,6 @@ static void mctp_ctrl_clean_up(void)
 
 	/* Delete Msg type entries */
 	mctp_msg_types_delete_all();
-
-}
-
-mctp_requester_rc_t
-mctp_msg_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
-			      const uint8_t *mctp_req_msg, size_t req_msg_len,
-				  const uint8_t * mctp_hdr_msg,
-			      const mctp_binding_ids_t *bind_id,
-			      void *mctp_binding_info, size_t mctp_binding_len)
-{
-	uint8_t hdr[2] = { dest_eid, MCTP_MSG_TYPE_HDR };
-	struct iovec iov[5];
-
-	MCTP_ASSERT_RET(mctp_req_msg[0] == MCTP_MSG_TYPE_HDR,
-			MCTP_REQUESTER_SEND_FAIL, " unsupported Msg type: %d\n",
-			mctp_req_msg[0]);
-
-	/* Binding ID and information */
-	iov[0].iov_base = (uint8_t *)bind_id;
-	iov[0].iov_len = sizeof(uint8_t);
-	iov[1].iov_base = (uint8_t *)mctp_binding_info;
-	iov[1].iov_len = mctp_binding_len;
-
-	/* MCTP header and payload */
-	iov[2].iov_base = hdr;
-	iov[2].iov_len = sizeof(hdr);
-	iov[3].iov_base = (uint8_t *)(mctp_req_msg + 1);
-	iov[3].iov_len = req_msg_len;
-	iov[4].iov_base = (uint8_t *)mctp_hdr_msg;
-	iov[4].iov_len = sizeof(struct mctp_hdr);
-
-	struct msghdr msg = { 0 };
-	msg.msg_iov = iov;
-	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
-
-	mctp_trace_common("mctp_bind_id  >> ", (uint8_t *)bind_id,
-			       sizeof(uint8_t));
-	mctp_trace_common("mctp_pvt_data >> ", mctp_binding_info,
-			       mctp_binding_len);
-	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr));
-	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len);
-
-	ssize_t rc = sendmsg(mctp_fd, &msg, 0);
-	MCTP_ASSERT_RET(rc >= 0, MCTP_REQUESTER_SEND_FAIL,
-			"failed to sendmsg\n");
-
-	return MCTP_REQUESTER_SUCCESS;
 }
 
 mctp_requester_rc_t
@@ -310,7 +254,6 @@ static const struct option g_options[] = {
 	{ "cfg_file_path", required_argument, 0, 'f' },
 	{ "bus_num", required_argument, 0, 'n' },
 	{ "uuid", required_argument, 0, 'u' },
-	{ "pcie_mode", required_argument, 0, 'a'},
 
 	/* EID options */
 	{ "pci_own_eid", required_argument, 0, 'i' },
@@ -329,7 +272,7 @@ static const struct option g_options[] = {
 };
 
 static const char *const short_options =
-	"v:c:e:m:t:d:s:r:b:f:n:u:a:i:j:p:q:x:y:h::";
+	"v:c:e:m:t:d:s:r:b:f:n:u:i:j:p:q:x:y:h::";
 
 static void usage(void)
 {
@@ -448,8 +391,6 @@ static int do_mctp_cmdline(const mctp_cmdline_args_t *cmd, int sock_fd)
 		/* Send the request message over socket */
 		mctp_ret = MCTP_REQUESTER_SEND_FAIL;
 		if (cmd->tx_len > 0) {
-			/* Reason for false positive - Checked the length for Out-of-bounds write */
-			/* coverity[overrun-buffer-val : FALSE] */				
 			mctp_ret = mctp_client_send(
 				cmd->dest_eid, sock_fd, cmd->tx_data[0],
 				((uint8_t *)cmd->tx_data) + 1, cmd->tx_len - 1);
@@ -486,8 +427,6 @@ static int do_mctp_cmdline(const mctp_cmdline_args_t *cmd, int sock_fd)
 				__func__, pvt_binding.routing,
 				pvt_binding.remote_id);
 
-			/* Reason for false positive - Checked the length for Out-of-bounds write */
-			/* coverity[overrun-buffer-val : FALSE] */	
 			mctp_ret = mctp_client_with_binding_send(
 				cmd->dest_eid, sock_fd,
 				(const uint8_t *)cmd->tx_data, cmd->tx_len,
@@ -507,8 +446,6 @@ static int do_mctp_cmdline(const mctp_cmdline_args_t *cmd, int sock_fd)
 				"%s: SMBUS pvt bind data: Dest slave Addr: 0x%x\n",
 				__func__, pvt_binding_smbus.dest_slave_addr);
 
-			/* Reason for false positive - Checked the length for Out-of-bounds write */
-			/* coverity[overrun-buffer-val : FALSE] */	
 			mctp_ret = mctp_client_with_binding_send(
 				cmd->dest_eid, sock_fd,
 				(const uint8_t *)cmd->tx_data, cmd->tx_len,
@@ -846,7 +783,7 @@ static int open_mctp_sock(const mctp_cmdline_args_t *cmdline,
 		/* Open the user socket file-descriptor */
 		rc = mctp_usr_socket_init(&fd, mctp_sock_path,
 					  MCTP_CTRL_MSG_TYPE,
-					  MCTP_CTRL_TXRX_TIMEOUT_1SECS);
+					  MCTP_CTRL_TXRX_TIMEOUT_5SECS);
 	} else if (cmdline->binding_type == MCTP_BINDING_SPI) {
 		MCTP_CTRL_INFO("%s: Binding type: SPI\n", __func__);
 		if (!mctp_sock_path) {
@@ -877,7 +814,7 @@ static int open_mctp_sock(const mctp_cmdline_args_t *cmdline,
 		/* Open the user socket file-descriptor */
 		rc = mctp_usr_socket_init(&fd, mctp_sock_path,
 					  MCTP_CTRL_MSG_TYPE,
-					  MCTP_CTRL_TXRX_TIMEOUT_1SECS);
+					  MCTP_CTRL_TXRX_TIMEOUT_5SECS);
 	} else if (cmdline->binding_type == MCTP_BINDING_USB) {
 		MCTP_CTRL_INFO("%s: Binding type: USB\n", __func__);
 		mctp_sock_path = MCTP_SOCK_PATH_USB;
@@ -909,10 +846,8 @@ static int open_mctp_sock(const mctp_cmdline_args_t *cmdline,
 static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 			    mctp_ctrl_t *mctp_ctrl)
 {
-	mctp_ret_codes_t mctp_err_ret = MCTP_RET_DISCOVERY_SUCCESS;
+	mctp_ret_codes_t mctp_err_ret;
 	int rc = -1;
-
-	init_oem_pdk_hook();
 
 	if (cmdline->binding_type == MCTP_BINDING_SPI) {
 		/* Discover endpoints via PCIe*/
@@ -936,53 +871,32 @@ static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 		}
 
 		/* Create pthread for sending keepalive messages */
-		ret = pthread_create(&g_keepalive_thread, NULL,
+		pthread_create(&g_keepalive_thread, NULL,
 			       &mctp_spi_keepalive_event, (void *)mctp_ctrl);
-		if (ret != 0) {
-			MCTP_CTRL_ERR("pthread_create(3) failed.\n");
-			return EXIT_FAILURE;
-		}
 
 		/* Wait until we can populate Dbus objects. */
 		pthread_mutex_lock(&mctp_ctrl->worker_mtx);
-
-		while (!mctp_ctrl->worker_is_ready) {
+		if (!mctp_ctrl->worker_is_ready) {
 			pthread_cond_wait(&mctp_ctrl->worker_cv,
 					  &mctp_ctrl->worker_mtx);
 		}
 		pthread_mutex_unlock(&mctp_ctrl->worker_mtx);
 	} else if (cmdline->binding_type == MCTP_BINDING_PCIE) {
-
-		if (cmdline->pcie.mode == 0) {
-			/* Make sure all PCIe EID options are available from commandline */
-			rc = mctp_eids_sanity_check(cmdline->pcie.own_eid,
-							cmdline->pcie.bridge_eid,
-							cmdline->pcie.bridge_pool_start);
-			if (rc < 0) {
-				MCTP_CTRL_ERR("MCTP-Ctrl sanity check unsuccessful\n");
-				return EXIT_FAILURE;
-			}
+		/* Make sure all PCIe EID options are available from commandline */
+		rc = mctp_eids_sanity_check(cmdline->pcie.own_eid,
+					    cmdline->pcie.bridge_eid,
+					    cmdline->pcie.bridge_pool_start);
+		if (rc < 0) {
+			MCTP_CTRL_ERR("MCTP-Ctrl sanity check unsuccessful\n");
+			return EXIT_FAILURE;
 		}
+
 		/* Discover endpoints via PCIe*/
 		MCTP_CTRL_INFO("%s: Start MCTP-over-PCIe Discovery\n",
 			       __func__);
-
-		mctp_ctrl->update_routing_table = true;
-		mctp_ctrl->perform_rediscovery = true;
-		if (g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] != NULL) {
-			mctp_err_ret = 	g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] ((void*)cmdline, (void*)mctp_ctrl);
-		} else {
-			if (cmdline->pcie.mode == 0)
-				mctp_err_ret = mctp_discover_endpoints(
-					cmdline, mctp_ctrl,
-					MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST);
-			else if (cmdline->pcie.mode == 1)
-				mctp_err_ret = mctp_endpoint_mode_discover_endpoints(cmdline,
-										mctp_ctrl);
-			else if (cmdline->pcie.mode == 2)
-				mctp_err_ret = mctp_busowner_mode_discover_endpoints(cmdline,
-										mctp_ctrl);
-		}
+		mctp_err_ret = mctp_discover_endpoints(
+			cmdline, mctp_ctrl,
+			MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST);
 		if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
 			MCTP_CTRL_ERR("MCTP-Ctrl discovery unsuccessful\n");
 #ifdef MOCKUP_ENDPOINT
@@ -1021,8 +935,6 @@ static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 			break;
 		case EID_TYPE_STATIC:
 		case EID_TYPE_POOL:
-		case EID_TYPE_ARP:
-			mctp_ctrl->perform_rediscovery = true;
 			/* Discover static/pool endpoint via SMBus*/
 			if (cmdline->dest_eid_tab_len == 1) {
 				MCTP_CTRL_INFO(
@@ -1087,20 +999,6 @@ void set_uuid_str(char *uuid_str, char *from, int length)
 	}
 }
 
-static int32_t smbus_scan(mctp_cmdline_args_t *cmdline)
-{
-	struct mctp_static_endpoint_mapper *static_endpoints = NULL;
-		uint8_t static_endpoints_len = 0;
-		i2c_smbus_scan(cmdline->i2c.bus_num, &static_endpoints, &static_endpoints_len);
-
-	for(int i=0; i<static_endpoints_len; i++){
-		cmdline->i2c.logical_busses[i] = static_endpoints[i].bus_num;
-	}
-	cmdline->dest_eid_tab_len = static_endpoints_len;
-	free(static_endpoints);	
-	return 0;
-}
-
 static void parse_smbus_json_config(char *config_json_file_path,
 				    mctp_cmdline_args_t *cmdline)
 {
@@ -1128,8 +1026,6 @@ static void parse_smbus_json_config(char *config_json_file_path,
 	chosen_eid_type = mctp_json_get_eid_type(parsed_json, "smbus",
 						 &cmdline->i2c.bus_num);
 
-	i2c_mutex_open(cmdline->i2c.bus_num);
-
 	switch (chosen_eid_type) {
 	case EID_TYPE_BRIDGE:
 		MCTP_CTRL_INFO("[%s] Use bridge endpoint", __func__);
@@ -1155,17 +1051,6 @@ static void parse_smbus_json_config(char *config_json_file_path,
 						   g_dest_eid_tab,
 						   &cmdline->dest_eid_tab_len);
 
-		break;
-	case EID_TYPE_ARP:
-		MCTP_CTRL_INFO("[%s] Use arp endpoints\n", __func__);
-		smbus_scan(cmdline);
-		initial_i2c_address_pool();
-
-		cmdline->dest_eid_tab = g_dest_eid_tab;
-		mctp_json_i2c_get_params_arp_ctrl(parsed_json,
-			&cmdline->i2c.bus_num, g_dest_eid_tab,
-			cmdline->i2c.dest_slave_addr, cmdline->i2c.logical_busses,
-			&cmdline->i2c.bridge_pool_start,&cmdline->dest_eid_tab_len,  &cmdline->uuid);
 		break;
 
 	default:
@@ -1214,8 +1099,7 @@ static void parse_command_line(int argc, char *const *argv,
 	uint8_t own_eid = 0, bridge_eid = 0, bridge_pool = 0;
 	int vdm_ops = 0, command_mode = 0;
 	bool remove_duplicates = false;
-	uint8_t pcie_mode = 0;
-	
+
 	/* Get the binding type parameter first,
 	then assign the parameters accordingly for chosen PCIe, SPI or SMBus */
 	for (;;) {
@@ -1324,11 +1208,6 @@ static void parse_command_line(int argc, char *const *argv,
 				command_mode = atoi(optarg);
 			}
 			break;
-		case 'a':
-			if (cmdline->binding_type == MCTP_BINDING_PCIE) {
-				pcie_mode = (uint8_t)atoi(optarg);
-			}
-			break;
 		case 'h':
 			if (optarg == NULL)
 				usage();
@@ -1363,7 +1242,6 @@ static void parse_command_line(int argc, char *const *argv,
 		cmdline->pcie.bridge_pool_start = bridge_pool;
 		cmdline->pcie.own_eid = own_eid;
 		cmdline->pcie.remove_duplicates = remove_duplicates;
-		cmdline->pcie.mode = pcie_mode;
 		break;
 	case MCTP_BINDING_SPI:
 		cmdline->spi.vdm_ops = vdm_ops;
@@ -1434,9 +1312,6 @@ int main_ctrl(int argc, char *const *argv)
 
 	parse_command_line(argc, argv, &cmdline, mctp_ctrl);
 
-	if(cmdline.binding_type == MCTP_BINDING_SMBUS)
-		cmdline.i2c.chosen_eid_type = chosen_eid_type;
-
 #if USE_FUZZ_CTRL
 	MCTP_CTRL_INFO("Running in Fuzz mode\n");
 #endif
@@ -1504,8 +1379,6 @@ int main_ctrl(int argc, char *const *argv)
 		mctp_sdbus_context_t *context = mctp_ctrl_sdbus_create_context(
 			mctp_ctrl->bus, &cmdline);
 
-		mctp_register_host_state_signal(mctp_ctrl->bus);
-	
 		if (exec_daemon_mode(&cmdline, mctp_ctrl) != EXIT_SUCCESS) {
 			MCTP_CTRL_ERR("Running demon mode failure\n");
 			ret_val = EXIT_FAILURE;
@@ -1544,16 +1417,9 @@ int main_ctrl(int argc, char *const *argv)
 			MCTP_CTRL_INFO("MCTP-Ctrl is going to terminate.\n");
 			ret_val = (rc < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 		}
-
-		mctp_ctrl_sdbus_object_remove_all_signal(mctp_ctrl->bus);
 	}
 
 	mctp_ctrl_clean_up();
-	
-	if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
-		i2c_mutex_close();
-		mctp_i2c_clean_up();
-	}
 
 #ifdef MOCKUP_ENDPOINT
 	/* Disable monitoring service */

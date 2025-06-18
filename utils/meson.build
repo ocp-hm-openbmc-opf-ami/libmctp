@@ -4,7 +4,7 @@ headers = [
 ]
 
 sources = [
-  'mctp-demux-daemon.c'
+  'mctp-demux-daemon.c',
 ]
 
 if get_option('capture').enabled()
@@ -34,6 +34,6 @@ executable(
   sources,
   include_directories: include_directories(headers),
   dependencies: deps,
-  link_with: [libmctp, libmctp_common_api],
+  link_with: libmctp,
   install: true
 )

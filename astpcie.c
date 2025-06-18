@@ -17,15 +17,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <linux/aspeed-mctp.h>
-#include <stdio.h>
 
 #include "container_of.h"
 #include "libmctp-alloc.h"
 #include "libmctp-astpcie.h"
 #include "libmctp-log.h"
 #include "astpcie.h"
-#include "compiler.h"
-#include "mctp-common-api/mctp-share-routing-table.h"
 
 #undef pr_fmt
 #define pr_fmt(fmt) "astpcie: " fmt
@@ -113,19 +110,6 @@ static int mctp_astpcie_get_bdf_ioctl(struct mctp_binding_astpcie *astpcie)
 	return rc;
 }
 
-static int mctp_astpcie_ep_get_bdf_ioctl(struct mctp_binding_astpcie *astpcie)
-{
-	struct aspeed_mctp_get_bdf bdf;
-	int rc;
-
-	rc = ioctl(astpcie->fd, ASPEED_MCTP_IOCTL_GET_BDF, &bdf);
-	if (!rc){
-		astpcie->bdf = bdf.bdf;
-	}
-
-	return rc;
-}
-
 int mctp_astpcie_get_bdf(struct mctp_binding_astpcie *astpcie, uint16_t *bdf)
 {
 	int rc;
@@ -174,34 +158,7 @@ uint8_t mctp_astpcie_get_medium_id(struct mctp_binding_astpcie *astpcie)
 	return astpcie->medium_id;
 }
 
-int mctp_astpcie_ep_get_mtu(struct mctp_binding_astpcie *astpcie)
-{
-	struct aspeed_mctp_get_mtu get_mtu;
-    int rc;
-
-    rc = ioctl(astpcie->fd, ASPEED_MCTP_IOCTL_GET_MTU, &get_mtu);
-    // if (!rc){
-    //     astpcie->mtu = get_mtu.mtu;   
-    // }
-
-	return rc;
-}
-
 static int mctp_astpcie_open(struct mctp_binding_astpcie *astpcie)
-{
-	int fd = open(AST_DRV_FILE, O_RDWR);
-
-	if (fd < 0) {
-		mctp_prerr("Cannot open: %s, errno = %d", AST_DRV_FILE, errno);
-
-		return fd;
-	}
-
-	astpcie->fd = fd;
-	return 0;
-}
-
-static int mctp_astpcie_ep_open(struct mctp_binding_astpcie *astpcie)
 {
 	int fd = open(AST_DRV_FILE, O_RDWR);
 
@@ -266,41 +223,6 @@ out_close:
 	return -errno;
 }
 
-/*
- * Start function. Opens driver, read bdf and medium_id
- */
-static int mctp_astpcie_ep_start(struct mctp_binding *b)
-{
-	struct mctp_binding_astpcie *astpcie = binding_to_astpcie(b);
-	int rc;
-
-	assert(astpcie);
-
-	rc = mctp_astpcie_ep_open(astpcie);
-	if (rc)
-		return -errno;
-
-	rc = mctp_astpcie_register_default_handler(astpcie);
-	if (rc)
-		goto out_close;
-
-	rc = mctp_astpcie_ep_get_mtu(astpcie);
-	if (rc)
-		goto out_close;
-
-	rc = mctp_astpcie_ep_get_bdf_ioctl(astpcie);
-	if (rc)
-		goto out_close;
-
-	mctp_binding_set_tx_enabled(b, true);
-
-	return 0;
-
-out_close:
-	mctp_astpcie_close(astpcie);
-	return -errno;
-}
-
 static uint8_t mctp_astpcie_tx_get_pad_len(struct mctp_pktbuf *pkt)
 {
 	size_t sz = mctp_pktbuf_size(pkt);
@@ -330,7 +252,6 @@ static int mctp_astpcie_tx(struct mctp_binding *b, struct mctp_pktbuf *pkt)
 	int mctp_hdr_len = ((payload_len_dw * sizeof(uint32_t)) +
 			    (sizeof(struct mctp_hdr)));
 	uint8_t *pcie_mctp_hdr_data;
-	uint16_t remote_id = 0;
 
 	/* Do a sanity check before proceeding */
 	if (payload_len_dw > 16) {
@@ -366,18 +287,10 @@ static int mctp_astpcie_tx(struct mctp_binding *b, struct mctp_pktbuf *pkt)
 		pkt_prv = &g_mctp_pkt_prv_default;
 	}
 
-	if (b->transport_header) {
-		struct mctp_hdr * mctp_payload_hdr = (struct mctp_hdr *)pkt->data;
-		if (mctp_payload_hdr->dest != MCTP_EID_NULL && pkt_prv->routing == PCIE_ROUTE_BY_ID)
-		{	
-			mctp_get_routing_table_entry_remote_id(mctp_payload_hdr->dest, &remote_id, MCTP_BINDING_PCIE);
-		}
-	}
-	
 	PCIE_SET_ROUTING(hdr, pkt_prv->routing);
 	PCIE_SET_DATA_LEN(hdr, payload_len_dw);
 	PCIE_SET_REQ_ID(hdr, astpcie->bdf);
-	PCIE_SET_TARGET_ID(hdr, remote_id ? remote_id : pkt_prv->remote_id);
+	PCIE_SET_TARGET_ID(hdr, pkt_prv->remote_id);
 	PCIE_SET_PAD_LEN(hdr, pad);
 
 	len = (payload_len_dw * sizeof(uint32_t)) +
@@ -556,34 +469,6 @@ struct mctp_binding_astpcie *mctp_astpcie_init_fileio(void)
 	astpcie->binding.pkt_priv_size =
 		sizeof(struct mctp_astpcie_pkt_private);
 
-	return astpcie;
-}
-
-/*
- * Initializes PCIe endpoint binding structure
- */
-struct mctp_binding_astpcie *mctp_astpcie_ep_init_fileio(void)
-{
-	struct mctp_binding_astpcie *astpcie;
-
-	astpcie = __mctp_alloc(sizeof(*astpcie));
-	if (!astpcie)
-		return NULL;
-
-	memset(astpcie, 0, sizeof(*astpcie));
-
-	astpcie->binding.name = "astpcie-endpoint";
-	astpcie->binding.version = 1;
-	astpcie->binding.mctp_send_tx_queue = NULL;
-	astpcie->binding.tx = mctp_astpcie_tx;
-	astpcie->binding.start = mctp_astpcie_ep_start;
-	astpcie->binding.pkt_size = MCTP_PACKET_SIZE(MCTP_BTU);
-	astpcie->binding.pkt_header = 0;
-	astpcie->binding.pkt_trailer = 0;
-	astpcie->binding.pkt_priv_size =
-		sizeof(struct mctp_astpcie_pkt_private);
-	astpcie->binding.transport_header = true;
-	
 	return astpcie;
 }
 

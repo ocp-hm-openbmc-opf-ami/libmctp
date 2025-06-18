@@ -17,7 +17,6 @@ add_project_arguments('-DMCTP_DEFAULT_ALLOC', language: ['c', 'cpp'])
 #   so, it should be used conditionally
 add_project_arguments('-DMCTP_HAVE_CONFIG_H', language: ['c', 'cpp'])
 
-
 sources = [
   'alloc.c',
   'astlpc.c',
@@ -71,30 +70,17 @@ configure_file(
   configuration: conf_data,
 )
 
-subdir('mctp-common-api')
-
 libmctp = library('mctp',
   sources,
   version: meson.project_version(),
   soversion: meson.project_version(),
   include_directories: include_directories('.'),
   install: true,
-  link_with: [libmctp_common_api],
   dependencies: deps
 )
 
 install_headers(
-  'libmctp-externals.h',
-  'libmctp-astspi.h',
-  'libmctp.h',
-  'libmctp-smbus.h',
-  'ctrld/mctp-ctrl-cmdline.h',
-  'ctrld/mctp-ctrl.h',
-  'ctrld/mctp-ctrl-cmds.h',
-  'ctrld/mctp-discovery-common.h',
-  'mctp-common-api/mctp-discovery-endpoint.h',
-  'mctp-common-api/mctp-discovery-busowner.h',
-  'mctp-common-api/mctp-utils.h'
+  'libmctp-externals.h'
 )
 
 systemd_system_unit_dir = dependency('systemd').get_variable(
@@ -206,11 +192,3 @@ subdir('ctrld')
 subdir('vdm/nvidia')
 
 subdir('tests')
-
-if get_option('enable-turin-oem-extension').enabled()
-subdir('oem-mctp-pdk-turin')
-endif
-
-if get_option('enable-bhs-oem-extension').enabled()
-subdir('oem-mctp-pdk-bhs')
-endif
