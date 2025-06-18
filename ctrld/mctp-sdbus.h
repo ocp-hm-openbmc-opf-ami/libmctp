@@ -41,10 +41,14 @@ extern "C" {
 #define MCTP_CTRL_NW_OBJ_PATH		 "/xyz/openbmc_project/mctp/0/"
 #define MCTP_CTRL_DBUS_EP_INTERFACE	 "xyz.openbmc_project.MCTP.Endpoint"
 #define MCTP_CTRL_DBUS_UUID_INTERFACE	 "xyz.openbmc_project.Common.UUID"
+#define MCTP_CTRL_DBUS_VDM_INTERFACE	 "xyz.openbmc_project.MCTP.PCIVendorDefined"
 #define MCTP_CTRL_DBUS_SOCK_INTERFACE	 "xyz.openbmc_project.Common.UnixSocket"
 #define MCTP_CTRL_DBUS_BINDING_INTERFACE "xyz.openbmc_project.MCTP.Binding"
 #define MCTP_CTRL_DBUS_DECORATOR_INTERFACE                                     \
 	"xyz.openbmc_project.Inventory.Decorator.I2CDevice"
+#define MCTP_CTRL_DBUS_LOCATION_CODE_INTERFACE                                     \
+	"xyz.openbmc_project.Inventory.Decorator.LocationCode"
+
 #define MCTP_CTRL_DBUS_ENABLE_INTERFACE "xyz.openbmc_project.Object.Enable"
 #define MCTP_CTRL_DBUS_SERVICE_READY_INTERFACE                                 \
 	"xyz.openbmc_project.State.ServiceReady"

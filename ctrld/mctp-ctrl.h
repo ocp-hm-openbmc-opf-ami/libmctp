@@ -32,7 +32,7 @@ extern "C" {
 #include <systemd/sd-bus.h>
 
 #include "mctp-ctrl-cmdline.h"
-#include "../config.h"
+//#include "../config.h"
 
 /* Default socket path */
 #define MCTP_SOCK_PATH_PCIE "\0mctp-pcie-mux"
@@ -73,6 +73,7 @@ typedef struct {
 	pthread_mutex_t worker_mtx;
 	bool worker_is_ready;
 	bool perform_rediscovery;
+	bool update_routing_table;
 } mctp_ctrl_t;
 
 /* MCTP ctrl requester return codes */
@@ -99,11 +100,12 @@ typedef enum {
 	MCTP_RET_REQUEST_SUCCESS,
 	MCTP_RET_DISCOVERY_SUCCESS,
 	MCTP_RET_ROUTING_TABLE_FOUND,
+	MCTP_RET_SET_SELECTOR_FOUND,
 	MCTP_RET_ENCODE_FAILED,
 	MCTP_RET_DECODE_FAILED,
 	MCTP_RET_REQUEST_FAILED,
 	MCTP_RET_DISCOVERY_FAILED,
-	MCTP_RET_DEVICE_NOT_READY,
+	MCTP_RET_DEVICE_NOT_READY
 } mctp_ret_codes_t;
 
 /* Function prototypes */
@@ -119,12 +121,23 @@ mctp_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
 			      const uint8_t *mctp_req_msg, size_t req_msg_len,
 			      const mctp_binding_ids_t *bind_id,
 			      void *mctp_binding_info, size_t mctp_binding_len);
+mctp_requester_rc_t
+mctp_msg_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
+			      const uint8_t *mctp_req_msg, size_t req_msg_len, const uint8_t *mctp_hdr_msg,
+			      const mctp_binding_ids_t *bind_id,
+			      void *mctp_binding_info, size_t mctp_binding_len);
 
 uint16_t mctp_ctrl_get_target_bdf(const mctp_cmdline_args_t *cmd);
 
 mctp_requester_rc_t mctp_client_recv(mctp_eid_t eid, int mctp_fd,
 				     uint8_t **mctp_resp_msg,
 				     size_t *resp_msg_len);
+
+mctp_requester_rc_t mctp_client_sync_recv(mctp_eid_t *eid, int mctp_fd,
+				     uint8_t **mctp_resp_msg,
+				     size_t *resp_msg_len,
+				     uint8_t **mctp_hdr_msg,
+					 uint16_t *remote_id);
 
 int main_ctrl(int argc, char *const *argv);
 

@@ -29,6 +29,7 @@
 #define MCTP_MSG_TYPE_MAX_SIZE		0xff
 #define MCTP_MSG_TYPE_DATA_LEN_OFFSET	0
 #define MCTP_MSG_TYPE_DATA_OFFSET	1
+#define MCTP_DBUS_SLOT_MAX_SIZE		8
 
 /* Various discovery modes */
 typedef enum {
@@ -50,13 +51,17 @@ typedef enum {
 	MCTP_GET_EP_UUID_REQUEST,
 	MCTP_GET_EP_UUID_RESPONSE,
 
+	MCTP_GET_EP_VDM_SUPPORT_REQUEST,
+	MCTP_GET_EP_VDM_SUPPORT_RESPONSE,
+
 	MCTP_GET_MSG_TYPE_REQUEST,
 	MCTP_GET_MSG_TYPE_RESPONSE,
 
 	MCTP_GET_VER_SUPPORT_REQUEST,
 	MCTP_GET_VER_SUPPORT_RESPONSE,
 
-	MCTP_FINISH_DISCOVERY
+	MCTP_FINISH_DISCOVERY,
+	MCTP_WAITING_BUSOWNER_CMD
 } mctp_discovery_mode;
 
 /* List for Routing table entries */
@@ -77,6 +82,7 @@ typedef struct mctp_msg_type_table {
 	uint16_t data_len;
 	uint8_t data[MCTP_MSG_TYPE_MAX_SIZE];
 	struct mctp_msg_type_table *next;
+	void* slot[MCTP_DBUS_SLOT_MAX_SIZE];
 } mctp_msg_type_table_t;
 
 /* List for UUIDs */
@@ -85,6 +91,20 @@ typedef struct mctp_uuid_table {
 	guid_t uuid;
 	struct mctp_uuid_table *next;
 } mctp_uuid_table_t;
+
+typedef struct vendor_id_set_cmd_type_node {
+    uint16_t data;
+    struct vendor_id_set_cmd_type_node *next;
+} vendor_id_set_cmd_type_node_t;
+
+/* List for VDMs */
+typedef struct mctp_vdm_table {
+	uint8_t eid;
+	uint16_t vendor_id;
+	uint8_t v_id_set_selector;
+	vendor_id_set_cmd_type_node_t *vendor_id_set_cmd_type;
+	struct mctp_vdm_table *next;
+} mctp_vdm_table_t;
 
 /* Structure for Sending MCTP request */
 struct mctp_ctrl_req {
@@ -115,6 +135,11 @@ int mctp_uuid_entry_add(mctp_uuid_table_t *uuid_tbl);
 int mctp_uuid_entry_remove(uint8_t eid);
 void mctp_uuid_display(void);
 
+void mctp_vdm_display(void);
+int mctp_vdm_entry_add(mctp_vdm_table_t *vdm_tbl , vendor_id_set_cmd_type_node_t *new_cmd_type_node);
+int mctp_vdm_entry_remove(uint8_t eid);
+void mctp_vdm_delete_all(void);
+
 void mctp_msg_types_display(void);
 int mctp_msg_type_entry_add(mctp_msg_type_table_t *msg_type_tbl);
 int mctp_msg_type_entry_remove(uint8_t eid);
@@ -127,3 +152,5 @@ void mctp_print_req_msg(struct mctp_ctrl_req *ep_discovery_req, const char *msg,
 
 void mctp_print_routing_table_entry(
 	int routing_id, struct get_routing_table_entry *routing_table);
+
+uint16_t match_bridge_routing_entry(mctp_routing_table_t *routing_entry, int g_target_bdf);

@@ -17,6 +17,8 @@
 #include "libmctp-log.h"
 #include "libmctp-cmds.h"
 #include "range.h"
+#include "ctrld/mctp-ctrl-cmds.h"
+#include "mctp-common-api/mctp-share-routing-table.h"
 
 /* Internal data structures */
 
@@ -53,6 +55,8 @@ struct mctp {
 		ROUTE_BRIDGE,
 	} route_policy;
 	size_t max_message_size;
+	mctp_control_rx_fn control_message_rx;
+	void* control_message_data;
 };
 
 #ifndef BUILD_ASSERT
@@ -318,6 +322,13 @@ int mctp_set_rx_all(struct mctp *mctp, mctp_rx_fn fn, void *data)
 	return 0;
 }
 
+int mctp_set_control_rx_all(struct mctp *mctp, mctp_control_rx_fn fn, void *data)
+{
+	mctp->control_message_rx = fn;
+	mctp->control_message_data = data;
+	return 0;
+}
+
 static struct mctp_bus *find_bus_for_eid(struct mctp *mctp, mctp_eid_t dest
 					 __attribute__((unused)))
 {
@@ -475,6 +486,25 @@ static inline bool mctp_ctrl_cmd_is_request(struct mctp_ctrl_msg_hdr *hdr)
  * Asserts:
  *     'buf' is not NULL.
  */
+static void mctp_control_rx(struct mctp *mctp, struct mctp_bus *bus, mctp_eid_t src,
+		    mctp_eid_t dest, bool tag_owner, uint8_t msg_tag, void *buf,
+		    size_t len, void * hdr, uint16_t remote_id)
+{
+	assert(buf != NULL);
+
+	if (mctp->route_policy == ROUTE_ENDPOINT && (mctp_rx_dest_is_local(bus, dest))) {
+		if (mctp->control_message_rx){
+			mctp->control_message_rx(src, tag_owner, msg_tag,
+					 mctp->message_rx_data, buf, len, hdr, remote_id);
+		}
+	}
+}
+
+/*
+ * Receive the complete MCTP message and route it.
+ * Asserts:
+ *     'buf' is not NULL.
+ */
 static void mctp_rx(struct mctp *mctp, struct mctp_bus *bus, mctp_eid_t src,
 		    mctp_eid_t dest, bool tag_owner, uint8_t msg_tag, void *buf,
 		    size_t len)
@@ -544,7 +574,7 @@ void mctp_bus_rx(struct mctp_binding *binding, struct mctp_pktbuf *pkt)
 
 	/* small optimisation: don't bother reassembly if we're going to
 	 * drop the packet in mctp_rx anyway */
-	if (mctp->route_policy == ROUTE_ENDPOINT && hdr->dest != bus->eid)
+	if (mctp->route_policy == ROUTE_ENDPOINT && hdr->dest != bus->eid && hdr->dest != MCTP_EID_BROADCAST &&  hdr->dest != MCTP_EID_NULL)
 		goto out;
 
 	flags = hdr->flags_seq_tag & (MCTP_HDR_FLAG_SOM | MCTP_HDR_FLAG_EOM);
@@ -553,13 +583,20 @@ void mctp_bus_rx(struct mctp_binding *binding, struct mctp_pktbuf *pkt)
 	tag_owner = (hdr->flags_seq_tag >> MCTP_HDR_TO_SHIFT) &
 		    MCTP_HDR_TO_MASK;
 
+	uint8_t msgtype = *((uint8_t*) hdr + sizeof(struct mctp_hdr));
+
 	switch (flags) {
 	case MCTP_HDR_FLAG_SOM | MCTP_HDR_FLAG_EOM:
 		/* single-packet message - send straight up to rx function,
 		 * no need to create a message context */
 		len = pkt->end - pkt->mctp_hdr_off - sizeof(struct mctp_hdr);
 		p = pkt->data + pkt->mctp_hdr_off + sizeof(struct mctp_hdr);
-		mctp_rx(mctp, bus, hdr->src, hdr->dest, tag_owner, tag, p, len);
+		if (binding->transport_header && msgtype == MCTP_CTRL_HDR_MSG_TYPE) {
+			uint16_t remote_id = *((uint16_t*)((uint8_t*)(pkt->msg_binding_private) + sizeof(int32_t)));
+			mctp_control_rx(mctp, bus, hdr->src, hdr->dest, tag_owner, tag, p, len, hdr, remote_id);
+		} else {
+			mctp_rx(mctp, bus, hdr->src, hdr->dest, tag_owner, tag, p, len);
+		}
 		break;
 
 	case MCTP_HDR_FLAG_SOM:
@@ -863,4 +900,12 @@ int mctp_message_pvt_bind_tx(struct mctp *mctp, mctp_eid_t eid, bool tag_owner,
 		return 0;
 	return mctp_message_tx_on_bus(bus, bus->eid, eid, tag_owner, msg_tag,
 				      msg, msg_len, msg_binding_private);
+}
+
+int mctp_update_bus_for_eid(struct mctp *mctp, mctp_eid_t dest
+					 __attribute__((unused)))
+{
+	struct mctp_bus* bus = find_bus_for_eid(mctp, dest);
+	bus->eid = dest;
+	return 0;
 }
