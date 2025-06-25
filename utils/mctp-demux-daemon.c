@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <sys/signalfd.h>
 #include <sys/socket.h>
@@ -37,8 +38,14 @@
 #include "libmctp-usb.h"
 #include "utils/mctp-capture.h"
 #include "mctp-json.h"
+#include "libmctp-cmds.h"
+#include "ctrld/mctp-ctrl-cmds.h"
 #include "astpcie.h"
+#include "mctp-common-api/mctp-share-routing-table.h"
 #include "libmctp-alloc.h"
+#include "mctp-common-api/mctp-share-mutex.h"
+#include "mctp-common-api/mctp-i2c-arp.h"
+#include "mctp-common-api/mctp-utils.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #define __unused      __attribute__((unused))
@@ -79,7 +86,7 @@ uint8_t i2c_bus_num = MCTP_SMBUS_BUS_NUM;
 uint8_t i2c_bus_num_smq = MCTP_SMBUS_BUS_NUM;
 uint8_t i2c_dest_slave_addr = MCTP_SMBUS_DEST_SLAVE_ADDR;
 uint8_t i2c_src_slave_addr = MCTP_SMBUS_SRC_SLAVE_ADDR;
-
+uint8_t g_msg_tag = 0;
 static const mctp_eid_t local_eid_default = 8;
 
 struct binding {
@@ -125,17 +132,57 @@ struct ctx {
 	} pcap;
 };
 
+uint8_t mctp_demux_running = 1;
+
 uint8_t chosen_eid_type;
+bool enable_rx_control_message = false;
 
 struct mctp_static_endpoint_mapper *smbus_static_endpoints = NULL;
 uint8_t smbus_static_endpoints_len;
 
+#if 0
+void* partial_discovery_mode(void* args)
+{
+	struct mctp_binding_smbus *smbus = (struct mctp_binding_smbus*)args;
+	while (mctp_demux_running)
+	{
+		mctp_prdebug("%s Start MCTP partial discover \n", __func__);
+
+		set_pool_of_endpoints(smbus);
+		check_device_supports_mctp(smbus);
+
+		mctp_prdebug("%s MCTP-demux partial discovery successful\n", __func__);
+		sleep(10);
+	}
+	return (void*) NULL;
+}
+#endif
+
 static void mctp_print_hex(uint8_t *data, size_t length)
 {
 	for (size_t i = 0; i < length; ++i) {
-		printf("%02X ", data[i]);
+		mctp_prdebug("%02X ", data[i]);
 	}
-	printf("\n");
+	mctp_prdebug("\n");
+}
+
+static inline uint8_t mctp_ctrl_get_msgtag()
+{
+	return g_msg_tag = (g_msg_tag + 1) & MCTP_HDR_TAG_MASK;
+}
+
+static inline bool mctp_ctrl_cmd_is_request(struct mctp_ctrl_msg_hdr *hdr)
+{
+	return hdr->ic_msg_type == MCTP_CTRL_HDR_MSG_TYPE &&
+	       hdr->rq_dgram_inst & MCTP_CTRL_HDR_FLAG_REQUEST;
+}
+
+static inline bool mctp_ctrl_cmd_is_set_eid_response(struct mctp_ctrl_resp_set_eid *set_eid_resp)
+{
+	return set_eid_resp -> ctrl_hdr.ic_msg_type == MCTP_MESSAGE_TYPE_MCTP_CTRL &&
+		(!(set_eid_resp -> ctrl_hdr.rq_dgram_inst & MCTP_CTRL_HDR_FLAG_REQUEST)) &&  
+		set_eid_resp -> ctrl_hdr.command_code == MCTP_CTRL_CMD_SET_ENDPOINT_ID &&
+		set_eid_resp -> completion_code == MCTP_CTRL_CC_SUCCESS;
 }
 
 static void tx_pvt_message(struct ctx *ctx, void *msg, size_t len)
@@ -175,6 +222,21 @@ static void tx_pvt_message(struct ctx *ctx, void *msg, size_t len)
 		/* Get target EID */
 		eid = *((uint8_t *)msg + MCTP_PCIE_EID_OFFSET);
 
+		struct mctp_hdr* hdr = (struct mctp_hdr*) ((uint8_t*)msg + (len - sizeof(struct mctp_hdr)));
+		bool is_request =  mctp_ctrl_cmd_is_request((struct mctp_ctrl_msg_hdr *) ((uint8_t *)msg + MCTP_PCIE_MSG_OFFSET));
+		if (enable_rx_control_message) {
+
+			if (!is_request && len >= sizeof(struct mctp_ctrl_resp_set_eid)) {
+				struct mctp_ctrl_resp_set_eid *set_eid_resp = (struct mctp_ctrl_resp_set_eid *) ((uint8_t *)msg + MCTP_PCIE_MSG_OFFSET);
+				if (mctp_ctrl_cmd_is_set_eid_response (set_eid_resp))
+				{
+					mctp_update_bus_for_eid(ctx->mctp, set_eid_resp->eid_set);
+					ctx->local_eid = set_eid_resp->eid_set;
+					mctp_prwarn("ctx->local_eid = %d", set_eid_resp->eid_set);
+				}
+			}
+		}
+
 		/* Set MCTP payload size */
 		len = len - min_packet_pcie;
 		mctp_prdebug("Printing packet length, PCIE binding: %zi", len);
@@ -182,13 +244,22 @@ static void tx_pvt_message(struct ctx *ctx, void *msg, size_t len)
 			mctp_print_hex((uint8_t *)msg + MCTP_PCIE_MSG_OFFSET,
 				       len);
 		}
-		rc = mctp_message_pvt_bind_tx(
-			ctx->mctp, eid, MCTP_MESSAGE_TO_SRC, 0,
-			(uint8_t *)msg + MCTP_PCIE_MSG_OFFSET, len,
-			(void *)&pvt_binding.pcie);
+
+		if (enable_rx_control_message) {
+			rc = mctp_message_pvt_bind_tx(ctx->mctp, eid, 
+							is_request ? MCTP_MESSAGE_TO_SRC : MCTP_MESSAGE_TO_DST, 
+							is_request ? mctp_ctrl_get_msgtag() : hdr->flags_seq_tag & MCTP_HDR_TAG_MASK,
+							(uint8_t *)msg + MCTP_PCIE_MSG_OFFSET, len - sizeof(struct mctp_hdr),
+							(void *)&pvt_binding.pcie);
+		} else {
+			rc = mctp_message_pvt_bind_tx(
+				ctx->mctp, eid, MCTP_MESSAGE_TO_SRC, 0,
+				(uint8_t *)msg + MCTP_PCIE_MSG_OFFSET, len,
+				(void *)&pvt_binding.pcie);
+		}
 
 		if (ctx->verbose) {
-			printf("%s: BindID: %d, Target EID: %d, msg len: %zi,\
+			mctp_prdebug("%s: BindID: %d, Target EID: %d, msg len: %zi,\
 			    Routing:%d remote_id: 0x%x\n",
 			       __func__, bind_id, eid, len,
 			       pvt_binding.pcie.routing,
@@ -250,10 +321,9 @@ static void tx_pvt_message(struct ctx *ctx, void *msg, size_t len)
 		}
 		mctp_prdebug("\n");
 
-		pvt_binding.i2c.i2c_bus = i2c_bus_num;
-		pvt_binding.i2c.dest_slave_addr = i2c_dest_slave_addr;
-		pvt_binding.i2c.src_slave_addr = i2c_src_slave_addr;
-
+		// pvt_binding.i2c.i2c_bus = i2c_bus_num;
+		// pvt_binding.i2c.dest_slave_addr = i2c_dest_slave_addr;
+		// pvt_binding.i2c.src_slave_addr = i2c_src_slave_addr;
 		rc = mctp_message_pvt_bind_tx(
 			ctx->mctp, eid, MCTP_MESSAGE_TO_SRC, 0,
 			(uint8_t *)msg + MCTP_SMBUS_MSG_OFFSET, len,
@@ -309,9 +379,8 @@ static void tx_message(struct ctx *ctx, uint8_t tag_owner_and_tag,
 		       mctp_eid_t eid, void *msg, size_t len)
 {
 	int rc;
-
 	rc = mctp_message_tx(ctx->mctp, eid,
-			     (tag_owner_and_tag & LIBMCTP_TAG_OWNER_MASK),
+			     ((tag_owner_and_tag & LIBMCTP_TAG_OWNER_MASK) >> 3),
 			     (tag_owner_and_tag & LIBMCTP_TAG_MASK), msg, len);
 	if (rc)
 		warnx("Failed to send message: %d", rc);
@@ -449,7 +518,7 @@ static void rx_message(uint8_t eid, bool tag_owner, uint8_t msg_tag, void *data,
 	memset(&msghdr, 0, sizeof(msghdr));
 	msghdr.msg_iov = iov;
 	msghdr.msg_iovlen = 2;
-	iov[0].iov_base = &tag_eid;
+	iov[0].iov_base = tag_eid;
 	iov[0].iov_len = 2;
 	iov[1].iov_base = msg;
 	iov[1].iov_len = len;
@@ -475,6 +544,108 @@ static void rx_message(uint8_t eid, bool tag_owner, uint8_t msg_tag, void *data,
 		 * to communicate with demux due to socket close.
 		 */
 		if (errno != EAGAIN && rc != (ssize_t)(len + 2)) {
+			client->active = false;
+			ctx->clients_changed = true;
+		}
+	}
+}
+
+static void update_routing_table(mctp_eid_t eid, u_int16_t remote_id, uint8_t* msg, size_t len)
+{
+	struct mctp_ctrl_cmd_msg_hdr *ctrl_hdr = (struct mctp_ctrl_cmd_msg_hdr*) msg;
+
+	if (!(ctrl_hdr->rq_dgram_inst & MCTP_CTRL_HDR_FLAG_REQUEST)) {
+		switch(ctrl_hdr->command_code) {
+			case MCTP_CTRL_CMD_GET_ROUTING_TABLE_ENTRIES:
+				{
+					struct mctp_ctrl_resp_get_routing_table* get_routing_table_response = (struct mctp_ctrl_resp_get_routing_table*) msg;
+					if (get_routing_table_response->completion_code == MCTP_CTRL_CC_SUCCESS)
+						mctp_write_routing_table(eid, MCTP_BINDING_PCIE, get_routing_table_response->next_entry_handle , (uint8_t*) msg + sizeof(struct mctp_ctrl_resp_get_routing_table) , len - sizeof(struct mctp_ctrl_resp_get_routing_table));
+				}
+				break;
+			case MCTP_CTRL_CMD_SET_ENDPOINT_ID:
+				{
+					struct mctp_ctrl_resp_set_eid* set_eid_response = (struct mctp_ctrl_resp_set_eid*) msg;
+					if (set_eid_response->completion_code == MCTP_CTRL_CC_SUCCESS)
+						mctp_add_routing_table_entry(local_eid_default, eid, set_eid_response->status, MCTP_BINDING_PCIE, remote_id);
+				}
+				break;
+			case MCTP_CTRL_CMD_ALLOCATE_ENDPOINT_IDS:
+				{
+					struct mctp_ctrl_resp_alloc_eid* alloc_eid_response = (struct mctp_ctrl_resp_alloc_eid*) msg;
+					if (alloc_eid_response->completion_code == MCTP_CTRL_CC_SUCCESS)
+						mctp_add_routing_table_bridge(local_eid_default, alloc_eid_response->eid_start, alloc_eid_response->eid_pool_size, MCTP_BINDING_PCIE, remote_id);
+				}
+				break;
+		}
+	}
+	mctp_print_routing_table();
+}
+
+static void rx_control_message(uint8_t eid, bool tag_owner, uint8_t msg_tag, void *data,
+		       void *msg, size_t len, void* hdr, uint16_t remote_id)
+{
+	struct ctx *ctx = data;
+	struct iovec iov[3];
+	struct msghdr msghdr;
+	uint8_t type;
+	int i, rc;
+	uint8_t tag_eid[2] = {
+		((tag_owner << 3) | (msg_tag & LIBMCTP_TAG_MASK)), eid
+	};
+
+	if (len < 2)
+		return;
+
+	type = *(uint8_t *)msg & 0x7F;
+
+	if (ctx->verbose)
+		fprintf(stderr, "Control MCTP message received: len %zd, type %d\n",
+			len, type);
+
+	update_routing_table(eid, remote_id, msg, len);
+
+	memset(&msghdr, 0, sizeof(msghdr));
+	msghdr.msg_iov = iov;
+	msghdr.msg_iovlen = 3;
+	iov[0].iov_base = tag_eid;
+	iov[0].iov_len = 2;
+	iov[1].iov_base = msg;
+	iov[1].iov_len = len;
+	uint8_t header [sizeof(struct mctp_hdr_ext_)] = {0};
+	memcpy(header, hdr, sizeof(struct mctp_hdr_ext_));
+
+	header[0] = remote_id >> 8;
+	header[1] = remote_id;
+	
+	mctp_trace_common("> HEADER SOCK RX>", header, sizeof(struct mctp_hdr_ext_));
+
+	iov[2].iov_base = header;
+	iov[2].iov_len = sizeof(struct mctp_hdr_ext_);
+
+	(void)remote_id;
+
+	for (i = 0; i < ctx->n_clients; i++) {
+		struct client *client = &ctx->clients[i];
+
+		if (ctx->verbose)
+			fprintf(stderr, " %i client type: %hhu type: %hhu\n", i,
+				client->type, type);
+
+		if (client->type != type)
+			continue;
+
+		if (ctx->verbose)
+			fprintf(stderr, "  forwarding to client %d\n", i);
+
+		mctp_trace_common(">SOCK RX HDR>", &tag_eid, 2);
+		mctp_trace_common(">SOCK RX>", msg, len);
+
+		rc = sendmsg(client->sock, &msghdr, 0);
+		/* EAGAIN shouldn't close socket. Otherwise,spi-ctrl daemon will fail 
+		 * to communicate with demux due to socket close.
+		 */
+		if (errno != EAGAIN && rc != (ssize_t)(len + 2 + sizeof(struct mctp_hdr))) {
 			client->active = false;
 			ctx->clients_changed = true;
 		}
@@ -595,11 +766,11 @@ static int binding_astpcie_init(struct mctp *mctp, struct binding *binding,
 		return -1;
 	}
 
-	mctp_register_bus(mctp, mctp_binding_astpcie_core(astpcie), eid);
+	int ret = mctp_register_bus(mctp, mctp_binding_astpcie_core(astpcie), eid);
 
 	binding->data = astpcie;
 	binding->bindings_changed = false;
-	return 0;
+	return ret;
 }
 
 static void binding_astpcie_destroy(struct mctp *mctp __attribute__((unused)),
@@ -608,6 +779,30 @@ static void binding_astpcie_destroy(struct mctp *mctp __attribute__((unused)),
 	struct mctp_binding_astpcie *astpcie = binding->data;
 
 	mctp_astpcie_free(astpcie);
+}
+
+static int binding_astpcie_ep_init(struct mctp *mctp, struct binding *binding,
+				mctp_eid_t eid, int n_params,
+				char *const *params __attribute__((unused)))
+{
+	struct mctp_binding_astpcie *astpcie;
+
+	if (n_params) {
+		warnx("astpcie binding does not accept parameters");
+		return -1;
+	}
+
+	astpcie = mctp_astpcie_ep_init_fileio();
+	if (!astpcie) {
+		warnx("could not initialise astpcie binding");
+		return -1;
+	}
+
+	int ret = mctp_register_bus(mctp, mctp_binding_astpcie_core(astpcie), eid);
+
+	binding->data = astpcie;
+	enable_rx_control_message = true;
+	return ret;
 }
 
 static int binding_astpcie_init_pollfd(struct binding *binding,
@@ -820,8 +1015,8 @@ static void fix_muxed_bus_numbers()
 		mctp_prdebug("Mux addr: %d, Mux channel: %d\n",
 			     smbus_static_endpoints[k].mux_addr,
 			     smbus_static_endpoints[k].mux_channel);
-		if (smbus_static_endpoints[k].mux_addr == 0xFF ||
-		    smbus_static_endpoints[k].mux_channel == 0xFF) {
+		if ((smbus_static_endpoints[k].mux_addr == 0xFF ||
+		    smbus_static_endpoints[k].mux_channel == 0xFF) || chosen_eid_type == EID_TYPE_ARP) {
 			continue;
 		}
 
@@ -858,7 +1053,7 @@ static void fix_muxed_bus_numbers()
 }
 
 static void parse_smbus_joson_config(char *config_json_file_path,
-				     struct binding *binding, mctp_eid_t *eid)
+				     struct binding *binding, mctp_eid_t *eid, uint8_t *pool_start)
 {
 	json_object *parsed_json;
 	int rc;
@@ -939,6 +1134,20 @@ static void parse_smbus_joson_config(char *config_json_file_path,
 		}
 
 		break;
+	case EID_TYPE_ARP:
+		mctp_prinfo("Use arp endpoint\n");
+
+		rc = mctp_json_i2c_get_params_bridge_static_demux(
+			parsed_json, &i2c_bus_num, &i2c_dest_slave_addr, eid);
+		i2c_smbus_scan(i2c_bus_num, &smbus_static_endpoints, &smbus_static_endpoints_len);
+
+		if (rc == EXIT_FAILURE)
+			binding_smbus_use_default_config();
+
+		rc = mctp_json_i2c_get_params_arp_demux(
+			parsed_json, &i2c_bus_num, smbus_static_endpoints, pool_start);
+
+		break;
 
 	default:
 		break;
@@ -967,6 +1176,7 @@ static int binding_smbus_init(struct mctp *mctp, struct binding *binding,
 	binding->bindings_changed = false;
 
 	char *config_json_file_path = NULL;
+	uint8_t pool_start = 8;
 
 	if (n_params != 0) {
 		for (int ii = 0; ii < n_params; ii++) {
@@ -1031,7 +1241,7 @@ static int binding_smbus_init(struct mctp *mctp, struct binding *binding,
 	}
 
 	if (config_json_file_path != NULL) {
-		parse_smbus_joson_config(config_json_file_path, binding, &eid);
+		parse_smbus_joson_config(config_json_file_path, binding, &eid, &pool_start);
 		free(config_json_file_path);
 	}
 
@@ -1065,9 +1275,11 @@ static int binding_smbus_init(struct mctp *mctp, struct binding *binding,
 	smbus = mctp_smbus_init(i2c_bus_num, i2c_bus_num_smq,
 				i2c_dest_slave_addr, i2c_src_slave_addr,
 				smbus_static_endpoints_len,
-				smbus_static_endpoints);
+				smbus_static_endpoints, chosen_eid_type);
 	MCTP_ASSERT_RET(smbus != NULL, -1,
 			"could not initialise smbus binding");
+			
+	i2c_mutex_create(i2c_bus_num);
 
 	mctp_register_bus(mctp, mctp_binding_smbus_core(smbus), eid);
 
@@ -1252,8 +1464,16 @@ struct binding bindings[] = {
 		.init_pollfd = binding_usb_init_pollfd,
 		.process = binding_usb_process,
 		.sockname = "\0mctp-usb-mux",
-	}
+	},
 #endif
+{
+		.name = "astpcie-endpoint",
+		.init = binding_astpcie_ep_init,
+		.destroy = NULL,
+		.init_pollfd = binding_astpcie_init_pollfd,
+		.process = binding_astpcie_process,
+		.sockname = "\0mctp-pcie-mux",
+	}
 };
 
 struct binding *binding_lookup(const char *name)
@@ -1446,20 +1666,20 @@ static int client_process_recv(struct ctx *ctx, int idx)
 
 	if (ctx->verbose)
 		fprintf(stderr, "client[%d] sent message: dest 0x%02x len %d\n",
-			idx, eid, rc - 2);
+			idx, eid, rc > 2 ? rc - 2 : 0);
 
 #ifdef MOCKUP_ENDPOINT
 	forward_message(client, eid, MCTP_MESSAGE_TO_DST, 0, ctx,
-			(uint8_t *)ctx->buf + 2, rc - 2);
+			(uint8_t *)ctx->buf + 2, rc > 2 ? rc - 2 : 0);
 	return 0;
 #endif
 
 	if (eid == ctx->local_eid)
 		rx_message(eid, MCTP_MESSAGE_TO_DST, 0, ctx,
-			   (uint8_t *)ctx->buf + 2, rc - 2);
+			   (uint8_t *)ctx->buf + 2, rc > 2 ? rc - 2 : 0);
 	else
 		tx_message(ctx, *((uint8_t *)ctx->buf), eid,
-			   (uint8_t *)ctx->buf + 2, rc - 2);
+			   (uint8_t *)ctx->buf + 2, rc > 2 ? rc - 2 : 0);
 
 	return 0;
 
@@ -1488,6 +1708,8 @@ static void binding_destroy(struct ctx *ctx)
 {
 	if (ctx->binding->destroy)
 		ctx->binding->destroy(ctx->mctp, ctx->binding);
+	
+	mctp_clear_routing_table_cache();
 }
 
 enum {
@@ -1508,6 +1730,7 @@ static int run_daemon(struct ctx *ctx)
 	sigset_t mask;
 	int rc, i;
 	struct itimerspec timer;
+//	pthread_t partial_discovery_thread = 0;
 
 	ctx->pollfds = malloc(FD_NR * sizeof(struct pollfd));
 
@@ -1544,6 +1767,9 @@ static int run_daemon(struct ctx *ctx)
 
 	mctp_set_rx_all(ctx->mctp, rx_message, ctx);
 
+	if (enable_rx_control_message)
+		mctp_set_control_rx_all(ctx->mctp, rx_control_message, ctx);
+
 	if (chosen_eid_type == EID_TYPE_STATIC) {
 		check_device_supports_mctp(ctx->binding->data);
 	} else if (chosen_eid_type == EID_TYPE_POOL) {
@@ -1567,7 +1793,15 @@ static int run_daemon(struct ctx *ctx)
 					     smbus_static_endpoints[j].udid[k]);
 			}
 		}
-	}
+	} else if (chosen_eid_type == EID_TYPE_ARP) {
+		check_device_supports_mctp(ctx->binding->data);
+#if 0
+		/*Create thread for background mode*/
+		if(pthread_create(&partial_discovery_thread, NULL, partial_discovery_mode, ctx->binding->data) == -1){
+			mctp_prinfo("%s: Partail discover thread create fail\n", __func__);
+		}
+#endif
+ 	}
 
 	struct pollfd *bindingfds;
 	if (ctx->binding->init_pollfd) {
@@ -1717,6 +1951,13 @@ static int run_daemon(struct ctx *ctx)
 	if (smbus_static_endpoints != NULL) {
 		free(smbus_static_endpoints);
 	}
+
+	mctp_demux_running = 0;
+
+#if 0	
+	if(chosen_eid_type == EID_TYPE_ARP && partial_discovery_thread > 0)
+		pthread_join(partial_discovery_thread, NULL);
+#endif
 
 	return rc;
 }
@@ -1926,6 +2167,9 @@ int main(int argc, char *const *argv)
 cleanup_binding:
 	binding_destroy(ctx);
 
+	if (strcmp(ctx->binding->name, "smbus") == 0)
+		i2c_mutex_close();
+		
 	/* KSJXXX: Unused label? cleanup_pcap_socket: */
 	if (ctx->pcap.socket.path)
 		capture_close(&ctx->pcap.socket);

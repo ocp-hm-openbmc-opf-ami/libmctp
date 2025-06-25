@@ -75,4 +75,6 @@ mctp_ret_codes_t
 mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 				       mctp_ctrl_t *ctrl);
 
+void mctp_i2c_clean_up();
+
 #endif /* __MCTP_I2C_DISCOVERY_H__ */
