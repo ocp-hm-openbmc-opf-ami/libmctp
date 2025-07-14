@@ -1372,9 +1372,9 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 					} else if (!g_i2c_bus_info.buses[i].dest_slave_addr){
 						uint8_t next_addr = g_i2c_dest_slave_addr;
 						set_pool_of_endpoints(cmd->i2c.logical_busses[i], &next_addr, g_endpoint_discovered);
-						MCTP_CTRL_INFO("Scanning %d %x %x \n",cmd->i2c.logical_busses[i], g_i2c_dest_slave_addr, next_addr);
+						MCTP_CTRL_DEBUG("Scanning %d %x %x \n",cmd->i2c.logical_busses[i], g_i2c_dest_slave_addr, next_addr);
 						if(next_addr == g_i2c_dest_slave_addr || next_addr == 0){
-							MCTP_CTRL_INFO("%s: Nothing discovered on bus %d\n",__func__, cmd->i2c.logical_busses[i]);
+							MCTP_CTRL_DEBUG("%s: Nothing discovered on bus %d\n",__func__, cmd->i2c.logical_busses[i]);
 							discovery_mode = MCTP_FINISH_DISCOVERY;
 							break;
 						}else{

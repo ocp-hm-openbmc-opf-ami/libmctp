@@ -48,7 +48,7 @@ bool check_endpoint_discovered(uint8_t eid)
 	mctp_msg_type_table_t *entry = g_msg_type_entries;
 	while (entry != NULL) {
 		if (entry->eid == eid) {
-			MCTP_SYS_ERR(
+			MCTP_SYS_DEBUG(
 				"check_endpoint_discovered entry->eid %d eid %d\n",
 				entry->eid, eid);
 			return 1;

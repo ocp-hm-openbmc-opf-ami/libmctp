@@ -73,6 +73,7 @@
 #include "mctp-common-api/mctp-i2c-arp.h"
 #include "mctp-common-api/mctp-ext-sdbus.h"
 #include "mctp-common-api/mctp-host-state.h"
+#include "mctp-common-api/mctp-utils.h"
 
 /* MCTP Tx/Rx waittime in milli-seconds */
 #define MCTP_CTRL_WAIT_SECONDS (1 * 1000)
@@ -1482,6 +1483,11 @@ int main_ctrl(int argc, char *const *argv)
 		}
 	} else {
 		// Run mode: daemon mode
+		if (access("/var/run/mctp_trace_on", F_OK) == 0) {
+			cmdline.verbose = true;
+			mctp_ext_set_trace_enabled(true);
+			mctp_set_log_stdio(MCTP_LOG_DEBUG);			
+		}
 		MCTP_CTRL_INFO("%s: Run mode: Daemon mode\n", __func__);
 #if !USE_FUZZ_CTRL
 		/* Create D-Bus for loging event and handling D-Bus request*/
@@ -1554,6 +1560,8 @@ int main_ctrl(int argc, char *const *argv)
 		i2c_mutex_close();
 		mctp_i2c_clean_up();
 	}
+
+	mctp_deregister_host_state_signal();
 
 #ifdef MOCKUP_ENDPOINT
 	/* Disable monitoring service */
