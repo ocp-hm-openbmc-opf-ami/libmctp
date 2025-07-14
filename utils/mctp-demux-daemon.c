@@ -2018,6 +2018,7 @@ int main(int argc, char *const *argv)
 	ctx->pcap.binding.linktype = -1;
 	ctx->pcap.socket.path = NULL;
 	ctx->pcap.socket.linktype = -1;
+	bool trace_enable = access("/var/run/mctp_trace_on", F_OK) == 0? true: false;;
 
 	mctp_prinfo("MCTP demux started.");
 
@@ -2074,6 +2075,11 @@ int main(int argc, char *const *argv)
 		usage(argv[0]);
 		rc = EXIT_FAILURE;
 		goto initialize_exit;
+	}
+
+	if (trace_enable) {
+		ctx->verbose = true;
+		mctp_ext_set_trace_enabled(true);
 	}
 
 	mctp_set_log_stdio(ctx->verbose ? MCTP_LOG_DEBUG : MCTP_LOG_WARNING);

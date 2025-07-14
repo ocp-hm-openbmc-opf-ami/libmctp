@@ -71,7 +71,8 @@ enum { MCTP_SYS_LOG_NONE = 0, MCTP_SYS_LOG_VERBOSE, MCTP_SYS_LOG_DEBUG };
 	} while (0)
 
 
-int64_t mctp_millis();
+int64_t mctp_ext_millis();
+void mctp_ext_set_trace_enabled(u_int8_t enable) ;
 
 #ifdef __cplusplus
 }

@@ -41,6 +41,14 @@
 extern mctp_msg_type_table_t *g_msg_type_entries;
 extern mctp_routing_table_t *g_routing_table_entries;
 
+/* Global definitions */
+uint8_t g_verbose_level = 0;
+
+void mctp_ext_set_trace_enabled(u_int8_t enable) 
+{
+	g_verbose_level = enable;
+}
+
 uint16_t mctp_ctrl_get_target_bdf(const mctp_cmdline_args_t *cmd)
 {
 	struct mctp_astpcie_pkt_private pvt_binding;
@@ -91,7 +99,7 @@ const char *phy_transport_binding_to_string(uint8_t id)
 	return "Unknown";
 }
 
-int64_t mctp_millis()
+int64_t mctp_ext_millis()
 {
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);

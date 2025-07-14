@@ -33,9 +33,6 @@
 const uint8_t MCTP_CTRL_MSG_TYPE = 0;
 const uint8_t MCTP_MSG_TYPE_HDR = 0;
 
-/* Global definitions */
-uint8_t g_verbose_level = 1;
-
 mctp_requester_rc_t mctp_msg_client_with_binding_send(
 	mctp_eid_t dest_eid, int mctp_fd, const uint8_t *mctp_req_msg,
 	size_t req_msg_len, const uint8_t *mctp_hdr_msg,
