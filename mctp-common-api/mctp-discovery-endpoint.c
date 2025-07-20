@@ -195,7 +195,9 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 						return MCTP_RET_DISCOVERY_FAILED;
 					}
 					continue;
-				} 
+				} else if (discovery_mode == MCTP_WAITING_BUSOWNER_CMD) {
+					discovery_mode = MCTP_FINISH_DISCOVERY;
+				}
 			}
 		} else if(discovery_mode != MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST &&
 					discovery_mode !=  MCTP_GET_EP_UUID_REQUEST &&
