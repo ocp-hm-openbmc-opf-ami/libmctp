@@ -1716,6 +1716,7 @@ enum {
 	FD_SOCKET = 0,
 	FD_SIGNAL,
 	FD_TIMER,
+	FD_TRACE,
 	FD_NR,
 	/*
 		FD for binding will be dynamically allocate here.
@@ -1759,6 +1760,9 @@ static int run_daemon(struct ctx *ctx)
 		warn("Failed to set time on watchdog timer FD!");
 		return -1;
 	}
+
+	ctx->pollfds[FD_TRACE].fd = mctp_sys_trace_init();
+	ctx->pollfds[FD_TRACE].events = POLLIN;
 
 	ctx->pollfds[FD_SOCKET].fd = ctx->sock;
 	ctx->pollfds[FD_SOCKET].events = POLLIN;
@@ -1898,6 +1902,16 @@ static int run_daemon(struct ctx *ctx)
 			sd_notify(0, "WATCHDOG=1");
 		}
 
+		if (ctx->pollfds[FD_TRACE].revents) {
+			int debug_level = mctp_handle_sys_trace_event();
+			if (debug_level >= 0) {
+				ctx->verbose = debug_level > 0;
+				mctp_set_sys_verbose_level(debug_level);
+				mctp_set_log_stdio(ctx->verbose ? MCTP_LOG_DEBUG : MCTP_LOG_WARNING);
+				mctp_set_tracing_enabled(ctx->verbose);				
+			}
+		}		
+
 		for (i = 0; i < ctx->n_bindings; i++) {
 			if (ctx->pollfds[FD_NR + i].revents) {
 				rc = 0;
@@ -2018,7 +2032,6 @@ int main(int argc, char *const *argv)
 	ctx->pcap.binding.linktype = -1;
 	ctx->pcap.socket.path = NULL;
 	ctx->pcap.socket.linktype = -1;
-	bool trace_enable = access("/var/run/mctp_trace_on", F_OK) == 0? true: false;;
 
 	mctp_prinfo("MCTP demux started.");
 
@@ -2077,13 +2090,14 @@ int main(int argc, char *const *argv)
 		goto initialize_exit;
 	}
 
-	if (trace_enable) {
-		ctx->verbose = true;
-		mctp_ext_set_trace_enabled(true);
+	if (!ctx->verbose) {
+		int debug_level = mctp_get_sys_verbose_level();
+		ctx->verbose = debug_level > 0; 
+		mctp_set_sys_verbose_level(debug_level);
 	}
 
 	mctp_set_log_stdio(ctx->verbose ? MCTP_LOG_DEBUG : MCTP_LOG_WARNING);
-	mctp_set_tracing_enabled(true);
+	mctp_set_tracing_enabled(ctx->verbose);
 
 	rc = sd_notifyf(0, "STATUS=Initializing MCTP.\nMAINPID=%d", getpid());
 	if (rc < 0) {
@@ -2176,6 +2190,8 @@ cleanup_binding:
 	if (strcmp(ctx->binding->name, "smbus") == 0)
 		i2c_mutex_close();
 		
+	mctp_sys_trace_clean_up();		
+	
 	/* KSJXXX: Unused label? cleanup_pcap_socket: */
 	if (ctx->pcap.socket.path)
 		capture_close(&ctx->pcap.socket);

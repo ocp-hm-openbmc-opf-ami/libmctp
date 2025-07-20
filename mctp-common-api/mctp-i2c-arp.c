@@ -474,7 +474,7 @@ int i2c_bus_reset_device(int bus_num, u_int8_t slave_addr)
 	}
 
 	if (i2c_smbus_detect_device(out_fd, slave_addr) >= 0) {
-		MCTP_SYS_ERR("i2c_smbus_detect_device success");
+		MCTP_SYS_DEBUG("i2c_smbus_detect_device success\n");
 		close(out_fd);
 		i2c_mutex_unlock();
 		return 1;

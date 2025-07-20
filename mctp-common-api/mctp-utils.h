@@ -46,6 +46,7 @@ enum { MCTP_SYS_LOG_NONE = 0, MCTP_SYS_LOG_VERBOSE, MCTP_SYS_LOG_DEBUG };
 #define MCTP_SYS_LOG_NOTICE	 5
 #define MCTP_SYS_LOG_INFO	 6
 #define MCTP_SYS_LOG_DEBUG	 7
+#define MCTP_SYS_LOG_TRACE	 8
 
 #define MCTP_SYS_ERR(fmt, ...)                                                \
 	mctp_sys_prlog(MCTP_SYS_LOG_ERR, pr_fmt(fmt), ##__VA_ARGS__)
@@ -58,21 +59,25 @@ enum { MCTP_SYS_LOG_NONE = 0, MCTP_SYS_LOG_VERBOSE, MCTP_SYS_LOG_DEBUG };
 
 #define MCTP_SYS_DEBUG(f_, ...)                                               \
 	do {                                                                   \
-		if (g_verbose_level >= MCTP_SYS_LOG_VERBOSE) {                \
+		if (g_verbose_level >= MCTP_SYS_LOG_DEBUG) {                \
 			mctp_sys_prlog(MCTP_SYS_LOG_INFO, f_, ##__VA_ARGS__);     \
 		}                                                              \
 	} while (0)
 
 #define MCTP_SYS_TRACE(f_, ...)                                               \
 	do {                                                                   \
-		if (g_verbose_level == MCTP_SYS_LOG_VERBOSE) {                \
+		if (g_verbose_level >= MCTP_SYS_LOG_TRACE) {                \
 			mctp_sys_prlog(MCTP_SYS_LOG_INFO, f_, ##__VA_ARGS__);     \
 		}                                                              \
 	} while (0)
 
 
 int64_t mctp_ext_millis();
-void mctp_ext_set_trace_enabled(u_int8_t enable) ;
+void mctp_set_sys_verbose_level(u_int8_t debug_level) ;
+int mctp_sys_trace_init();
+int mctp_sys_trace_clean_up();
+int mctp_handle_sys_trace_event();
+int mctp_get_sys_verbose_level();
 
 #ifdef __cplusplus
 }
