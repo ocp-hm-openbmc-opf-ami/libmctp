@@ -227,7 +227,7 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 
 					/* Check if it's timedout or not */
 					if (g_endpoint_dicovered && (t_end - t_start) > MAX_DISCOVERY_COMMAND_TIME_OUT) {
-						MCTP_SYS_ERR(
+						MCTP_SYS_DEBUG(
 							"%s: MCTP Rx Command Timed out (waited %f seconds) \n discovery_mode = %d\n",
 							__func__,
 							(float)(t_end - t_start) / 1000, discovery_mode);

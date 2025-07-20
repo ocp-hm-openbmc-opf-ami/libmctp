@@ -1129,8 +1129,6 @@ static void parse_smbus_json_config(char *config_json_file_path,
 	chosen_eid_type = mctp_json_get_eid_type(parsed_json, "smbus",
 						 &cmdline->i2c.bus_num);
 
-	i2c_mutex_open(cmdline->i2c.bus_num);
-
 	switch (chosen_eid_type) {
 	case EID_TYPE_BRIDGE:
 		MCTP_CTRL_INFO("[%s] Use bridge endpoint", __func__);
@@ -1241,6 +1239,7 @@ static void parse_command_line(int argc, char *const *argv,
 			cmdline->verbose = true;
 			g_verbose_level = cmdline->verbose;
 			mctp_set_tracing_enabled(cmdline->verbose);
+			mctp_set_sys_verbose_level(MCTP_SYS_LOG_DEBUG);
 			MCTP_CTRL_INFO("%s: Verbose level:%d\n", __func__,
 				       cmdline->verbose);
 			break;
@@ -1483,12 +1482,19 @@ int main_ctrl(int argc, char *const *argv)
 		}
 	} else {
 		// Run mode: daemon mode
-		if (access("/var/run/mctp_trace_on", F_OK) == 0) {
-			cmdline.verbose = true;
-			mctp_ext_set_trace_enabled(true);
-			mctp_set_log_stdio(MCTP_LOG_DEBUG);			
-		}
 		MCTP_CTRL_INFO("%s: Run mode: Daemon mode\n", __func__);
+
+		if (!cmdline.verbose) {
+			int debug_level = mctp_get_sys_verbose_level();
+			cmdline.verbose = debug_level > 0; 
+			if (cmdline.verbose) {
+				g_verbose_level = cmdline.verbose;
+				mctp_set_tracing_enabled(cmdline.verbose);
+				mctp_set_sys_verbose_level(debug_level);
+				MCTP_CTRL_INFO("%s: Verbose level:%d\n", __func__,
+						cmdline.verbose);			
+			}	
+		}		
 #if !USE_FUZZ_CTRL
 		/* Create D-Bus for loging event and handling D-Bus request*/
 		rc = sd_bus_default_system(&mctp_ctrl->bus);
@@ -1511,6 +1517,9 @@ int main_ctrl(int argc, char *const *argv)
 			mctp_ctrl->bus, &cmdline);
 
 		mctp_register_host_state_signal(mctp_ctrl->bus);
+		if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
+			i2c_mutex_open(mctp_ctrl->cmdline->i2c.bus_num);
+		}
 	
 		if (exec_daemon_mode(&cmdline, mctp_ctrl) != EXIT_SUCCESS) {
 			MCTP_CTRL_ERR("Running demon mode failure\n");
@@ -1552,16 +1561,16 @@ int main_ctrl(int argc, char *const *argv)
 		}
 
 		mctp_ctrl_sdbus_object_remove_all_signal(mctp_ctrl->bus);
+		mctp_deregister_host_state_signal();
+		mctp_sys_trace_clean_up();
+	
+		if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
+			i2c_mutex_close();
+			mctp_i2c_clean_up();
+		}
 	}
 
 	mctp_ctrl_clean_up();
-	
-	if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
-		i2c_mutex_close();
-		mctp_i2c_clean_up();
-	}
-
-	mctp_deregister_host_state_signal();
 
 #ifdef MOCKUP_ENDPOINT
 	/* Disable monitoring service */

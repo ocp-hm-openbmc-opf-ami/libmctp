@@ -1351,6 +1351,18 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 		}
 	}
 
+	if (context->fds[MCTP_CTRL_TRACE_FD].revents) {
+		int debug_level = mctp_handle_sys_trace_event();
+		MCTP_CTRL_DEBUG("mctp_handle_sys_trace_event: %d\n", debug_level);
+		if (debug_level >= 0) {
+			mctp_ctrl->cmdline->verbose = debug_level > 0;
+			mctp_set_log_stdio(mctp_ctrl->cmdline->verbose ? MCTP_LOG_DEBUG :
+								MCTP_LOG_WARNING);		
+			mctp_set_sys_verbose_level(debug_level);
+			mctp_set_tracing_enabled(mctp_ctrl->cmdline->verbose);
+		}
+	}
+
 	int reset = mctp_check_host_reset_event();
 	if (reset) {
 		return -1;
@@ -1402,6 +1414,10 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 	context->fds[MCTP_CTRL_TIMER_FD].fd = g_disc_timer_fd;
 	context->fds[MCTP_CTRL_TIMER_FD].events = POLLIN;
 	context->fds[MCTP_CTRL_TIMER_FD].revents = 0;
+
+	context->fds[MCTP_CTRL_TRACE_FD].fd = mctp_sys_trace_init();
+	context->fds[MCTP_CTRL_TRACE_FD].events = POLLIN;
+	context->fds[MCTP_CTRL_TRACE_FD].revents = 0;
 
 #ifdef MOCKUP_ENDPOINT
 	if (monfd) {

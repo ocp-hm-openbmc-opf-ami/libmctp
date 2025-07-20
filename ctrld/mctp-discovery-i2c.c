@@ -828,7 +828,7 @@ static mctp_ret_codes_t mctp_discover_response(mctp_discovery_mode mode,
 		mctp_ret = mctp_client_recv(eid, sock, mctp_resp_msg,
 					    mctp_resp_len);
 		if (mctp_ret != MCTP_REQUESTER_SUCCESS) {
-			MCTP_CTRL_ERR("%s: Failed to received message %d\n",
+			MCTP_CTRL_DEBUG("%s: Failed to received message %d\n",
 				      __func__, mctp_ret);
 			return MCTP_RET_REQUEST_FAILED;
 		}
@@ -1339,7 +1339,7 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 				discovery_mode, cmd->i2c.own_eid, ctrl->sock,
 				&mctp_resp_msg, &resp_msg_len);
 			if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
-				MCTP_CTRL_ERR(
+				MCTP_CTRL_DEBUG(
 					"%s: Failed to received message %d\n",
 					__func__, mctp_ret);
 
@@ -1433,14 +1433,14 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 					}
 
 					MCTP_CTRL_ERR(
-						"%s: Timedout[%d] MCTP_EP_DISCOVERY_RESPONSE\n",
+						"%s: Timedout[%d] MCTP_SET_EP_RESPONSE\n",
 						__func__, timeout);
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
-					MCTP_CTRL_ERR(
-						"%s: Failed MCTP_EP_DISCOVERY_RESPONSE\n",
+					MCTP_CTRL_DEBUG(
+						"%s: Failed MCTP_SET_EP_RESPONSE\n",
 						__func__);
 					if (cmd->i2c.chosen_eid_type == EID_TYPE_ARP) {
 						if (g_i2c_bus_info.buses[i].dest_slave_addr) {
