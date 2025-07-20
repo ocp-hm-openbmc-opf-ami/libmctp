@@ -1353,6 +1353,7 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 
 	int reset = mctp_check_host_reset_event();
 	if (reset) {
+		mctp_ctrl_sdbus_stop();
 		return -1;
 	}
 	

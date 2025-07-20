@@ -993,7 +993,8 @@ static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 			}
 			mctp_ctrl_clean_up();
 #endif
-			return EXIT_FAILURE;
+			if (cmdline->pcie.mode == 0)
+				return EXIT_FAILURE;
 		}
 	} else if (cmdline->binding_type == MCTP_BINDING_SMBUS) {
 		switch (chosen_eid_type) {
