@@ -1319,6 +1319,10 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 			     mctp_sdbus_context_t *context)
 {
 	int polled, r;
+	
+	struct timespec ts;
+	ts.tv_sec = 0;
+	ts.tv_nsec = 50* 1000000;  // 50 ms
 
 	polled =
 		poll(context->fds, MCTP_CTRL_TOTAL_FDS, MCTP_CTRL_POLL_TIMEOUT);
@@ -1348,6 +1352,10 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 		if (r < 0) {
 			MCTP_CTRL_ERR("Error handling socket event: %d\n", r);
 			return -1;
+		}
+	} else {
+		if(context->fds[MCTP_CTRL_SOCKET_FD].revents){
+			nanosleep(&ts, NULL);
 		}
 	}
 

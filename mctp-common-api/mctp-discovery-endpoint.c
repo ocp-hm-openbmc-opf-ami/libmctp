@@ -144,6 +144,10 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 	int64_t t_start, t_end;
 	bool get_busowner_routing_table = false;
 
+	struct timespec ts;
+	ts.tv_sec = 0;
+	ts.tv_nsec = 100* 1000000;  // 50 ms
+
 	/* Update the EID lists */
 	//g_pci_own_eid = cmd->pcie.own_eid;
 	//g_pci_bridge_eid = cmd->pcie.bridge_eid;
@@ -363,6 +367,7 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 						__func__);
 				discovery_mode =
 					MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST;
+				nanosleep(&ts, NULL);
 				break;
 			}
 
