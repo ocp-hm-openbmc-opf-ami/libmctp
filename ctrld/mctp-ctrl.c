@@ -878,7 +878,7 @@ static int open_mctp_sock(const mctp_cmdline_args_t *cmdline,
 		/* Open the user socket file-descriptor */
 		rc = mctp_usr_socket_init(&fd, mctp_sock_path,
 					  MCTP_CTRL_MSG_TYPE,
-					  MCTP_CTRL_TXRX_TIMEOUT_1SECS);
+					  MCTP_CTRL_TXRX_TIMEOUT_5SECS);
 	} else if (cmdline->binding_type == MCTP_BINDING_USB) {
 		MCTP_CTRL_INFO("%s: Binding type: USB\n", __func__);
 		mctp_sock_path = MCTP_SOCK_PATH_USB;

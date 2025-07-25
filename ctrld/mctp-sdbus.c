@@ -1294,7 +1294,7 @@ void* partial_discovery_mode(void* args)
 			}
 			atomic_store(&partial_discover_running, false);
 		} else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
-			sleep(20);
+			sleep(30);
 			if (mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC){
 				atomic_store(&partial_discover_running, true);
 				mctp_err_ret = mctp_i2c_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
