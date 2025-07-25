@@ -1320,6 +1320,13 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 			} else {
 				g_i2c_bus_info.buses[i].dest_slave_addr = 0;				
 			}
+		} else if (cmd->i2c.dest_slave_addr[i]) {
+			int ret = i2c_bus_reset_device(cmd->i2c.logical_busses[i], cmd->i2c.dest_slave_addr[i]);
+			if (ret < 0) {
+				MCTP_CTRL_DEBUG("%s: discovery SKIP bus:%d slave address:%d\n", __func__,
+						cmd->i2c.logical_busses[i], cmd->i2c.dest_slave_addr[i]);						
+				continue;
+			}
 		}
 
 		discovery_mode = MCTP_SET_EP_REQUEST;
