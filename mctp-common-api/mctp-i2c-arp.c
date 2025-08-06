@@ -336,7 +336,7 @@ int send_direct_get_udid_command(int32_t out_fd, size_t idx, uint8_t *inbuf,
 
 	rc = ioctl(out_fd, I2C_RDWR, &msgset);
 	if (rc < 0) {
-		MCTP_ERR("%s Invalid ioctl ret val: %d (%s)", __func__, errno,
+		MCTP_SYS_DEBUG("%s Invalid ioctl ret val: %d (%s)", __func__, errno,
 			 strerror(errno));
 		return EXIT_FAILURE;
 	}
