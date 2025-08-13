@@ -1135,6 +1135,7 @@ static int mctp_smbus_start(struct mctp_binding *b)
 				mctp_prdebug("%s: Reusing I2C output fd",
 					     __func__);
 				smbus->out_fd[i] = smbus->out_fd[j];
+				smbus->static_endpoints[i].out_fd = smbus->out_fd[i];
 				break;
 			}
 		}
