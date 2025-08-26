@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
@@ -75,6 +76,7 @@ extern const char *mctp_medium_type;
 extern int g_disc_timer_fd;
 extern void mctp_handle_discovery_notify();
 int mctp_ctrl_running = 1;
+_Atomic (bool) partial_discover_running = false;
 
 typedef struct {
 	mctp_ctrl_t *mctp_ctrl;
@@ -1228,14 +1230,7 @@ static int mctp_ctrl_handle_timer(mctp_ctrl_t *mctp_ctrl,
 			directly since we don't really need to repeat the whole process */
 			mctp_discover_endpoints(mctp_ctrl->cmdline, mctp_ctrl,
 						MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST);
-		} else {
-			mctp_ctrl->perform_rediscovery = true;
-			int reset = mctp_check_host_reset_event();
-			if (reset) {
-				mctp_ctrl_sdbus_object_remove_all_signal(mctp_ctrl->bus);
-				return -1;
-			}
-		}
+		} 
 
 		/* Re-arm the timer if we received a discovery notify during our
 		handling of the discovery notify */
@@ -1257,12 +1252,12 @@ void* partial_discovery_mode(void* args)
 	mctp_ctrl_t * mctp_ctrl = partial_discovery_mode_param->mctp_ctrl;
 	mctp_sdbus_context_t *context = partial_discovery_mode_param->context;
 	static int t_update_routing_begin = 0, t_update_routing_end;
-	t_update_routing_begin = mctp_millis();
+	t_update_routing_begin = mctp_ext_millis();
 	
 	while (mctp_ctrl_running)
 	{
 		mctp_ret_codes_t mctp_err_ret = MCTP_RET_DISCOVERY_SUCCESS;
-		t_update_routing_end = mctp_millis();				
+		t_update_routing_end = mctp_ext_millis();				
 
 		if (t_update_routing_end - t_update_routing_begin > 60*1000) {
 			t_update_routing_begin = t_update_routing_end;
@@ -1279,10 +1274,10 @@ void* partial_discovery_mode(void* args)
 		} else {
 			mctp_ctrl->update_routing_table = false;
 		}
-
 		if(mctp_ctrl->cmdline->binding_type == MCTP_BINDING_PCIE) {
 			MCTP_CTRL_DEBUG("%s Start MCTP partial discover \n", __func__);						
 
+			atomic_store(&partial_discover_running, true);
 			if (g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] != NULL) {
 				mctp_err_ret = 	g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] (mctp_ctrl->cmdline, mctp_ctrl);
 			} else {
@@ -1293,14 +1288,18 @@ void* partial_discovery_mode(void* args)
 					mctp_err_ret = mctp_busowner_mode_discover_endpoints((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
 							mctp_ctrl);
 				} else {
+					atomic_store(&partial_discover_running, false);
 					continue;
 				}					
 			}
+			atomic_store(&partial_discover_running, false);
 		} else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
-			if ((mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC)){
-				sleep(20);
+			sleep(30);
+			if (mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC){
+				atomic_store(&partial_discover_running, true);
 				mctp_err_ret = mctp_i2c_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
 							mctp_ctrl);
+				atomic_store(&partial_discover_running, false);
 			} else {
 				continue;
 			}
@@ -1320,6 +1319,10 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 			     mctp_sdbus_context_t *context)
 {
 	int polled, r;
+	
+	struct timespec ts;
+	ts.tv_sec = 0;
+	ts.tv_nsec = 50* 1000000;  // 50 ms
 
 	polled =
 		poll(context->fds, MCTP_CTRL_TOTAL_FDS, MCTP_CTRL_POLL_TIMEOUT);
@@ -1344,16 +1347,38 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 		return -1;
 	}
 
-	/*Only support busowner mode commands, need to skip in endpoint mode*/
-	if (!((mctp_ctrl->cmdline->binding_type == MCTP_BINDING_PCIE && mctp_ctrl->cmdline->pcie.mode != 0) ||
-			mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS)) {
+	if(!atomic_load(&partial_discover_running)){
 		r = mctp_ctrl_handle_socket(mctp_ctrl, context);
 		if (r < 0) {
 			MCTP_CTRL_ERR("Error handling socket event: %d\n", r);
 			return -1;
 		}
+	} else {
+		if(context->fds[MCTP_CTRL_SOCKET_FD].revents){
+			r = nanosleep(&ts, NULL); 
+			if (r < 0)
+				MCTP_CTRL_ERR("Error in nanosleep: %s\n", strerror(errno));
+		}
 	}
 
+	if (context->fds[MCTP_CTRL_TRACE_FD].revents) {
+		int debug_level = mctp_handle_sys_trace_event();
+		MCTP_CTRL_DEBUG("mctp_handle_sys_trace_event: %d\n", debug_level);
+		if (debug_level >= 0) {
+			mctp_ctrl->cmdline->verbose = debug_level > 0;
+			mctp_set_log_stdio(mctp_ctrl->cmdline->verbose ? MCTP_LOG_DEBUG :
+								MCTP_LOG_WARNING);		
+			mctp_set_sys_verbose_level(debug_level);
+			mctp_set_tracing_enabled(mctp_ctrl->cmdline->verbose);
+		}
+	}
+
+	int reset = mctp_check_host_reset_event();
+	if (reset) {
+		mctp_ctrl_sdbus_stop();
+		return -1;
+	}
+	
 	r = mctp_ctrl_handle_timer(mctp_ctrl, context);
 	if (r < 0) {
 		MCTP_CTRL_ERR("Error handling timer event: %d\n", r);
@@ -1400,6 +1425,10 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 	context->fds[MCTP_CTRL_TIMER_FD].fd = g_disc_timer_fd;
 	context->fds[MCTP_CTRL_TIMER_FD].events = POLLIN;
 	context->fds[MCTP_CTRL_TIMER_FD].revents = 0;
+
+	context->fds[MCTP_CTRL_TRACE_FD].fd = mctp_sys_trace_init();
+	context->fds[MCTP_CTRL_TRACE_FD].events = POLLIN;
+	context->fds[MCTP_CTRL_TRACE_FD].revents = 0;
 
 #ifdef MOCKUP_ENDPOINT
 	if (monfd) {

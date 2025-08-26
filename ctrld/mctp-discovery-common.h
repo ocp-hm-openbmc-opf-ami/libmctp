@@ -69,6 +69,7 @@ typedef struct mctp_routing_table {
 	int id;
 	bool valid;
 	bool old_valid;
+	bool probed;
 	struct get_routing_table_entry routing_table;
 	struct mctp_routing_table *next;
 } mctp_routing_table_t;

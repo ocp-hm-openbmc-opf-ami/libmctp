@@ -37,9 +37,30 @@
 #include "ctrld/mctp-sdbus.h"
 #include <dirent.h>
 #include "mctp-utils.h"
+#include <fcntl.h>
+#include <sys/inotify.h>
+#include <ctype.h>
 
 extern mctp_msg_type_table_t *g_msg_type_entries;
 extern mctp_routing_table_t *g_routing_table_entries;
+
+#define MAX_EVENTS 1024
+#define LEN_NAME 1024
+#define EVENT_SIZE (sizeof(struct inotify_event))
+#define BUF_LEN (MAX_EVENTS * (EVENT_SIZE + LEN_NAME))
+#define MCTP_TRACE_FILE "mctp_trace_on"
+#define MCTP_TRACE_DIRECTORY "/var/run"
+#define MCTP_TRACE_FILE_PATH MCTP_TRACE_DIRECTORY"/"MCTP_TRACE_FILE
+
+int wd, fd;
+
+/* Global definitions */
+uint8_t g_verbose_level = 0;
+
+void mctp_set_sys_verbose_level(u_int8_t debug_devel) 
+{
+	g_verbose_level = debug_devel;
+}
 
 uint16_t mctp_ctrl_get_target_bdf(const mctp_cmdline_args_t *cmd)
 {
@@ -91,9 +112,111 @@ const char *phy_transport_binding_to_string(uint8_t id)
 	return "Unknown";
 }
 
-int64_t mctp_millis()
+int64_t mctp_ext_millis()
 {
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	return ((int64_t)now.tv_sec) * 1000 + ((int64_t)now.tv_nsec) / 1000000;
+}
+
+int mctp_get_sys_verbose_level() {
+    char buffer[2];
+
+    int fd = open(MCTP_TRACE_FILE_PATH, O_RDONLY);
+    if (fd < 0) {
+        MCTP_SYS_ERR("mctp_get_sys_verbose_level open fail!\n");
+        return 0;
+    }
+
+    ssize_t bytes_read;
+	int level = 0;
+    while ((bytes_read = read(fd, buffer, sizeof(buffer) - 1)) > 0) {
+        buffer[bytes_read] = '\0';
+    }
+
+	if (isdigit(buffer[0])) {
+	    level = buffer[0] - '0';
+	} else {
+		level = buffer[0];
+	}
+
+	if (!(level > MCTP_SYS_LOG_NONE && level <= MCTP_SYS_LOG_TRACE))
+	    level = 0;
+
+    close(fd);
+	return level;
+}
+
+int mctp_handle_sys_trace_event() 
+{
+    char buffer[BUF_LEN];
+    int length, i = 0;
+ 
+	length = read(fd, buffer, BUF_LEN);
+	if (length < 0) {
+		MCTP_SYS_ERR("mctp_handle_sys_trace_event read error\n");
+		return -1;
+	}
+
+	char event_name[LEN_NAME];
+	/* coverity[remediation : FALSE] */		
+	while (i < length) {
+		struct inotify_event *event = (struct inotify_event *) &buffer[i];
+		memset(event_name, 0, sizeof(event_name));
+		/* coverity[illegal_address : FALSE] */		
+		/* coverity[string_null : FALSE] */		
+		snprintf(event_name, sizeof(event_name) - 1, "%s", event->name);
+
+		if (event->len) {
+			if (event->mask & IN_CREATE) {
+				if (event->mask & IN_ISDIR) {
+					MCTP_SYS_DEBUG("The directory %s was created.\n", event_name);
+				} else if(strstr(event_name, MCTP_TRACE_FILE)) {
+					return mctp_get_sys_verbose_level();
+				}
+			}
+			if (event->mask & IN_MODIFY) {
+				if (event->mask & IN_ISDIR) {
+					MCTP_SYS_DEBUG("The directory %s was modified.\n", event_name);
+				} else if(strstr(event_name, MCTP_TRACE_FILE)) {
+					return mctp_get_sys_verbose_level();
+				}
+			}
+			if (event->mask & IN_DELETE) {
+				if (event->mask & IN_ISDIR) {
+					MCTP_SYS_DEBUG("The directory %s was deleted.\n", event_name);
+				} else if(strstr(event_name, MCTP_TRACE_FILE)) {
+					return 0;
+				}
+			}
+			i += EVENT_SIZE + event->len;
+		} else {
+			break;
+		}
+	}
+	return -1;
+}
+
+int mctp_sys_trace_init() 
+{
+    fd = inotify_init();
+    if (fd < 0) {
+         MCTP_SYS_ERR("Couldn't initialize inotify\n");
+    }
+
+    wd = inotify_add_watch(fd, MCTP_TRACE_DIRECTORY, IN_CREATE | IN_MODIFY | IN_DELETE);
+    if (wd == -1) {
+         MCTP_SYS_DEBUG("Couldn't add watch to %s\n", MCTP_TRACE_FILE);
+    } else {
+         MCTP_SYS_DEBUG("inotify watching: %s\n", MCTP_TRACE_FILE);
+    }
+	return fd;
+}
+
+int mctp_sys_trace_clean_up() 
+{
+    inotify_rm_watch(fd, wd);
+    close(fd);
+
+    return 0;
 }
