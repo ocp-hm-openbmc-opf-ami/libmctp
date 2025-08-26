@@ -336,7 +336,7 @@ int send_direct_get_udid_command(int32_t out_fd, size_t idx, uint8_t *inbuf,
 
 	rc = ioctl(out_fd, I2C_RDWR, &msgset);
 	if (rc < 0) {
-		MCTP_ERR("%s Invalid ioctl ret val: %d (%s)", __func__, errno,
+		MCTP_SYS_DEBUG("%s Invalid ioctl ret val: %d (%s)", __func__, errno,
 			 strerror(errno));
 		return EXIT_FAILURE;
 	}
@@ -429,11 +429,13 @@ int i2c_smbus_scan(uint8_t bus_num,
 
 uint8_t i2c_bus_scan_address(int32_t out_fd, uint8_t start_addr)
 {
+	(void)start_addr;
 	uint8_t slave_addr;
+	uint8_t target_slave_address[] = { 0x32 };
 
-	for (slave_addr = start_addr + 1; slave_addr <= 0x7F; slave_addr++) {
-		if (slave_addr != 0x1d && slave_addr != 0x32)
-			continue;
+	for(u_int32_t i = 0; i < sizeof(target_slave_address); i++) {
+		
+		slave_addr = target_slave_address[i];
 
 		if (ioctl(out_fd, I2C_SLAVE, slave_addr) < 0) {
 			continue;
@@ -474,7 +476,7 @@ int i2c_bus_reset_device(int bus_num, u_int8_t slave_addr)
 	}
 
 	if (i2c_smbus_detect_device(out_fd, slave_addr) >= 0) {
-		MCTP_SYS_ERR("i2c_smbus_detect_device success");
+		MCTP_SYS_DEBUG("i2c_smbus_detect_device success\n");
 		close(out_fd);
 		i2c_mutex_unlock();
 		return 1;
@@ -548,7 +550,7 @@ int set_pool_of_endpoints(int32_t bus_num, uint8_t *target_address,
 					break;
 			}
 			if (ret != 0)
-				goto RELEASE_RESOURCE;
+				goto SCAN_RESOURCE;
 
 			// Get slave address from UDID
 			slave_address = inbuf[17] >> 1;
@@ -619,13 +621,12 @@ int set_pool_of_endpoints(int32_t bus_num, uint8_t *target_address,
 			set_address_pool(slave_address);
 			goto RELEASE_RESOURCE;
 		}
-#if 0
+
 	SCAN_RESOURCE:
 		*target_address = i2c_bus_scan_address(out_fd, *target_address);
 		if (*target_address != 0) {
 			set_address_pool(*target_address);
 		}
-#endif
 
 	RELEASE_RESOURCE:
 		close(out_fd);

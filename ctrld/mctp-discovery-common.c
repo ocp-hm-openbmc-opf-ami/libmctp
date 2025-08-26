@@ -300,6 +300,7 @@ int mctp_routing_entry_add(struct get_routing_table_entry *routing_table_entry)
 
 	new_entry->valid = true;
 	new_entry->old_valid = false;
+	new_entry-> probed = false;
 	
 	/* Check if any entry exist */
 	if (g_routing_table_entries == NULL) {

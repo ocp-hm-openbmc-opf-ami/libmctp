@@ -61,7 +61,7 @@ static mctp_ret_codes_t mctp_discover_response(mctp_ctrl_t *ctrl,
 {
 	int sock = ctrl->sock;
 	mctp_requester_rc_t mctp_ret;
-	char *device_name = "PCIe Device Enumeration Service";
+	//char *device_name = "PCIe Device Enumeration Service";
     
 	/* Ignore request commands */
 	switch (mode) {
@@ -94,13 +94,13 @@ static mctp_ret_codes_t mctp_discover_response(mctp_ctrl_t *ctrl,
 		if (mctp_ret == MCTP_REQUESTER_TIMEOUT) {
 			if (mode == MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE) {
 				/* Get routing table commands has their own timeout */
-				doLog(ctrl->bus, device_name,
-				      "No valid routing table", EVT_CRITICAL,
-				      "Reset the baseboard");
+				//doLog(ctrl->bus, device_name,
+				//      "No valid routing table", EVT_CRITICAL,
+				//      "Reset the baseboard");
 				return MCTP_RET_REQUEST_FAILED;
 			}
-			doLog(ctrl->bus, device_name, "Discovery Timed Out",
-			      EVT_CRITICAL, "Reset the baseboard");
+			//doLog(ctrl->bus, device_name, "Discovery Timed Out",
+			//      EVT_CRITICAL, "Reset the baseboard");
 
 			return MCTP_RET_REQUEST_FAILED;
 		} else if (mctp_ret == MCTP_REQUESTER_RECV_FAIL ||
@@ -109,11 +109,11 @@ static mctp_ret_codes_t mctp_discover_response(mctp_ctrl_t *ctrl,
 				/* Get routing table commands has their error handling */
 				return MCTP_RET_REQUEST_FAILED;
 			}
-			MCTP_SYS_ERR("%s: Failed to received message %d\n",
+			MCTP_SYS_DEBUG("%s: Failed to received message %d\n",
 				      __func__, mctp_ret);
 
-			doLog(ctrl->bus, device_name, "Failed to discover",
-			      EVT_CRITICAL, "Reset the baseboard");
+			//doLog(ctrl->bus, device_name, "Failed to discover",
+			//      EVT_CRITICAL, "Reset the baseboard");
 			return MCTP_RET_REQUEST_FAILED;
 		}
 		break;
@@ -132,9 +132,8 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					 mctp_ctrl_t *ctrl)
 {
 	static int discovery_mode = MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST;
-	g_verbose_level = cmd->verbose;
 
-	if(g_endpoint_dicovered){
+	if(g_endpoint_dicovered || discovery_mode != MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST){
 		discovery_mode = MCTP_EP_DISCOVERY_REQUEST;
 		MCTP_SYS_DEBUG("%s Start busowner mode partial discover \n", __func__);
 	}
@@ -160,9 +159,9 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 		g_pci_bridge_eid = cmd->pcie.bridge_eid;
 		g_pci_bridge_pool_start = cmd->pcie.bridge_pool_start;
 	}
-	t_start = mctp_millis();
+	t_start = mctp_ext_millis();
 
-	MCTP_SYS_INFO(
+	MCTP_SYS_DEBUG(
 		"%s: pci_own_eid: %d, pci_bridge_eid: %d, pci_bridge_pool_start: %d\n",
 		__func__, g_pci_own_eid, g_pci_bridge_eid,
 		g_pci_bridge_pool_start);
@@ -176,7 +175,7 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 		MCTP_SYS_DEBUG("%s: mctp_discover_response mctp_ret = %d \n", __func__, mctp_ret);
 
 		if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
-			MCTP_SYS_ERR("%s: Failed to received message %d\n",
+			MCTP_SYS_DEBUG("%s: Failed to received message %d\n",
 				      __func__, mctp_ret);
 
 			/*
@@ -187,18 +186,18 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 			 * scenario. If such failure occurs, then it could be
 			 * either a firmware issue or some Hardware issue.
 			 */
-			if (//discovery_mode != MCTP_PREPARE_FOR_EP_DISCOVERY_RESPONSE &&
-				discovery_mode != MCTP_EP_DISCOVERY_RESPONSE &&
+			if (discovery_mode != MCTP_PREPARE_FOR_EP_DISCOVERY_RESPONSE &&
+					discovery_mode != MCTP_EP_DISCOVERY_RESPONSE &&
 					discovery_mode != MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE &&
 					discovery_mode != MCTP_GET_EP_UUID_RESPONSE &&
 					discovery_mode != MCTP_GET_EP_VDM_SUPPORT_RESPONSE &&
 					discovery_mode != MCTP_GET_MSG_TYPE_RESPONSE) {
-				MCTP_SYS_ERR(
+				MCTP_SYS_DEBUG(
 					"%s: Unexpected failure %d, mode[%d]\n",
 					__func__, mctp_ret, discovery_mode);		
 
 				if (!g_endpoint_dicovered) {
-					t_end = mctp_millis();
+					t_end = mctp_ext_millis();
 					if((t_end - t_start) / 1000 > MAX_DISCOVERY_RETRY_PERIOD) {
 						return MCTP_RET_DISCOVERY_FAILED;
 					}
@@ -223,11 +222,11 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					free(mctp_hdr_msg);
 					mctp_hdr_msg = NULL;	
 					/* End time */
-					t_end = mctp_millis();
+					t_end = mctp_ext_millis();
 
 					/* Check if it's timedout or not */
 					if (g_endpoint_dicovered && (t_end - t_start) > MAX_DISCOVERY_COMMAND_TIME_OUT) {
-						MCTP_SYS_ERR(
+						MCTP_SYS_DEBUG(
 							"%s: MCTP Rx Command Timed out (waited %f seconds)\n",
 							__func__,
 							(float)(t_end - t_start) / 1000);
@@ -261,7 +260,7 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 	
 				/* Wait for the endpoint discovery response */
 				discovery_mode = MCTP_PREPARE_FOR_EP_DISCOVERY_RESPONSE;
-				t_start = mctp_millis();
+				t_start = mctp_ext_millis();
 				break;
 
 			case MCTP_PREPARE_FOR_EP_DISCOVERY_RESPONSE:
@@ -301,7 +300,7 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 
 				/* Wait for the endpoint response */
 				discovery_mode = MCTP_EP_DISCOVERY_RESPONSE;
-				t_start = mctp_millis();
+				t_start = mctp_ext_millis();
 				break;
 
 			case MCTP_EP_DISCOVERY_RESPONSE:
@@ -383,7 +382,7 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE;
 
 				/* Start time */
-				t_start = mctp_millis();
+				t_start = mctp_ext_millis();
 				break;
 
 			case MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE:
@@ -409,7 +408,7 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 				/* Retry if the device is not ready */
 				if (mctp_ret == MCTP_RET_DEVICE_NOT_READY || mctp_ret == MCTP_RET_REQUEST_FAILED) {
 					/* Make sure it's not timedout before continuing */
-					if (timeout < MCTP_DEVICE_GET_ROUTING_TIMEOUT) {
+					if (timeout < MCTP_DEVICE_READY_DELAY) {
 						/* Increment the timeout */
 						timeout += MCTP_DEVICE_READY_DELAY;
 
@@ -445,29 +444,27 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 						MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST;
 					break;
 				}
+				
+				while(routing_entry != NULL)
+				{
+					routing_entry = routing_entry->next;
 
-				if (entry_hdl == 0xFF) {
-					while(routing_entry != NULL)
-					{
-						routing_entry = routing_entry->next;
-
-						if(routing_entry == NULL)
-							break;
-
-						if (routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE &&
-							(GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) == MCTP_ROUTING_ENTRY_BRIDGE ||
- 								GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) == MCTP_ROUTING_ENTRY_BRIDGE_AND_ENDPOINTS)) {
-								eid_start = routing_entry->routing_table.starting_eid;
-								g_remote_id = routing_entry->routing_table.phys_address[0] << 8|routing_entry->routing_table.phys_address[1];
-								discovery_mode = MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST;
-								break;
-						}
-					}
-					entry_hdl = MCTP_ROUTING_ENTRY_START;
-
-					if(discovery_mode == MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST)
+					if(routing_entry == NULL)
 						break;
+
+					if (routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE &&
+						(GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) == MCTP_ROUTING_ENTRY_BRIDGE ||
+							GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) == MCTP_ROUTING_ENTRY_BRIDGE_AND_ENDPOINTS)) {
+							eid_start = routing_entry->routing_table.starting_eid;
+							g_remote_id = routing_entry->routing_table.phys_address[0] << 8|routing_entry->routing_table.phys_address[1];
+							discovery_mode = MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST;
+							break;
+					}
 				}
+				entry_hdl = MCTP_ROUTING_ENTRY_START;
+
+				if(discovery_mode == MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST)
+					break;
 
 				/* Get the start of Routing entry */
 				routing_entry = g_routing_table_entries;
@@ -476,14 +473,13 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					if ((routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE ||
 				     			routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_VDM) &&
 							GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) != MCTP_ROUTING_ENTRY_ENDPOINTS &&
-					 		routing_entry->valid)
+					 		!routing_entry->probed)
 						break;
 					routing_entry = routing_entry->next;
 				}
 
 				/* Next step is to Get Endpoint UUID request */
 				discovery_mode = MCTP_GET_EP_UUID_REQUEST;
-
 				break;
 
 			case MCTP_GET_EP_UUID_REQUEST:
@@ -516,13 +512,14 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 							"Reset the baseboard");
 						return MCTP_RET_DISCOVERY_FAILED;
 					}
+
+					/* Wait for the endpoint response */
+					discovery_mode = MCTP_GET_EP_UUID_RESPONSE;
+					/* Start time */
+					t_start = mctp_ext_millis();
+				} else {
+					discovery_mode = MCTP_FINISH_DISCOVERY;
 				}
-
-				/* Wait for the endpoint response */
-				discovery_mode = MCTP_GET_EP_UUID_RESPONSE;
-				/* Start time */
-				t_start = mctp_millis();
-
 				break;
 
 			case MCTP_GET_EP_UUID_RESPONSE:
@@ -546,7 +543,6 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					mctp_resp_msg = NULL;
 					free(mctp_hdr_msg);
 					mctp_hdr_msg = NULL;
-
 				}
 
 				/* Increment the routing entry */
@@ -556,7 +552,7 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					if (routing_entry != NULL && (routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE ||
 				     		routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_VDM ) &&
 							GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) != MCTP_ROUTING_ENTRY_ENDPOINTS &&
-					 		routing_entry->valid)
+					 		!routing_entry->probed)
 						break;
 				}
 
@@ -574,12 +570,11 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					if ((routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE ||
 				     		routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_VDM ) &&
 							GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) != MCTP_ROUTING_ENTRY_ENDPOINTS &&
-					 		routing_entry->valid)
+					 		!routing_entry->probed)
 						break;
 					routing_entry = routing_entry->next;
 				}
 				discovery_mode = MCTP_GET_EP_VDM_SUPPORT_REQUEST;
-
 				break;
 
 			case MCTP_GET_EP_VDM_SUPPORT_REQUEST:
@@ -612,12 +607,14 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					      "Reset the baseboard");
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
+			} else {
+				discovery_mode = MCTP_FINISH_DISCOVERY;
 			}
 
 			/* Wait for the endpoint response */
 			discovery_mode = MCTP_GET_EP_VDM_SUPPORT_RESPONSE;
 			/* Start time */
-			t_start = mctp_millis();
+			t_start = mctp_ext_millis();
 
 			break;
 
@@ -642,7 +639,6 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 				mctp_resp_msg = NULL;
 				free(mctp_hdr_msg);
 				mctp_hdr_msg = NULL;
-
 			}
 
 			if (MCTP_RET_SET_SELECTOR_FOUND == mctp_ret) {
@@ -665,7 +661,7 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					if ((routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE ||
 					    	routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_VDM) &&
 					    GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) != MCTP_ROUTING_ENTRY_ENDPOINTS &&
-					 	routing_entry->valid)
+					 	!routing_entry->probed)
 					        break;
 				}
 
@@ -685,12 +681,11 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 				if ((routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE ||
 				     routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_VDM ) &&
 				     GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) != MCTP_ROUTING_ENTRY_ENDPOINTS &&
-					 routing_entry->valid)
+					 !routing_entry->probed)
 				        break;
 				routing_entry = routing_entry->next;
 			}
 			discovery_mode = MCTP_GET_MSG_TYPE_REQUEST;
-
 			break;
 
 			case MCTP_GET_MSG_TYPE_REQUEST:
@@ -723,12 +718,13 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 							"Reset the baseboard");
 						return MCTP_RET_DISCOVERY_FAILED;
 					}
+					/* Wait for the endpoint response */
+					discovery_mode = MCTP_GET_MSG_TYPE_RESPONSE;
+					/* Start time */
+					t_start = mctp_ext_millis();
+				} else {
+					discovery_mode = MCTP_FINISH_DISCOVERY;
 				}
-
-				/* Wait for the endpoint response */
-				discovery_mode = MCTP_GET_MSG_TYPE_RESPONSE;
-				/* Start time */
-				t_start = mctp_millis();
 
 				break;
 
@@ -764,7 +760,7 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 							(routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_PCIE ||
 				     		routing_entry->routing_table.phys_transport_binding_id == MCTP_BINDING_VDM ) &&
 							GET_ROUTING_ENTRY_TYPE(routing_entry->routing_table.entry_type) != MCTP_ROUTING_ENTRY_ENDPOINTS &&
-							routing_entry->valid)
+							!routing_entry->probed)
 						break;
 				}
 
