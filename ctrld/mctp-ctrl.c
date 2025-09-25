@@ -108,6 +108,8 @@ int g_mon_fd = -1;
 int g_disc_timer_fd = -1;
 static sd_bus *g_sdbus = NULL;
 
+mctp_eid_t local_eid;
+
 static uint8_t chosen_eid_type = EID_TYPE_BRIDGE;
 
 extern void mctp_routing_entry_delete_all(void);
@@ -977,13 +979,14 @@ static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 				mctp_err_ret = mctp_discover_endpoints(
 					cmdline, mctp_ctrl,
 					MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST);
-			else if (cmdline->pcie.mode == 1)
+			else if (cmdline->pcie.mode == 1) 
 				mctp_err_ret = mctp_endpoint_mode_discover_endpoints(cmdline,
 										mctp_ctrl);
 			else if (cmdline->pcie.mode == 2)
 				mctp_err_ret = mctp_busowner_mode_discover_endpoints(cmdline,
 										mctp_ctrl);
 		}
+		local_eid = mctp_ctrl->local_eid;
 		if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
 			MCTP_CTRL_ERR("MCTP-Ctrl discovery unsuccessful\n");
 #ifdef MOCKUP_ENDPOINT
@@ -1365,6 +1368,8 @@ static void parse_command_line(int argc, char *const *argv,
 		cmdline->pcie.own_eid = own_eid;
 		cmdline->pcie.remove_duplicates = remove_duplicates;
 		cmdline->pcie.mode = pcie_mode;
+		mctp_ctrl->local_eid = own_eid;
+		local_eid = own_eid;
 		break;
 	case MCTP_BINDING_SPI:
 		cmdline->spi.vdm_ops = vdm_ops;
@@ -1388,12 +1393,14 @@ static void parse_command_line(int argc, char *const *argv,
 			cmdline->i2c.bridge_pool_start = bridge_pool;
 			cmdline->i2c.own_eid = own_eid;
 		}
+		local_eid = cmdline->i2c.own_eid;
 		break;
 	case MCTP_BINDING_USB:
 		cmdline->usb.bridge_eid = bridge_eid;
 		cmdline->usb.bridge_pool_start = bridge_pool;
 		cmdline->usb.own_eid = own_eid;
 		cmdline->usb.remove_duplicates = remove_duplicates;
+		local_eid = own_eid;
 		break;
 	default:
 		break;
