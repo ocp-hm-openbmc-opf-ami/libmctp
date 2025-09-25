@@ -818,7 +818,7 @@ mctp_ret_codes_t mctp_endpoint_mode_ctrl_cmd_responder(mctp_ctrl_t *ctrl,
 				g_pci_own_eid = ((struct mctp_ctrl_cmd_set_eid *)*mctp_msg )->eid;
 				g_pci_bridge_eid = eid;
 				g_target_bdf = g_remote_id;
-
+				ctrl->local_eid = g_pci_own_eid;
 				/* Send the set endpoint id message */
 				mctp_ret = mctp_responder_set_eid_send_response(
 					ctrl->sock, bind_id, eid, *mctp_hdr, g_remote_id, (struct mctp_ctrl_cmd_set_eid *)*mctp_msg);

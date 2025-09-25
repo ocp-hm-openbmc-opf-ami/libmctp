@@ -74,6 +74,8 @@ extern char *mctp_sock_path;
 extern const char *mctp_medium_type;
 
 extern int g_disc_timer_fd;
+extern mctp_eid_t local_eid;
+
 extern void mctp_handle_discovery_notify();
 int mctp_ctrl_running = 1;
 _Atomic (bool) partial_discover_running = false;
@@ -321,6 +323,24 @@ static int mctp_ctrl_sdbus_get_sock_name(sd_bus *bus, const char *path,
 	return sd_bus_message_close_container(reply);
 }
 
+
+static int mctp_ctrl_sdbus_get_local_eid(sd_bus *bus, const char *path,
+					    const char *interface,
+					    const char *property,
+					    sd_bus_message *reply,
+					    void *userdata, sd_bus_error *error)
+{
+	(void)bus;
+	(void)path;
+	(void)interface;
+	(void)property;
+	(void)userdata;
+	(void)error;
+
+	/* append the message */
+	return sd_bus_message_append(reply, "u", local_eid);
+}
+
 static int mctp_ctrl_sdbus_get_bus(sd_bus *bus, const char *path,
 				   const char *interface, const char *property,
 				   sd_bus_message *reply, void *userdata,
@@ -447,7 +467,7 @@ static int mctp_ctrl_sdbus_get_medium_type(sd_bus *bus, const char *path,
 
 	snprintf(str, sizeof(str),
 		 "xyz.openbmc_project.MCTP.Endpoint.MediaTypes.%s",
-		 phy_transport_binding_to_string(id));
+		 entry == NULL? mctp_medium_type : phy_transport_binding_to_string(id));
 
 	/* append the message */
 	return sd_bus_message_append(reply, "s", str);
@@ -849,6 +869,8 @@ static const sd_bus_vtable mctp_ctrl_common_sock_vtable[] = {
 			SD_BUS_VTABLE_PROPERTY_CONST),
 	SD_BUS_PROPERTY("Address", "ay", mctp_ctrl_sdbus_get_sock_name, 0,
 			SD_BUS_VTABLE_PROPERTY_CONST),
+	SD_BUS_PROPERTY("LocalEID", "u", mctp_ctrl_sdbus_get_local_eid, 0,
+			SD_BUS_VTABLE_PROPERTY_CONST),
 	SD_BUS_VTABLE_END
 };
 
@@ -1061,7 +1083,6 @@ static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 					strerror(-r));
 				return r;
 			}
-
 			r = sd_bus_emit_object_added(context->bus,
 						     mctp_ctrl_objpath);
 			if (r < 0) {
@@ -1292,6 +1313,7 @@ void* partial_discovery_mode(void* args)
 					continue;
 				}					
 			}
+			local_eid = mctp_ctrl->local_eid;
 			atomic_store(&partial_discover_running, false);
 		} else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
 			sleep(30);

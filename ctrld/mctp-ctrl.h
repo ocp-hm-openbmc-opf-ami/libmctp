@@ -74,6 +74,7 @@ typedef struct {
 	bool worker_is_ready;
 	bool perform_rediscovery;
 	bool update_routing_table;
+	mctp_eid_t local_eid;
 } mctp_ctrl_t;
 
 /* MCTP ctrl requester return codes */
