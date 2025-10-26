@@ -367,7 +367,7 @@ int i2c_smbus_scan_dir(char *parent_dir, uint8_t bus_num, uint8_t *endpoints,
 		if (strncmp(ptr->d_name, "i2c-", 4) == 0) {
 			uint8_t num =
 				(uint8_t)strtoul(ptr->d_name + 4, &endptr, 10);
-			if (num > bus_num) {
+			if (num > 0 && num != bus_num) {
 				endpoints[(*pool_of_endpoints)++] = num;
 				snprintf(childBusPath, sizeof(childBusPath),
 					 "%s/%s", parent_dir, ptr->d_name);
