@@ -344,8 +344,8 @@ int send_direct_get_udid_command(int32_t out_fd, size_t idx, uint8_t *inbuf,
 	MCTP_SYS_DEBUG("%s: TX and RX Direct Get UDID command", __func__);
 	/* Reason for false positive - Checked the length for Out-of-bounds write */
 	/* coverity[overrun-buffer-val : FALSE] */
-	mctp_trace_tx(outbuf, msgs[0].len);
-	mctp_trace_rx(inbuf, msgs[1].len);
+	mctp_trace_tx(outbuf, msgs[0].len, 0);
+	mctp_trace_rx(inbuf, msgs[1].len, 0);
 
 	return EXIT_SUCCESS;
 }

@@ -249,7 +249,7 @@ void mctp_set_alloc_ops(void *(*alloc)(size_t), void (*free)(void *),
 void mctp_set_log_stdio(int level);
 void mctp_set_log_syslog(void);
 void mctp_set_log_custom(void (*fn)(int, const char *, va_list));
-void mctp_set_tracing_enabled(bool enable);
+void mctp_set_tracing_enabled(bool enable, uint8_t target_eid);
 
 /* these should match the syslog-standard LOG_* definitions, for
  * easier use with syslog */

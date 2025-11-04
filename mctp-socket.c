@@ -142,7 +142,7 @@ static mctp_requester_rc_t mctp_msg_recv(mctp_eid_t eid, int mctp_fd,
 
 		length = recv(mctp_fd, buf, length, 0);
 		mctp_trace_common("mctp_recv_msg_invalid_len", buf,
-				       length);
+				       length, eid);
 		return MCTP_REQUESTER_INVALID_RECV_LEN;
 	} else {
 		mctp_len = length - mctp_prefix_len - sizeof(struct mctp_hdr);
@@ -170,9 +170,9 @@ static mctp_requester_rc_t mctp_msg_recv(mctp_eid_t eid, int mctp_fd,
 		int bytes = recvmsg(mctp_fd, &msg, 0);
 
 		mctp_trace_common("mctp_prefix_msg", mctp_prefix,
-				       mctp_prefix_len);
+				       mctp_prefix_len, eid);
 		mctp_trace_common("mctp_resp_msg", *mctp_resp_msg,
-				       mctp_len);
+				       mctp_len, eid);
 
 		if (length != bytes) {
 			MCTP_CTRL_ERR(
@@ -225,7 +225,7 @@ static mctp_requester_rc_t mctp_recv(mctp_eid_t eid, int mctp_fd,
 		uint8_t buf[length];
 
 		length = recv(mctp_fd, buf, length, 0);
-		mctp_trace_common("mctp_recv_msg_invalid_len >", buf, length);
+		mctp_trace_common("mctp_recv_msg_invalid_len >", buf, length, eid);
 		return MCTP_REQUESTER_INVALID_RECV_LEN;
 	} else {
 		mctp_len = length - mctp_prefix_len;
@@ -249,8 +249,8 @@ static mctp_requester_rc_t mctp_recv(mctp_eid_t eid, int mctp_fd,
 		int bytes = recvmsg(mctp_fd, &msg, 0);
 
 		mctp_trace_common("mctp_prefix_msg >", mctp_prefix,
-				  mctp_prefix_len);
-		mctp_trace_common("mctp_resp_msg >", *mctp_resp_msg, mctp_len);
+				  mctp_prefix_len, eid);
+		mctp_trace_common("mctp_resp_msg >", *mctp_resp_msg, mctp_len, eid);
 
 		if (length != bytes) {
 			MCTP_ERR(
@@ -402,7 +402,7 @@ mctp_requester_rc_t mctp_client_send(mctp_eid_t dest_eid, int mctp_fd,
 	msg.msg_iov = iov;
 	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
 
-	mctp_trace_common("mctp_req_msg >", mctp_req_msg, req_msg_len);
+	mctp_trace_common("mctp_req_msg >", mctp_req_msg, req_msg_len, dest_eid);
 	ssize_t rc = sendmsg(mctp_fd, &msg, 0);
 
 	MCTP_ASSERT_RET(rc != -1, MCTP_REQUESTER_SEND_FAIL,

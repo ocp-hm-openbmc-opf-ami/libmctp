@@ -1384,14 +1384,15 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 	}
 
 	if (context->fds[MCTP_CTRL_TRACE_FD].revents) {
-		int debug_level = mctp_handle_sys_trace_event();
-		MCTP_CTRL_DEBUG("mctp_handle_sys_trace_event: %d\n", debug_level);
+		int debug_level = mctp_handle_sys_trace_event(mctp_get_sys_trace_module(mctp_ctrl->cmdline->binding_type));
+		int debug_eid = mctp_get_sys_target_eid(mctp_get_sys_trace_module(mctp_ctrl->cmdline->binding_type));
+		MCTP_CTRL_DEBUG("mctp_handle_sys_trace_event: %d, %d\n", debug_level, debug_eid);
 		if (debug_level >= 0) {
 			mctp_ctrl->cmdline->verbose = debug_level > 0;
 			mctp_set_log_stdio(mctp_ctrl->cmdline->verbose ? MCTP_LOG_DEBUG :
 								MCTP_LOG_WARNING);		
 			mctp_set_sys_verbose_level(debug_level);
-			mctp_set_tracing_enabled(mctp_ctrl->cmdline->verbose);
+			mctp_set_tracing_enabled(mctp_ctrl->cmdline->verbose, debug_eid);
 		}
 	}
 
