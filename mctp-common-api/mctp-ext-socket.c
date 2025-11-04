@@ -65,11 +65,11 @@ mctp_requester_rc_t mctp_msg_client_with_binding_send(
 	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
 
 	mctp_trace_common("mctp_bind_id  >> ", (uint8_t *)bind_id,
-			  sizeof(uint8_t));
+			  sizeof(uint8_t), dest_eid);
 	mctp_trace_common("mctp_pvt_data >> ", mctp_binding_info,
-			  mctp_binding_len);
-	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr));
-	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len);
+			  mctp_binding_len, dest_eid);
+	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr), dest_eid);
+	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len, dest_eid);
 
 	ssize_t rc = sendmsg(mctp_fd, &msg, 0);
 	MCTP_ASSERT_RET(rc >= 0, MCTP_REQUESTER_SEND_FAIL,
@@ -109,7 +109,7 @@ mctp_msg_recv(mctp_eid_t eid, int mctp_fd, uint8_t **mctp_resp_msg,
 		uint8_t buf[length];
 
 		length = recv(mctp_fd, buf, length, 0);
-		mctp_trace_common("mctp_recv_msg_invalid_len", buf, length);
+		mctp_trace_common("mctp_recv_msg_invalid_len", buf, length, eid);
 		return MCTP_REQUESTER_INVALID_RECV_LEN;
 	} else {
 		mctp_len =
@@ -138,8 +138,8 @@ mctp_msg_recv(mctp_eid_t eid, int mctp_fd, uint8_t **mctp_resp_msg,
 		int bytes = recvmsg(mctp_fd, &msg, 0);
 
 		mctp_trace_common("mctp_prefix_msg", mctp_prefix,
-				  mctp_prefix_len);
-		mctp_trace_common("mctp_resp_msg", *mctp_resp_msg, mctp_len);
+				  mctp_prefix_len, eid);
+		mctp_trace_common("mctp_resp_msg", *mctp_resp_msg, mctp_len, eid);
 
 		if (length != bytes) {
 			MCTP_SYS_ERR(

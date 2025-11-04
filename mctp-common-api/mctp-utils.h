@@ -76,8 +76,10 @@ int64_t mctp_ext_millis();
 void mctp_set_sys_verbose_level(u_int8_t debug_level) ;
 int mctp_sys_trace_init();
 int mctp_sys_trace_clean_up();
-int mctp_handle_sys_trace_event();
-int mctp_get_sys_verbose_level();
+int mctp_handle_sys_trace_event(const char* module);
+int mctp_get_sys_verbose_level(const char* module);
+int mctp_get_sys_target_eid(const char* module);
+const char * mctp_get_sys_trace_module(char binding_type);
 
 #ifdef __cplusplus
 }

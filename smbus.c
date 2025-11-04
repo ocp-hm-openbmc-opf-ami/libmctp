@@ -308,7 +308,7 @@ static void *smbus_tx_thread(void *arg __attribute__((unused)))
 			msgrdwr.nmsgs = 2;
 		}
 
-		mctp_trace_tx(buf, len);
+		mctp_trace_tx(buf, len, dest_eid);
 
 		msgs[0].addr = info->addr;
 		if (clock_gettime(CLOCK_MONOTONIC, &start) == -1) {
@@ -765,8 +765,8 @@ int send_get_udid_command(struct mctp_binding_smbus *smbus, size_t idx,
 	mctp_prdebug("%s: TX and RX Get UDID command", __func__);
 	/* Reason for false positive - Checked the length for Out-of-bounds write */
 	/* coverity[overrun-buffer-val : FALSE] */	
-	mctp_trace_tx(outbuf, msgs[0].len);
-	mctp_trace_rx(inbuf, msgs[1].len);
+	mctp_trace_tx(outbuf, msgs[0].len, smbus->static_endpoints[idx].endpoint_num);
+	mctp_trace_rx(inbuf, msgs[1].len, smbus->static_endpoints[idx].endpoint_num);
 
 	return EXIT_SUCCESS;
 }
@@ -803,7 +803,7 @@ int send_mctp_get_ver_support_command(struct mctp_binding_smbus *smbus,
 	}
 
 	mctp_prdebug("%s: TX Get MCTP version support command", __func__);
-	mctp_trace_tx(outbuf_mctp, msgs[0].len);
+	mctp_trace_tx(outbuf_mctp, msgs[0].len, smbus->static_endpoints[idx].endpoint_num);
 
 	/* Wait for answer */
 	while (1) {
@@ -971,7 +971,7 @@ int mctp_smbus_read_only(struct mctp_binding_smbus *smbus)
 
 	/* Reason for false positive - Checked the length for Out-of-bounds write */
 	/* coverity[overrun-buffer-val : FALSE] */
-	mctp_trace_rx(smbus->rxbuf, len);
+	mctp_trace_rx(smbus->rxbuf, len, smbus->rxbuf[13]);
 
 	return len;
 }
@@ -1019,7 +1019,7 @@ int mctp_smbus_read(struct mctp_binding_smbus *smbus)
 		// Got an incorrectly sized payload
 		mctp_prerr("Got smbus payload sized %d, expecting %zu",
 			   hdr->byte_count, len - sizeof(*hdr));
-		mctp_trace_rx(smbus->rxbuf, 255);
+		mctp_trace_rx(smbus->rxbuf, 255, smbus->rxbuf[13]);
 		return 0;
 	}
 
@@ -1069,7 +1069,7 @@ int mctp_smbus_read(struct mctp_binding_smbus *smbus)
 		pthread_cond_signal(&cond_resp);
 	}
 
-	mctp_trace_rx(smbus->rxbuf, len);
+	mctp_trace_rx(smbus->rxbuf, len, smbus->rxbuf[13]);
 
 	mctp_bus_rx(&smbus->binding, smbus->rx_pkt);
 	smbus->rx_pkt = NULL;

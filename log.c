@@ -24,6 +24,7 @@ static void (*log_custom_fn)(int, const char *, va_list);
 #define TRACE_FORMAT_SIZE 3
 
 static bool trace_enable;
+static uint8_t trace_eid;
 
 void mctp_prlog(int level, const char *fmt, ...)
 {
@@ -75,13 +76,14 @@ void mctp_set_log_custom(void (*fn)(int, const char *, va_list))
 	log_custom_fn = fn;
 }
 
-void mctp_set_tracing_enabled(bool enable)
+void mctp_set_tracing_enabled(bool enable, uint8_t target_eid)
 {
 	trace_enable = enable;
+	trace_eid = target_eid;
 }
 
 void mctp_trace_common(const char *tag, const void *const payload,
-		       const size_t len)
+		       const size_t len, const uint8_t eid)
 {
 	char tracebuf[MAX_TRACE_BYTES * TRACE_FORMAT_SIZE + sizeof('\0')];
 	/* if len is bigger than ::MAX_TRACE_BYTES, loop will leave place for '..'
@@ -91,7 +93,7 @@ void mctp_trace_common(const char *tag, const void *const payload,
 	char *ptr = tracebuf;
 	unsigned int i;
 
-	if (!trace_enable || len == 0)
+	if (!trace_enable || len == 0 || (eid != trace_eid && trace_eid != 0))
 		return;
 
 	for (i = 0; i < limit; i++)

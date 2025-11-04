@@ -244,11 +244,11 @@ mctp_msg_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
 	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
 
 	mctp_trace_common("mctp_bind_id  >> ", (uint8_t *)bind_id,
-			       sizeof(uint8_t));
+			       sizeof(uint8_t), dest_eid);
 	mctp_trace_common("mctp_pvt_data >> ", mctp_binding_info,
-			       mctp_binding_len);
-	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr));
-	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len);
+			       mctp_binding_len, dest_eid);
+	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr), dest_eid);
+	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len, dest_eid);
 
 	ssize_t rc = sendmsg(mctp_fd, &msg, 0);
 	MCTP_ASSERT_RET(rc >= 0, MCTP_REQUESTER_SEND_FAIL,
@@ -287,11 +287,11 @@ mctp_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
 	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
 
 	mctp_trace_common("mctp_bind_id  >> ", (uint8_t *)bind_id,
-			  sizeof(uint8_t));
+			  sizeof(uint8_t), dest_eid);
 	mctp_trace_common("mctp_pvt_data >> ", mctp_binding_info,
-			  mctp_binding_len);
-	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr));
-	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len);
+			  mctp_binding_len, dest_eid);
+	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr), dest_eid);
+	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len, dest_eid);
 
 	ssize_t rc = sendmsg(mctp_fd, &msg, 0);
 	MCTP_ASSERT_RET(rc >= 0, MCTP_REQUESTER_SEND_FAIL,
@@ -1242,7 +1242,7 @@ static void parse_command_line(int argc, char *const *argv,
 		case 'v':
 			cmdline->verbose = true;
 			g_verbose_level = cmdline->verbose;
-			mctp_set_tracing_enabled(cmdline->verbose);
+			mctp_set_tracing_enabled(cmdline->verbose, 0);
 			mctp_set_sys_verbose_level(MCTP_SYS_LOG_DEBUG);
 			MCTP_CTRL_INFO("%s: Verbose level:%d\n", __func__,
 				       cmdline->verbose);
@@ -1493,11 +1493,11 @@ int main_ctrl(int argc, char *const *argv)
 		MCTP_CTRL_INFO("%s: Run mode: Daemon mode\n", __func__);
 
 		if (!cmdline.verbose) {
-			int debug_level = mctp_get_sys_verbose_level();
+			int debug_level = mctp_get_sys_verbose_level(mctp_get_sys_trace_module(cmdline.binding_type));
 			cmdline.verbose = debug_level > 0; 
 			if (cmdline.verbose) {
 				g_verbose_level = cmdline.verbose;
-				mctp_set_tracing_enabled(cmdline.verbose);
+				mctp_set_tracing_enabled(cmdline.verbose, 0);
 				mctp_set_sys_verbose_level(debug_level);
 				MCTP_CTRL_INFO("%s: Verbose level:%d\n", __func__,
 						cmdline.verbose);			
