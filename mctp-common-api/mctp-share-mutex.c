@@ -23,6 +23,9 @@ int shm_fd = 0;
 
 int i2c_mutex_open(int bus_num)
 {
+	(void)bus_num;
+	
+#ifndef MCTP_IN_KERNEL	
 	char shm_file_name[256] = { 0 };
 	snprintf(shm_file_name, sizeof(shm_file_name), "%s%d", SHM_NAME,
 		 bus_num);
@@ -40,21 +43,27 @@ int i2c_mutex_open(int bus_num)
 			errno, strerror(errno));
 		return -1;
 	}
+#endif	
 	return 0;
 }
 
 int i2c_mutex_close()
 {
+#ifndef MCTP_IN_KERNEL	
 	if (shared != NULL) {
 		munmap(shared, sizeof(shared_data_t));
 		close(shm_fd);
 		shared = NULL;
 	}
+#endif	
 	return 0;
 }
 
 int i2c_mutex_create(int bus_num)
 {
+	(void)bus_num;
+
+#ifndef MCTP_IN_KERNEL
 	char shm_file_name[256] = { 0 };
 	snprintf(shm_file_name, sizeof(shm_file_name), "%s%d", SHM_NAME,
 		 bus_num);
@@ -84,27 +93,32 @@ int i2c_mutex_create(int bus_num)
 	pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
 	pthread_mutex_init(&shared->mutex, &attr);
 	pthread_mutexattr_destroy(&attr);
-
+#endif
 	return 0;
 }
 
 int i2c_mutex_lock()
 {
+#ifndef MCTP_IN_KERNEL
 	if (shared == NULL) {
 		MCTP_SYS_ERR("i2c_mutex_lock shared: %d (%s)\n",
 			errno, strerror(errno));
 		return -1;
 	}
 	pthread_mutex_lock(&shared->mutex);
+#endif	
 	return 0;
 }
+
 int i2c_mutex_unlock()
 {
+#ifndef MCTP_IN_KERNEL
 	if (shared == NULL) {
 		MCTP_SYS_ERR("i2c_mutex_unlock shared:  %d (%s)\n",
 			errno, strerror(errno));
 		return -1;
 	}
 	pthread_mutex_unlock(&shared->mutex);
+#endif
 	return 0;
 }

@@ -19,10 +19,16 @@
 
 #include "libmctp-astspi.h"
 #include "libmctp-smbus.h"
+#include "libmctp-usb.h"
+
+#ifdef MCTP_IN_KERNEL
+#include <linux/mctp.h>
+#endif
 
 #define MCTP_WRITE_DATA_BUFF_SIZE 1024
 #define MCTP_READ_DATA_BUFF_SIZE  1024
 #define MCTP_PVT_BIND_BUFF_SIZE	  64
+#define MCTP_MAX_IGNORE_EID_LEN	  254
 
 #define MCTP_CMDLINE_WRBUFF_WIDTH 3
 
@@ -102,6 +108,9 @@ struct mctp_cmdline_spi {
 	mctp_spi_cmd_mode_t cmd_mode;
 	uint8_t dev_num;
 	bool hb_enable;
+#ifdef MCTP_IN_KERNEL
+	int channel;
+#endif
 };
 
 /* I2C specific configuration */
@@ -122,7 +131,44 @@ struct mctp_cmdline_usb {
 	uint8_t bridge_eid;
 	uint8_t bridge_pool_start;
 	bool remove_duplicates;
+	uint8_t bus_id;
+	uint8_t get_eid_max_fails;
+	bool perform_device_reset;
+	char port_path[MCTP_USB_PORT_PATH_MAX_LEN];
 };
+
+typedef enum mctp_device_role {
+	MCTP_STATIC = 0,
+	MCTP_ENDPOINT,
+	MCTP_BUSOWNER,
+	MCTP_BRIDGE
+} mctp_device_role_t;
+
+#ifdef MCTP_IN_KERNEL
+#define MCTP_KERNEL_MAX_INTERFACES            32
+#define MAX_NETWORK_INTERFACE_NAME_LEN        32
+#define MAX_MCTP_BINDING_NAME_LEN             10
+
+struct mctp_kernel_binding {
+	uint8_t own_eid;
+	uint8_t eid;
+	uint8_t eid_pool_start;
+	uint8_t eid_type;
+	uint8_t dest_slave_addr[MAX_ADDR_LEN];
+	uint8_t slave_addr_len;
+	uint8_t src_slave_addr[MAX_ADDR_LEN];
+	uint16_t mtu;
+	char binding[MAX_MCTP_BINDING_NAME_LEN];
+	char interface_name[MAX_NETWORK_INTERFACE_NAME_LEN];
+	mctp_device_role_t device_role;
+};
+
+/* KERNEL specific configuration */
+struct mctp_cmdline_kernel {
+	uint8_t binding_len;
+	struct mctp_kernel_binding binding[MCTP_KERNEL_MAX_INTERFACES];
+};
+#endif
 
 /* Command line structure */
 typedef struct mctp_cmdline_args_ {
@@ -138,6 +184,8 @@ typedef struct mctp_cmdline_args_ {
 	uint8_t tx_data[MCTP_WRITE_DATA_BUFF_SIZE];
 	int tx_len;
 	uint8_t rx_data[MCTP_WRITE_DATA_BUFF_SIZE];
+	uint8_t ignore_eids[MCTP_MAX_IGNORE_EID_LEN];
+	int ignore_eids_len;
 	uint16_t target_bdf;
 	int use_socket;
 	int mode;
@@ -149,12 +197,17 @@ typedef struct mctp_cmdline_args_ {
 	uint8_t uuid;
 	char uuid_str[UUID_STR_LEN];
 	bool use_json;
+	bool exit_on_discovery_fail;
 	union {
 		struct mctp_cmdline_pcie pcie;
 		struct mctp_cmdline_spi spi;
 		struct mctp_cmdline_i2c i2c;
 		struct mctp_cmdline_usb usb;
+#ifdef MCTP_IN_KERNEL
+		struct mctp_cmdline_kernel kernel;
+#endif
 	};
+	uint8_t get_eid_timer;
 } mctp_cmdline_args_t;
 
 #endif /* __MCTP_CMDLINE_H */

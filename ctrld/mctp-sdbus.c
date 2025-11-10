@@ -23,6 +23,7 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -43,6 +44,7 @@
 #include <unistd.h>
 
 #include "libmctp-cmds.h"
+#include "libmctp-log.h"
 #include "mctp-ctrl-cmds.h"
 #include "mctp-ctrl-log.h"
 #include "mctp-sdbus.h"
@@ -58,6 +60,13 @@
 #include "mctp-common-api/mctp-i2c-arp.h"
 #include "mctp-common-api/mctp-utils.h"
 
+#ifdef ENABLE_USB
+#include "mctp-ctrl-usb.h"
+#endif
+
+#ifdef MCTP_IN_KERNEL
+#include "mctp-common-api/mctp-discovery-kernel.h"
+#endif
 
 extern mctp_routing_table_t *g_routing_table_entries;
 
@@ -436,10 +445,9 @@ static int mctp_ctrl_sdbus_get_medium_type(sd_bus *bus, const char *path,
 					   sd_bus_message *reply,
 					   void *userdata, sd_bus_error *error)
 {
-	uint8_t eid_req = 0xff;
-	uint8_t id = 0;
+	uint8_t eid_req;
 	char str[MCTP_CTRL_SDBUS_NMAE_SIZE] = { 0 };
-	mctp_routing_table_t *entry = NULL;
+	const char *medium_type = NULL;
 
 	(void)bus;
 	(void)interface;
@@ -448,28 +456,47 @@ static int mctp_ctrl_sdbus_get_medium_type(sd_bus *bus, const char *path,
 	(void)error;
 
 	eid_req = mctp_ctrl_get_eid_from_sdbus_path(path);
-	entry = g_routing_table_entries;
 
-	while (entry != NULL) {
-		if (entry->routing_table.starting_eid == eid_req) {
+	/* First, try to find in routing table */
+	mctp_routing_table_t *routing_entry = g_routing_table_entries;
+	while (routing_entry != NULL) {
+		if (routing_entry->routing_table.starting_eid == eid_req) {
 			/* 
-			*SMbus 400K is running but the medium type in the spec. only
-			*indicates SMbus 100K. So the medium type is I2C 400K reported by
-			*FPGA from MCTP service. We used physical transport identifier to
-			*populate D-Bus property
-			*/
-			id = entry->routing_table.phys_transport_binding_id;
+			 * SMbus 400K is running but the medium type in the spec. only
+			 * indicates SMbus 100K. So the medium type is I2C 400K reported by
+			 * FPGA from MCTP service. We used physical transport identifier to
+			 * populate D-Bus property
+			 */
+			medium_type = phy_transport_binding_to_string(
+				routing_entry->routing_table.phys_transport_binding_id);
 			break;
 		}
+		routing_entry = routing_entry->next;
+	}
 
-		entry = entry->next;
+	/* If not found in routing table, try msg type table */
+	if (medium_type == NULL) {
+		mctp_msg_type_table_t *msg_entry = g_msg_type_entries;
+		while (msg_entry != NULL) {
+			if (msg_entry->eid == eid_req) {
+				/* Use the binding string stored in msg type table */
+				medium_type = msg_entry->binding_type ? 
+					      msg_entry->binding_type : mctp_medium_type;
+				break;
+			}
+			msg_entry = msg_entry->next;
+		}
+	}
+
+	/* Use default medium type if not found in any table */
+	if (medium_type == NULL) {
+		medium_type = mctp_medium_type;
 	}
 
 	snprintf(str, sizeof(str),
 		 "xyz.openbmc_project.MCTP.Endpoint.MediaTypes.%s",
-		 entry == NULL? mctp_medium_type : phy_transport_binding_to_string(id));
+		 medium_type);
 
-	/* append the message */
 	return sd_bus_message_append(reply, "s", str);
 }
 
@@ -798,6 +825,7 @@ static int mctp_ctrl_dispatch_sd_bus(mctp_sdbus_context_t *context)
 	return r;
 }
 
+#ifndef MCTP_IN_KERNEL
 static int mctp_ctrl_handle_socket(mctp_ctrl_t *mctp_ctrl,
 				   mctp_sdbus_context_t *context)
 {
@@ -826,6 +854,7 @@ static int mctp_ctrl_handle_socket(mctp_ctrl_t *mctp_ctrl,
 	}
 	return r;
 }
+#endif
 
 /* Properties for xyz.openbmc_project.MCTP.Endpoint */
 static const sd_bus_vtable mctp_ctrl_endpoint_vtable[] = {
@@ -952,7 +981,7 @@ static int mctp_mark_service_ready(mctp_sdbus_context_t *context)
 	return r;
 }
 
-static int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
+int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
 					mctp_sdbus_context_t *context)
 {
 	int r = 0;
@@ -1124,6 +1153,13 @@ mctp_ctrl_sdbus_create_context(sd_bus *bus, const mctp_cmdline_args_t *cmdline)
 	}
 	context->bus = bus;
 	context->cmdline = cmdline;
+	context->fds = calloc(MCTP_CTRL_TOTAL_FDS, sizeof(struct pollfd));
+	if (context->fds == NULL) {
+		MCTP_CTRL_ERR("Failed to allocate pollfd\n");
+		return NULL;
+	}
+	context->nfds = MCTP_CTRL_TOTAL_FDS;
+
 
 	/* Add sd-bus object manager */
 	r = sd_bus_add_object_manager(context->bus, NULL, MCTP_CTRL_OBJ_NAME);
@@ -1326,7 +1362,19 @@ void* partial_discovery_mode(void* args)
 				continue;
 			}
 		}
-
+#ifdef MCTP_IN_KERNEL
+		 else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_KERNEL) {
+			sleep(30);
+			MCTP_CTRL_INFO("%s: Start KERNEL Discovery\n", __func__);
+			mctp_err_ret = mctp_kernel_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
+							mctp_ctrl);
+			if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
+				MCTP_CTRL_ERR("MCTP-Ctrl discovery unsuccessful\n");
+				//mctp_ctrl_clean_up();
+				//return EXIT_FAILURE;
+			}
+		}
+#endif
 		MCTP_CTRL_DEBUG("%s MCTP-Ctrl partial discovery successful %d\n", __func__, mctp_err_ret);
 		if (mctp_err_ret == MCTP_RET_DISCOVERY_SUCCESS) {		
 			mctp_ctrl_sdbus_object_remove_invalid_eid(mctp_ctrl->bus);					
@@ -1341,10 +1389,12 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 			     mctp_sdbus_context_t *context)
 {
 	int polled, r;
-	
+
+#ifndef MCTP_IN_KERNEL
 	struct timespec ts;
 	ts.tv_sec = 0;
 	ts.tv_nsec = 50* 1000000;  // 50 ms
+#endif
 
 	polled =
 		poll(context->fds, MCTP_CTRL_TOTAL_FDS, MCTP_CTRL_POLL_TIMEOUT);
@@ -1369,6 +1419,7 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 		return -1;
 	}
 
+#ifndef MCTP_IN_KERNEL
 	if(!atomic_load(&partial_discover_running)){
 		r = mctp_ctrl_handle_socket(mctp_ctrl, context);
 		if (r < 0) {
@@ -1382,6 +1433,7 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 				MCTP_CTRL_ERR("Error in nanosleep: %s\n", strerror(errno));
 		}
 	}
+#endif
 
 	if (context->fds[MCTP_CTRL_TRACE_FD].revents) {
 		int debug_level = mctp_handle_sys_trace_event(mctp_get_sys_trace_module(mctp_ctrl->cmdline->binding_type));
@@ -1395,11 +1447,20 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 			mctp_set_tracing_enabled(mctp_ctrl->cmdline->verbose, debug_eid);
 		}
 	}
+#ifdef ENABLE_USB
+	if (mctp_ctrl_get_binding_type(mctp_ctrl) != MCTP_BINDING_USB)
+		return SDBUS_PROCESS_EVENT;
+
+	r = mctp_ctrl_usb_handle_event(mctp_ctrl, context);
+	if (r < 0) {
+		MCTP_CTRL_ERR("Error handling libusb Hotplug event: %d\n", r);
+		return -1;
+	}
+#endif
 
 	int reset = mctp_check_host_reset_event();
 	if (reset) {
-		mctp_ctrl_sdbus_stop();
-		return -1;
+		mctp_ctrl_handle_host_reset(mctp_ctrl);
 	}
 	
 	r = mctp_ctrl_handle_timer(mctp_ctrl, context);
@@ -1441,9 +1502,11 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 	context->fds[MCTP_CTRL_SIGNAL_FD].events = POLLIN;
 	context->fds[MCTP_CTRL_SIGNAL_FD].revents = 0;
 
+#ifndef MCTP_IN_KERNEL
 	context->fds[MCTP_CTRL_SOCKET_FD].fd = mctp_ctrl->sock;
 	context->fds[MCTP_CTRL_SOCKET_FD].events = POLLIN;
 	context->fds[MCTP_CTRL_SOCKET_FD].revents = 0;
+#endif
 
 	context->fds[MCTP_CTRL_TIMER_FD].fd = g_disc_timer_fd;
 	context->fds[MCTP_CTRL_TIMER_FD].events = POLLIN;
@@ -1467,7 +1530,8 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 	pthread_t partial_discovery_thread = 0;
 	PARTIAL_DISOCVERY_MODE_PARAM *partial_disovery_mode_param = (PARTIAL_DISOCVERY_MODE_PARAM*)malloc(sizeof(PARTIAL_DISOCVERY_MODE_PARAM));
 	if ((cmdline->binding_type == MCTP_BINDING_PCIE && cmdline->pcie.mode != 0) || 
-		(cmdline->binding_type == MCTP_BINDING_SMBUS && (cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC)))
+		(cmdline->binding_type == MCTP_BINDING_SMBUS && (cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC)) ||
+		(cmdline->binding_type == MCTP_BINDING_KERNEL))
 	{
 		partial_disovery_mode_param->mctp_ctrl = mctp_ctrl;
 		partial_disovery_mode_param->context = context;
@@ -1475,6 +1539,18 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 			MCTP_CTRL_INFO("%s: Partail discover thread create fail\n", __func__);
 		}
 	}
+
+#ifdef ENABLE_USB
+	if (mctp_ctrl_get_binding_type(mctp_ctrl) == MCTP_BINDING_USB) {
+		mctp_ctrl_usb_t *usb =
+			mctp_ctrl_usb_hotplug_init(mctp_ctrl, context);
+		MCTP_ASSERT(usb != NULL, -1,
+			    "Could not initialise usb binding");
+		mctp_ctrl->pvt_binding_data = usb;
+		if (!mctp_ctrl_usb_init_pollfd(usb))
+			return -1;
+	}
+#endif
 
 	while (mctp_ctrl_running) {
 		if ((r = mctp_ctrl_sdbus_dispatch(mctp_ctrl, context)) < 0) {

@@ -46,11 +46,19 @@ systemd = declare_dependency(dependencies: [comp.find_library('systemd')])
 json_c = declare_dependency(dependencies: [comp.find_library('json-c')])
 i2c = declare_dependency(dependencies: [comp.find_library('i2c')])
 
+deps = [systemd, json_c, i2c]
+
+if get_option('enable-usb').enabled()
+    sources += 'mctp-ctrl-usb.c'
+    usb_lib = declare_dependency(dependencies: [comp.find_library('usb-1.0')])
+    deps += [usb_lib]
+endif
+
 executable(
   'mctp-ctrl',
   sources,
   include_directories: include_directories(headers),
-  dependencies: [systemd, json_c, i2c],
+  dependencies: deps,
   link_with: [libmctp, libmctp_common_api],
   install: true
 )
