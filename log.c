@@ -9,6 +9,7 @@
 
 #include <syslog.h>
 
+int command_line_mode = 0;
 enum {
 	MCTP_LOG_NONE,
 	MCTP_LOG_STDIO,

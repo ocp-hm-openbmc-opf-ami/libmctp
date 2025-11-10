@@ -75,6 +75,7 @@ typedef struct {
 	bool perform_rediscovery;
 	bool update_routing_table;
 	mctp_eid_t local_eid;
+	uint8_t active_binding;
 } mctp_ctrl_t;
 
 /* MCTP ctrl requester return codes */
@@ -133,6 +134,27 @@ uint16_t mctp_ctrl_get_target_bdf(const mctp_cmdline_args_t *cmd);
 mctp_requester_rc_t mctp_client_recv(mctp_eid_t eid, int mctp_fd,
 				     uint8_t **mctp_resp_msg,
 				     size_t *resp_msg_len);
+
+static inline mctp_binding_ids_t
+mctp_ctrl_get_binding_type(mctp_ctrl_t *mctp_ctrl)
+{
+	return mctp_ctrl->cmdline->binding_type;
+}
+
+/**
+ * @brief Resumes GetEID polling for a bridge device, typically after an arrival/recovery event.
+ *
+ * Resets poll failure tracking and allows the GetEID timer to poll the bridge.
+ */
+void mctp_ctrl_bridge_poll_resume(void);
+
+/**
+ * @brief Suspends GetEID polling for a bridge device, typically after a detachment event.
+ *
+ * Marks the bridge as unavailable to prevent further GetEID polling by the timer.
+ * @param bridge_eid EID of the bridge that became unavailable (for logging).
+ */
+void mctp_ctrl_bridge_poll_suspend(uint8_t bridge_eid);
 
 mctp_requester_rc_t mctp_client_sync_recv(mctp_eid_t *eid, int mctp_fd,
 				     uint8_t **mctp_resp_msg,

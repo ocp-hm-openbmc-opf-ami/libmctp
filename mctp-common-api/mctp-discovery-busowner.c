@@ -155,9 +155,16 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 	
 	/* Update the EID lists */
 	if (!daemon_mode) {
+#ifdef MCTP_IN_KERNEL
+       uint8_t active_binding = ctrl->active_binding;
+       g_pci_own_eid = cmd->kernel.binding[active_binding].own_eid;
+       g_pci_bridge_eid = cmd->kernel.binding[active_binding].eid;
+       g_pci_bridge_pool_start = cmd->kernel.binding[active_binding].eid_pool_start;
+#else		
 		g_pci_own_eid = cmd->pcie.own_eid;
 		g_pci_bridge_eid = cmd->pcie.bridge_eid;
 		g_pci_bridge_pool_start = cmd->pcie.bridge_pool_start;
+#endif		
 	}
 	t_start = mctp_ext_millis();
 

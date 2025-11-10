@@ -58,6 +58,11 @@ void mctp_json_i2c_get_common_params_ctrl(json_object *jo, uint8_t *bus_num,
 					  uint8_t *logical_busses,
 					  uint8_t *src_slave_addr);
 
+#ifdef MCTP_IN_KERNEL
+void mctp_json_kernel_get_common_params_ctrl(json_object *jo,
+					  void * kernel);
+#endif
+
 int mctp_json_i2c_get_params_arp_ctrl(json_object *jo, uint8_t *bus_num,
 					 uint8_t *dest_eid_tab,
 					 uint8_t *dest_slave_addr,
@@ -80,3 +85,8 @@ int mctp_json_spi_get_common_params_mctp_demux(
 	struct mctp_astspi_device_conf *config);
 void mctp_json_spi_get_params_ctrl(json_object *jo, char **sockname,
 				   mctp_cmdline_args_t *cmdline);
+
+int mctp_json_usb_get_params_ctrl(mctp_cmdline_args_t *cmdline,
+				  const char *json_file_path);
+int mctp_json_usb_get_params_demux(mctp_usb_dev_cfg_t *cfg,
+				   const char *json_file_path);				   

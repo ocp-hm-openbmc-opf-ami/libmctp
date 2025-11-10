@@ -20,10 +20,16 @@ lib_sources = [
           '../ctrld/dbus_log_event.c',
           'mctp-utils.c',
           'mctp-ext-sdbus.c',
-          'mctp-share-mutex.c'
+          'mctp-share-mutex.c',
+          '../mctp-netlink.c'
           ]
 
 comp = meson.get_compiler('c')
+
+# Add kernel mode specific source files
+if get_option('mctp-in-kernel-enable').enabled()
+  lib_sources += 'mctp-discovery-kernel.c'
+endif
 
 # Install the header files
 # install_headers('mctp-discovery-endpoint.h')

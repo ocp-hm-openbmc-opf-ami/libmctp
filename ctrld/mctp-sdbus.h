@@ -60,7 +60,9 @@ extern "C" {
 typedef enum mctp_ctrl_fds {
 	MCTP_CTRL_SD_BUS_FD = 0,
 	MCTP_CTRL_SIGNAL_FD,
+#ifndef MCTP_IN_KERNEL	
 	MCTP_CTRL_SOCKET_FD,
+#endif	
 	MCTP_CTRL_TIMER_FD,
 	MCTP_CTRL_TRACE_FD,
 #ifdef MOCKUP_ENDPOINT
@@ -68,6 +70,8 @@ typedef enum mctp_ctrl_fds {
 #endif
 	MCTP_CTRL_TOTAL_FDS
 } mctp_ctrl_fds_t;
+
+#define MCTP_CTRL_USB_POLL_FD_NUM 3
 
 #define MCTP_CTRL_POLL_TIMEOUT	     1000
 #define MCTP_CTRL_SDBUS_MAX_MSG_SIZE 256
@@ -88,7 +92,8 @@ typedef struct mctp_sdbus_fd_watch {
 
 /* MCTP ctrl D-Bus poll struct */
 typedef struct mctp_sdbus_context {
-	struct pollfd fds[MCTP_CTRL_TOTAL_FDS];
+	struct pollfd *fds;
+	nfds_t nfds;
 	struct sd_bus *bus;
 	const mctp_cmdline_args_t *cmdline;
 #ifdef MOCKUP_ENDPOINT
@@ -147,6 +152,17 @@ void mctp_ctrl_sdbus_stop(void);
  */
 int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 			     mctp_sdbus_context_t *context);
+
+				 /**
+ * @brief Refresh the endpoint at D-Bus
+ *
+ * @param[in] cmdline - the command line structure
+ * @param[in] context - mctp D-Bus context
+ *
+ * @return int (errno may be set). failure is returned.
+ */
+int mctp_sdbus_refresh_endpoints(const mctp_cmdline_args_t *cmdline,
+				 mctp_sdbus_context_t *context);
 
 #ifdef __cplusplus
 }

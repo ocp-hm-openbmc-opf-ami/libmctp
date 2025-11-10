@@ -31,6 +31,24 @@ mctp_requester_rc_t mctp_client_sync_recv(mctp_eid_t *eid, int mctp_fd,
 					  size_t *resp_msg_len,
 					  uint8_t **mctp_hdr_msg,
 					  uint16_t *remote_id);
+					  /**
+ * @brief Write MCTP socket. If the data is sent out, return success.
+ *
+ * @param[in] eid - destination MCTP eid
+ * @param[in] mctp_fd - MCTP socket fd
+ * @param[in] mctp_req_msg - the request message will be sent out.
+ * @param[in] req_msg_len - the length of the request message.
+ *
+ * @return int (errno may be set). failure is returned.
+ */
+mctp_requester_rc_t mctp_client_sync_send(mctp_eid_t dest_eid, int mctp_fd,
+				     uint8_t msgtype,
+				     const uint8_t *mctp_req_msg,
+				     size_t req_msg_len,
+					 uint8_t msgtag);		
+
+mctp_requester_rc_t mctp_endpoint_socket_init(int *intf, const char *path,
+					 uint8_t msgtype, time_t timeout);	
 #ifdef __cplusplus
 }
 #endif

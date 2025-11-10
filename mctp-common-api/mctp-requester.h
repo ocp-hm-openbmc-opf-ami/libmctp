@@ -85,6 +85,11 @@ mctp_ret_codes_t mctp_requester_ep_discovery_send_request(int sock_fd,
 						mctp_eid_t pci_own_eid, 
 						int g_target_bdf);
 
+mctp_ret_codes_t mctp_requester_discovery_notify_send_request(int sock_fd,
+						mctp_binding_ids_t bind_id,
+						mctp_eid_t pci_own_eid, 
+						int g_target_bdf);
+
 #ifdef __cplusplus
 }
 #endif
