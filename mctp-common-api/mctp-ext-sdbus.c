@@ -86,8 +86,13 @@ int mctp_ctrl_sdbus_object_remove_all_signal(sd_bus *bus)
 		/* Frame the message */
 		snprintf(mctp_ctrl_objpath, MCTP_CTRL_SDBUS_OBJ_PATH_SIZE,
 			 "%s%d", MCTP_CTRL_NW_OBJ_PATH, entry->eid);
+		MCTP_SYS_DEBUG("Removing object path %s\n", mctp_ctrl_objpath);
 
 		sd_bus_emit_object_removed(bus, mctp_ctrl_objpath);
+		for (int i = 0; i < MCTP_DBUS_SLOT_MAX_SIZE; i++) {
+			if (entry->slot[i])
+				sd_bus_slot_unref(entry->slot[i]);
+		}
 		entry = entry->next;
 	}
 	return 0;

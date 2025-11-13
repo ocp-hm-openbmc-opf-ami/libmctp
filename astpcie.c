@@ -386,7 +386,8 @@ static int mctp_astpcie_tx(struct mctp_binding *b, struct mctp_pktbuf *pkt)
 	/* Copy PCIe header to original buffer */
 	memcpy(pcie_mctp_hdr_data, hdr, sizeof(*hdr));
 
-	mctp_trace_tx(pcie_mctp_hdr_data, len);
+	struct mctp_hdr *mctp_hdr = (struct mctp_hdr *)pkt->data;
+	mctp_trace_tx(pcie_mctp_hdr_data, len, mctp_hdr->dest);
 
 #ifdef MOCKUP_ENDPOINT
 	if (astpcie->fd <= 0) {
@@ -471,6 +472,7 @@ int mctp_astpcie_rx(struct mctp_binding_astpcie *astpcie)
 	struct mctp_astpcie_pkt_private pkt_prv;
 	struct mctp_pktbuf *pkt;
 	struct mctp_pcie_hdr *hdr;
+	struct mctp_hdr *mctp_hdr;
 	size_t payload_len;
 	int read_len;
 	int rc;
@@ -493,13 +495,14 @@ int mctp_astpcie_rx(struct mctp_binding_astpcie *astpcie)
 	}
 
 	hdr = (struct mctp_pcie_hdr *)data;
+	mctp_hdr = (struct mctp_hdr *)(data + PCIE_HDR_SIZE_DW);
 	payload_len = mctp_astpcie_rx_get_payload_size(hdr);
 
 	size_t len = (sizeof(struct mctp_pcie_hdr) + sizeof(struct mctp_hdr) +
 			payload_len);
 	len = len > MCTP_ASTPCIE_BINDING_DEFAULT_BUFFER ?
 			MCTP_ASTPCIE_BINDING_DEFAULT_BUFFER : len;
-	mctp_trace_rx(&data, len);
+	mctp_trace_rx(&data, len, mctp_hdr->src);
 
 	pkt_prv.routing = PCIE_GET_ROUTING(hdr);
 

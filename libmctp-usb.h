@@ -27,6 +27,12 @@ extern "C" {
 #include "libmctp.h"
 #include <poll.h>
 
+/* Spec limitation for chain of hub depthness */
+#define MCTP_USB_PORT_PATH_MAX_DEPTH 7
+
+/* For port numbers separated by . and null termination */
+#define MCTP_USB_PORT_PATH_MAX_LEN (3 * MCTP_USB_PORT_PATH_MAX_DEPTH)
+
 enum { MCTP_USB_NO_ERROR = 0, MCTP_USB_FD_CHANGE };
 
 typedef enum {
@@ -35,6 +41,12 @@ typedef enum {
 	MCTP_USB_BATCH_FRAG = 2,
 	MCTP_USB_BATCH_ZPAD = 3
 } MctpUsbBatchMode;
+
+typedef struct mctp_usb_dev_cfg {
+	MctpUsbBatchMode mode;
+	uint8_t bus_id;
+	char port_path[MCTP_USB_PORT_PATH_MAX_LEN];
+} mctp_usb_dev_cfg_t;
 
 struct mctp_usb_pkt_private {
 	/*

@@ -13,7 +13,14 @@ void *dl_oemmctphndlr;
 
 OEM_MCTPInit g_OEMMCTPInitialize[] = 
 {
-    { ON_PCIE_DISCOVERY, "onPCIeDiscovery" }
+    { ON_PCIE_DISCOVERY, "onPCIeDiscovery" },
+	{ ON_CHECK_INTERFACE_NAME, "onCheckInterfaceName" },
+	{ ON_CHECK_CLIENT_WITH_BINDING_SEND, "onCheckClientWithBindingSend" },
+	{ ON_I2C_INIT, "onI2CInit" },
+	{ ON_DETECT_HOT_PLUG, "onDetectHotPlug" },
+	{ ON_CLIENT_SEND_EXT, "onClientSendExt" },
+	{ ON_CHECK_SET_EP_SEND_REQ, "onCheckSetEpSendReq"},
+	{ ON_CHECK_I2C_DISCOVERY_BEFORE_SET_EP, "onCheckI2CDiscoveryBeforeSetEp"},
 };
 
 int get_hardware_id_config(char *line, int size)

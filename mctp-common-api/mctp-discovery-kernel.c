@@ -29,82 +29,33 @@
 #include "libmctp-cmds.h"
 #include "libmctp-smbus.h"
 
-#include "mctp-discovery-i2c.h"
+#include "mctp-discovery-kernel.h"
 #include "mctp-discovery-common.h"
 
 #include "mctp-ctrl.h"
 #include "mctp-encode.h"
 #include "mctp-ctrl-log.h"
 #include "mctp-json.h"
-#include "mctp-common-api/mctp-i2c-arp.h"
-#include "mctp-common-api/mctp-share-mutex.h"
-#include "mctp-common-api/mctp-ext-sdbus.h"
-#ifdef MCTP_IN_KERNEL
+#include "mctp-ext-sdbus.h"
+#include "mctp-discovery-endpoint.h"
+#include "mctp-discovery-busowner.h"
+
 #include "mctp-netlink.h"
-#endif
-#include "mctp-oem-extensions.h"
+#include "mctp-ctrl-cmdline.h"
+#include "linux/mctp.h"
 
 extern uint8_t g_eid_pool_size;
 extern uint8_t g_eid_pool_start;
 extern mctp_routing_table_t *g_routing_table_entries;
 extern const uint8_t MCTP_ROUTING_ENTRY_START;
-#ifdef MCTP_IN_KERNEL
-#include "mctp-netlink.h"
-#endif
 extern mctp_msg_type_table_t *g_msg_type_entries;
-uint8_t g_endpoint_discovered = 0;
-#define MCTP_CTRL_CMD_MAX_RETRY 3
 
-/* The EIDs and pool start information would be obtaind from commandline */
-static uint8_t g_i2c_bridge_eid, g_i2c_own_eid, g_i2c_bridge_pool_start;
-static uint8_t g_i2c_bus, g_i2c_dest_slave_addr, g_i2c_src_slave_addr;
-static uint8_t g_i2c_reject_set_eid = 0;
-struct {
-	int nitems;
-	struct {
-		uint8_t bus;
-		uint8_t dest_slave_addr;
-		int eid;
-	} *buses;
-} g_i2c_bus_info;
-
-void mctp_i2c_clean_up() {
-	if(g_i2c_bus_info.buses)
-		free(g_i2c_bus_info.buses);
-}
-
-void set_g_val_for_pvt_binding(uint8_t bus_num, uint8_t dest_slave_addr,
-			       uint8_t src_slave_addr)
-{
-	g_i2c_bus = bus_num;
-	g_i2c_dest_slave_addr = dest_slave_addr;
-	g_i2c_src_slave_addr = src_slave_addr;
-}
-
-uint8_t mctp_i2c_get_i2c_bus(int eid)
-{
-	for (int ii = 0; ii < g_i2c_bus_info.nitems; ii++) {
-		if (g_i2c_bus_info.buses[ii].eid == eid) {
-			return g_i2c_bus_info.buses[ii].bus;
-		}
-	}
-
-	return 0;
-}
-
-uint8_t mctp_i2c_get_i2c_addr(int eid)
-{
-	for (int ii = 0; ii < g_i2c_bus_info.nitems; ii++) {
-		if (g_i2c_bus_info.buses[ii].eid == eid) {
-			return g_i2c_bus_info.buses[ii].dest_slave_addr;
-		}
-	}
-
-	return 0;
-}
+static mctp_eid_t g_kernel_bridge_eid;
+static mctp_eid_t g_kernel_reject_set_eid = 0;
+static u_int16_t g_remote_id;
 
 /* Send function for Get MCTP version support */
-mctp_ret_codes_t mctp_i2c_get_mctp_ver_support_request(int sock_fd, uint8_t eid)
+mctp_ret_codes_t mctp_kernel_get_mctp_ver_support_request(int sock_fd, uint8_t eid)
 {
 	bool req_ret;
 	mctp_requester_rc_t mctp_ret;
@@ -114,19 +65,12 @@ mctp_ret_codes_t mctp_i2c_get_mctp_ver_support_request(int sock_fd, uint8_t eid)
 	mctp_eid_t dest_eid;
 	mctp_binding_ids_t bind_id;
 	struct mctp_smbus_pkt_private pvt_binding;
+    struct mctp_hdr mctp_hdr = {1, MCTP_EID_NULL, MCTP_EID_NULL, MCTP_TAG_OWNER};
 
 	(void)eid;
 
 	/* Set destination EID */
 	dest_eid = 0;
-
-	/* Set Bind ID as SMBus */
-	bind_id = MCTP_BINDING_SMBUS;
-
-	/* Set private binding */
-	pvt_binding.i2c_bus = g_i2c_bus;
-	pvt_binding.dest_slave_addr = g_i2c_dest_slave_addr;
-	pvt_binding.src_slave_addr = g_i2c_src_slave_addr;
 
 	/* Encode Get MCTP version support message */
 	req_ret = mctp_encode_ctrl_cmd_get_ver_support(
@@ -155,9 +99,9 @@ mctp_ret_codes_t mctp_i2c_get_mctp_ver_support_request(int sock_fd, uint8_t eid)
 	ep_req.data[0] = 0;
 
 	/* Send the request message over socket */
-	mctp_ret = mctp_client_with_binding_send(
+	mctp_ret = mctp_msg_client_with_binding_send(
 		dest_eid, sock_fd, (const uint8_t *)&ep_req,
-		sizeof(struct mctp_ctrl_cmd_set_eid), &bind_id,
+		sizeof(struct mctp_ctrl_cmd_set_eid), (const uint8_t*) &mctp_hdr, &bind_id,
 		(void *)&pvt_binding, sizeof(pvt_binding));
 
 	if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
@@ -169,7 +113,7 @@ mctp_ret_codes_t mctp_i2c_get_mctp_ver_support_request(int sock_fd, uint8_t eid)
 }
 
 /* Send function for Set Endpoint ID */
-mctp_ret_codes_t mctp_i2c_set_eid_send_request(int sock_fd,
+mctp_ret_codes_t mctp_kernel_set_eid_send_request(int sock_fd,
 					       mctp_ctrl_cmd_set_eid_op op,
 					       uint8_t eid)
 {
@@ -181,24 +125,11 @@ mctp_ret_codes_t mctp_i2c_set_eid_send_request(int sock_fd,
 	mctp_eid_t dest_eid;
 	mctp_binding_ids_t bind_id;
 	struct mctp_smbus_pkt_private pvt_binding;
+    struct mctp_hdr mctp_hdr = {1, MCTP_EID_NULL, MCTP_EID_NULL, MCTP_TAG_OWNER};
+
 
 	/* Set destination EID as NULL */
 	dest_eid = MCTP_EID_NULL;
-
-#ifdef MCTP_IN_KERNEL
-	if (g_OEMMCTPHndlr[ON_CHECK_SET_EP_SEND_REQ] != NULL) {
-		if(g_OEMMCTPHndlr[ON_CHECK_SET_EP_SEND_REQ] (&g_i2c_bus, &g_i2c_dest_slave_addr))
-			dest_eid = eid;
-	}
-#endif
-
-	/* Set Bind ID as SMBus */
-	bind_id = MCTP_BINDING_SMBUS;
-
-	/* Set private binding */
-	pvt_binding.i2c_bus = g_i2c_bus;
-	pvt_binding.dest_slave_addr = g_i2c_dest_slave_addr;
-	pvt_binding.src_slave_addr = g_i2c_src_slave_addr;
 
 	/* Encode Set Endpoint ID message */
 	req_ret = mctp_encode_ctrl_cmd_set_eid(&set_eid_req, op, eid);
@@ -224,9 +155,9 @@ mctp_ret_codes_t mctp_i2c_set_eid_send_request(int sock_fd,
 	ep_req.data[0] = 0;
 
 	/* Send the request message over socket */
-	mctp_ret = mctp_client_with_binding_send(
+	mctp_ret = mctp_msg_client_with_binding_send(
 		dest_eid, sock_fd, (const uint8_t *)&ep_req,
-		sizeof(struct mctp_ctrl_cmd_set_eid), &bind_id,
+		sizeof(struct mctp_ctrl_cmd_set_eid), (const uint8_t*) &mctp_hdr, &bind_id,
 		(void *)&pvt_binding, sizeof(pvt_binding));
 
 	if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
@@ -238,7 +169,7 @@ mctp_ret_codes_t mctp_i2c_set_eid_send_request(int sock_fd,
 }
 
 /* Receive function for Set Endpoint ID */
-int mctp_i2c_set_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len,
+int mctp_kernel_set_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len,
 				  uint8_t eid, uint8_t *eid_count)
 {
 	bool req_ret;
@@ -276,8 +207,8 @@ int mctp_i2c_set_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len,
 			__func__, set_eid_resp->eid_set, set_eid_resp->status);
 
 		/* Get the EID from the bridge (FPGA) */
-		g_i2c_bridge_eid = set_eid_resp->eid_set;
-		g_i2c_reject_set_eid = set_eid_resp->eid_set;			
+		g_kernel_bridge_eid = set_eid_resp->eid_set;
+		g_kernel_reject_set_eid = set_eid_resp->eid_set;	
 	} else {
 		MCTP_CTRL_DEBUG(
 			"%s: Set Endpoint id: 0x%x (Accepted by the device)\n",
@@ -308,7 +239,7 @@ int mctp_i2c_set_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len,
 		/* update the eid_count pointer */
 		*eid_count = set_eid_resp->eid_pool_size;
 
-		MCTP_CTRL_DEBUG("%s: g_i2c_eid_pool_size: 0x%x\n", __func__,
+		MCTP_CTRL_DEBUG("%s: g_kernel_eid_pool_size: 0x%x\n", __func__,
 				g_eid_pool_size);
 
 	} else {
@@ -324,7 +255,7 @@ int mctp_i2c_set_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len,
 }
 
 /* Send function for Allocate Endpoint ID */
-mctp_ret_codes_t mctp_i2c_alloc_eid_send_request(int sock_fd,
+mctp_ret_codes_t mctp_kernel_alloc_eid_send_request(int sock_fd,
 						 mctp_eid_t assigned_eid,
 						 mctp_ctrl_cmd_set_eid_op op,
 						 uint8_t eid_count,
@@ -338,17 +269,10 @@ mctp_ret_codes_t mctp_i2c_alloc_eid_send_request(int sock_fd,
 	mctp_eid_t dest_eid;
 	mctp_binding_ids_t bind_id;
 	struct mctp_smbus_pkt_private pvt_binding;
+    struct mctp_hdr mctp_hdr = {1, MCTP_EID_NULL, MCTP_EID_NULL, MCTP_TAG_OWNER};
 
 	/* Set destination EID as NULL */
 	dest_eid = assigned_eid;
-
-	/* Set Bind ID as SMBus */
-	bind_id = MCTP_BINDING_SMBUS;
-
-	/* Set private binding */
-	pvt_binding.i2c_bus = g_i2c_bus;
-	pvt_binding.dest_slave_addr = g_i2c_dest_slave_addr;
-	pvt_binding.src_slave_addr = g_i2c_src_slave_addr;
 
 	/* Allocate Endpoint ID's message */
 	req_ret = mctp_encode_ctrl_cmd_alloc_eid(&set_eid_req,
@@ -375,9 +299,9 @@ mctp_ret_codes_t mctp_i2c_alloc_eid_send_request(int sock_fd,
 	mctp_print_req_msg(&ep_req, "MCTP_ALLOCATE_EP_ID_REQUEST", msg_len);
 
 	/* Send the request message over socket */
-	mctp_ret = mctp_client_with_binding_send(
+	mctp_ret = mctp_msg_client_with_binding_send(
 		dest_eid, sock_fd, (const uint8_t *)&ep_req,
-		sizeof(struct mctp_ctrl_cmd_alloc_eid), &bind_id,
+		sizeof(struct mctp_ctrl_cmd_alloc_eid), (const uint8_t*) &mctp_hdr, &bind_id,
 		(void *)&pvt_binding, sizeof(pvt_binding));
 
 	if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
@@ -389,7 +313,7 @@ mctp_ret_codes_t mctp_i2c_alloc_eid_send_request(int sock_fd,
 }
 
 /* Receive function for Allocate Endpoint ID */
-int mctp_i2c_alloc_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len)
+int mctp_kernel_alloc_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len)
 {
 	bool req_ret;
 	struct mctp_ctrl_resp_alloc_eid *alloc_eid_resp;
@@ -426,7 +350,7 @@ int mctp_i2c_alloc_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len)
 }
 
 /* Send function for Get routing table */
-mctp_ret_codes_t mctp_i2c_get_routing_table_send_request(int sock_fd,
+mctp_ret_codes_t mctp_kernel_get_routing_table_send_request(int sock_fd,
 							 mctp_eid_t eid,
 							 uint8_t entry_handle)
 {
@@ -439,19 +363,12 @@ mctp_ret_codes_t mctp_i2c_get_routing_table_send_request(int sock_fd,
 	mctp_binding_ids_t bind_id;
 	struct mctp_smbus_pkt_private pvt_binding;
 	static int entry_count = 0;
+    struct mctp_hdr mctp_hdr = {1, MCTP_EID_NULL, MCTP_EID_NULL, MCTP_TAG_OWNER};
 
 	(void)eid;
 
 	/* Set destination EID as NULL */
 	dest_eid = MCTP_EID_NULL;
-
-	/* Set Bind ID as SMBus */
-	bind_id = MCTP_BINDING_SMBUS;
-
-	/* Set private binding */
-	pvt_binding.i2c_bus = g_i2c_bus;
-	pvt_binding.dest_slave_addr = g_i2c_dest_slave_addr;
-	pvt_binding.src_slave_addr = g_i2c_src_slave_addr;
 
 	/* Get routing table request message */
 	req_ret = mctp_encode_ctrl_cmd_get_routing_table(
@@ -479,9 +396,9 @@ mctp_ret_codes_t mctp_i2c_get_routing_table_send_request(int sock_fd,
 			   msg_len);
 
 	/* Send the request message over socket */
-	mctp_ret = mctp_client_with_binding_send(
+	mctp_ret = mctp_msg_client_with_binding_send(
 		dest_eid, sock_fd, (const uint8_t *)&ep_req,
-		sizeof(struct mctp_ctrl_cmd_get_routing_table), &bind_id,
+		sizeof(struct mctp_ctrl_cmd_get_routing_table), (const uint8_t*) &mctp_hdr, &bind_id,
 		(void *)&pvt_binding, sizeof(pvt_binding));
 
 	if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
@@ -493,9 +410,10 @@ mctp_ret_codes_t mctp_i2c_get_routing_table_send_request(int sock_fd,
 }
 
 /* Receive function for Get routing table */
-int mctp_i2c_get_routing_table_get_response(int sock_fd, mctp_eid_t eid,
+int mctp_kernel_get_routing_table_get_response(int sock_fd, mctp_eid_t eid,
 					    uint8_t *mctp_resp_msg,
-					    size_t resp_msg_len)
+					    size_t resp_msg_len,
+						mctp_eid_t own_eid)
 {
 	bool req_ret;
 	struct mctp_ctrl_resp_get_routing_table *routing_table;
@@ -544,7 +462,7 @@ int mctp_i2c_get_routing_table_get_response(int sock_fd, mctp_eid_t eid,
 		       sizeof(struct get_routing_table_entry));
 
 		/* Dont add the entry to the routing table if the EID is it's own */
-		if (routing_table_entry.starting_eid == g_i2c_own_eid) {
+		if (routing_table_entry.starting_eid == own_eid) {
 			MCTP_CTRL_DEBUG(
 				"%s: Found it's own eid: [%d] in the Routing table\n",
 				__func__, routing_table_entry.starting_eid);
@@ -589,7 +507,7 @@ int mctp_i2c_get_routing_table_get_response(int sock_fd, mctp_eid_t eid,
 }
 
 /* Send function for Get UUID */
-mctp_ret_codes_t mctp_i2c_get_endpoint_uuid_send_request(int sock_fd,
+mctp_ret_codes_t mctp_kernel_get_endpoint_uuid_send_request(int sock_fd,
 							 mctp_eid_t eid)
 {
 	bool req_ret;
@@ -600,17 +518,10 @@ mctp_ret_codes_t mctp_i2c_get_endpoint_uuid_send_request(int sock_fd,
 	mctp_eid_t dest_eid;
 	mctp_binding_ids_t bind_id;
 	struct mctp_smbus_pkt_private pvt_binding;
+    struct mctp_hdr mctp_hdr = {1, MCTP_EID_NULL, MCTP_EID_NULL, MCTP_TAG_OWNER};
 
 	/* Set destination EID */
 	dest_eid = eid;
-
-	/* Set Bind ID as SMBus */
-	bind_id = MCTP_BINDING_SMBUS;
-
-	/* Set private binding */
-	pvt_binding.i2c_bus = g_i2c_bus;
-	pvt_binding.dest_slave_addr = g_i2c_dest_slave_addr;
-	pvt_binding.src_slave_addr = g_i2c_src_slave_addr;
 
 	/* Encode for Get Endpoint UUID message */
 	req_ret = mctp_encode_ctrl_cmd_get_uuid(&uuid_req);
@@ -632,9 +543,9 @@ mctp_ret_codes_t mctp_i2c_get_endpoint_uuid_send_request(int sock_fd,
 	mctp_print_req_msg(&ep_req, "MCTP_GET_EP_UUID_REQUEST", msg_len);
 
 	/* Send the request message over socket */
-	mctp_ret = mctp_client_with_binding_send(
+	mctp_ret = mctp_msg_client_with_binding_send(
 		dest_eid, sock_fd, (const uint8_t *)&ep_req,
-		sizeof(struct mctp_ctrl_cmd_get_uuid), &bind_id,
+		sizeof(struct mctp_ctrl_cmd_get_uuid), (const uint8_t*) &mctp_hdr, &bind_id,
 		(void *)&pvt_binding, sizeof(pvt_binding));
 
 	if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
@@ -646,7 +557,7 @@ mctp_ret_codes_t mctp_i2c_get_endpoint_uuid_send_request(int sock_fd,
 }
 
 /* Receive function for Get UUID */
-int mctp_i2c_get_endpoint_uuid_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
+int mctp_kernel_get_endpoint_uuid_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
 					size_t resp_msg_len)
 {
 	bool req_ret;
@@ -687,7 +598,7 @@ int mctp_i2c_get_endpoint_uuid_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
 }
 
 /* Send function for Get Messgae types */
-mctp_ret_codes_t mctp_i2c_get_msg_type_request(int sock_fd, mctp_eid_t eid)
+mctp_ret_codes_t mctp_kernel_get_msg_type_request(int sock_fd, mctp_eid_t eid)
 {
 	bool req_ret;
 	mctp_requester_rc_t mctp_ret;
@@ -697,17 +608,10 @@ mctp_ret_codes_t mctp_i2c_get_msg_type_request(int sock_fd, mctp_eid_t eid)
 	mctp_eid_t dest_eid;
 	mctp_binding_ids_t bind_id;
 	struct mctp_smbus_pkt_private pvt_binding;
+    struct mctp_hdr mctp_hdr = {1, MCTP_EID_NULL, MCTP_EID_NULL, MCTP_TAG_OWNER};
 
 	/* Set destination EID */
 	dest_eid = eid;
-
-	/* Set Bind ID as SMBus */
-	bind_id = MCTP_BINDING_SMBUS;
-
-	/* Set private binding */
-	pvt_binding.i2c_bus = g_i2c_bus;
-	pvt_binding.dest_slave_addr = g_i2c_dest_slave_addr;
-	pvt_binding.src_slave_addr = g_i2c_src_slave_addr;
 
 	/* Encode for Get Endpoint UUID message */
 	req_ret = mctp_encode_ctrl_cmd_get_msg_type_support(&msg_type_req);
@@ -731,9 +635,9 @@ mctp_ret_codes_t mctp_i2c_get_msg_type_request(int sock_fd, mctp_eid_t eid)
 
 	/* Send the request message over socket */
 	MCTP_CTRL_TRACE("%s: Sending EP request\n", __func__);
-	mctp_ret = mctp_client_with_binding_send(
+	mctp_ret = mctp_msg_client_with_binding_send(
 		dest_eid, sock_fd, (const uint8_t *)&ep_req,
-		sizeof(struct mctp_ctrl_cmd_get_msg_type_support), &bind_id,
+		sizeof(struct mctp_ctrl_cmd_get_msg_type_support), (const uint8_t*) &mctp_hdr, &bind_id,
 		(void *)&pvt_binding, sizeof(pvt_binding));
 
 	if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
@@ -745,8 +649,8 @@ mctp_ret_codes_t mctp_i2c_get_msg_type_request(int sock_fd, mctp_eid_t eid)
 }
 
 /* Receive function for Get Messgae types */
-int mctp_i2c_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
-				   size_t resp_msg_len)
+int mctp_kernel_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
+				   size_t resp_msg_len, const char* binding)
 {
 	bool req_ret;
 	struct mctp_ctrl_resp_get_msg_type_support *msg_type_resp;
@@ -788,10 +692,10 @@ int mctp_i2c_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
 	msg_type_table.old_enabled = false;
 	msg_type_table.enabled = true;
 	msg_type_table.new = true;
-	msg_type_table.binding_type = NULL;
 	msg_type_table.data_len = ((struct mctp_ctrl_resp *)mctp_resp_msg)
 					  ->data[MCTP_MSG_TYPE_DATA_LEN_OFFSET];
 	memset(msg_type_table.slot, 0, sizeof(msg_type_table.slot));
+	msg_type_table.binding_type = binding;
 
 	if (msg_type_table.data_len > (MCTP_BTU - 1)) {
 		MCTP_CTRL_INFO(
@@ -828,7 +732,8 @@ int mctp_i2c_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
 static mctp_ret_codes_t mctp_discover_response(mctp_discovery_mode mode,
 					       mctp_eid_t eid, int sock,
 					       uint8_t **mctp_resp_msg,
-					       size_t *mctp_resp_len)
+					       size_t *mctp_resp_len,
+   						   uint8_t **mctp_hdr_msg)
 {
 	mctp_requester_rc_t mctp_ret;
 
@@ -853,8 +758,8 @@ static mctp_ret_codes_t mctp_discover_response(mctp_discovery_mode mode,
 	case MCTP_GET_MSG_TYPE_RESPONSE:
 
 		/* Receive MCTP packets */
-		mctp_ret = mctp_client_recv(eid, sock, mctp_resp_msg,
-					    mctp_resp_len);
+		mctp_ret = mctp_client_sync_recv(&eid, sock, mctp_resp_msg,
+					    mctp_resp_len, mctp_hdr_msg, &g_remote_id);
 		if (mctp_ret != MCTP_REQUESTER_SUCCESS) {
 			MCTP_CTRL_DEBUG("%s: Failed to received message %d\n",
 				      __func__, mctp_ret);
@@ -873,7 +778,7 @@ static mctp_ret_codes_t mctp_discover_response(mctp_discovery_mode mode,
 }
 
 /* Routine to Discover the endpoint devices */
-mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
+mctp_ret_codes_t mctp_kernel_discover_endpoints(const mctp_cmdline_args_t *cmd,
 					     mctp_ctrl_t *ctrl)
 {
 	static int discovery_mode = MCTP_SET_EP_REQUEST;
@@ -883,27 +788,21 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 	uint8_t eid = 0, eid_count = 0, eid_start = 0;
 	uint8_t entry_hdl = MCTP_ROUTING_ENTRY_START;
 	uint8_t *mctp_resp_msg;
-	mctp_eid_t local_eid =
-		11; //8 - Host BMC-FPGA via PCIe | 10 - Host BMC-FPGA via i2c | 9 - HMC-FPGA via PCIe | 11 - HMC-i2c via i2c (MCTP Arch. & Desi. Spec. page 6)
+	uint8_t *mctp_hdr_msg = NULL;	
 	size_t resp_msg_len;
 	int timeout = 0;
-	mctp_routing_table_t *routing_entry = NULL;
-
-	/* Update the EID lists */
-	g_i2c_own_eid = cmd->i2c.own_eid;
-	g_i2c_bridge_eid = cmd->i2c.bridge_eid;
-	g_i2c_bridge_pool_start = cmd->i2c.bridge_pool_start;
-
-	MCTP_CTRL_INFO(
-		"%s: i2c_own_eid: %d, i2c_bridge_eid: %d, i2c_bridge_pool_start: %d\n",
-		__func__, g_i2c_own_eid, g_i2c_bridge_eid,
-		g_i2c_bridge_pool_start);
+	mctp_routing_table_t *routing_entry = NULL;	
+	struct mctp_kernel_binding *kernel_binding;	
+	kernel_binding = (struct mctp_kernel_binding *) & cmd->kernel.binding[ctrl->active_binding];
+	mctp_eid_t local_eid = kernel_binding->own_eid;
+	mctp_eid_t bridge_eid = kernel_binding->eid;
+	mctp_eid_t eid_pool_start =kernel_binding->eid_pool_start;
 
 	do {
 		/* Wait for MCTP response */
 		mctp_ret = mctp_discover_response(discovery_mode, local_eid,
 						  ctrl->sock, &mctp_resp_msg,
-						  &resp_msg_len);
+						  &resp_msg_len, &mctp_hdr_msg);
 		if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 			MCTP_CTRL_ERR("%s: Failed to received message %d\n",
 				      __func__, mctp_ret);
@@ -930,16 +829,17 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 
 			/* Update the EID operation and EID number */
 			set_eid_op = set_eid;
-			eid = g_i2c_bridge_eid;
+			eid = g_kernel_bridge_eid;
 
 			/* Send the MCTP_SET_EP_REQUEST */
-			mctp_ret = mctp_i2c_set_eid_send_request(
+			mctp_ret = mctp_kernel_set_eid_send_request(
 				ctrl->sock, set_eid_op, eid);
 			if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 				MCTP_CTRL_ERR(
-					"%s: Failed MCTP_I2C_SET_EP_REQUEST\n",
+					"%s: Failed MCTP_KERNEL_SET_EP_REQUEST\n",
 					__func__);
-				return MCTP_RET_DISCOVERY_FAILED;
+				//return MCTP_RET_DISCOVERY_FAILED;
+				break;
 			}
 
 			/* Wait for the endpoint response */
@@ -949,11 +849,14 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 
 		case MCTP_SET_EP_RESPONSE:
 			/* Process the MCTP_SET_EP_RESPONSE */
-			mctp_ret = mctp_i2c_set_eid_get_response(
-				mctp_resp_msg, resp_msg_len, g_i2c_bridge_eid,
+			mctp_ret = mctp_kernel_set_eid_get_response(
+				mctp_resp_msg, resp_msg_len, g_kernel_bridge_eid,
 				&eid_count);
 			/* Free Rx packet */
 			free(mctp_resp_msg);
+			mctp_resp_msg = NULL;
+			free(mctp_hdr_msg);
+			mctp_hdr_msg = NULL;					
 
 			/* Retry if the device is not ready */
 			if (mctp_ret == MCTP_RET_DEVICE_NOT_READY) {
@@ -996,14 +899,14 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 		case MCTP_ALLOCATE_EP_ID_REQUEST:
 
 			/* Update the Allocate EIDs operation, number of EIDs, Starting EID */
-			eid = g_i2c_bridge_eid;
+			eid = bridge_eid;
 			alloc_eid_op = alloc_req_eid;
 
 			/* Set the start of EID */
-			eid_start = g_i2c_bridge_pool_start;
+			eid_start = eid_pool_start;
 
 			/* Send the MCTP_ALLOCATE_EP_ID_REQUEST */
-			mctp_ret = mctp_i2c_alloc_eid_send_request(
+			mctp_ret = mctp_kernel_alloc_eid_send_request(
 				ctrl->sock, eid,
 				(mctp_ctrl_cmd_set_eid_op)alloc_eid_op,
 				eid_count, eid_start);
@@ -1029,11 +932,14 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 				/* Reason for false positive - Checked  freed pointer */
 				/* coverity[pass_freed_arg : FALSE] */	
 				/* coverity[deref_arg : FALSE] */
-				mctp_ret = mctp_i2c_alloc_eid_get_response(
+				mctp_ret = mctp_kernel_alloc_eid_get_response(
 					mctp_resp_msg, resp_msg_len);
 
 				/* Free Rx packet */
 				free(mctp_resp_msg);
+				mctp_resp_msg = NULL;
+				free(mctp_hdr_msg);
+				mctp_hdr_msg = NULL;					
 				
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 					MCTP_CTRL_ERR(
@@ -1065,7 +971,7 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 		case MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST:
 
 			/* Send the MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST */
-			mctp_ret = mctp_i2c_get_routing_table_send_request(
+			mctp_ret = mctp_kernel_get_routing_table_send_request(
 				ctrl->sock, eid, entry_hdl);
 			if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 				MCTP_CTRL_ERR(
@@ -1083,12 +989,14 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 		case MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE:
 
 			/* Process the MCTP_GET_ROUTING_TABLE_ENTRIES_RESPONSE */
-			mctp_ret = mctp_i2c_get_routing_table_get_response(
-				ctrl->sock, eid, mctp_resp_msg, resp_msg_len);
+			mctp_ret = mctp_kernel_get_routing_table_get_response(
+				ctrl->sock, eid, mctp_resp_msg, resp_msg_len, local_eid);
 
 			/* Free Rx packet */
 			free(mctp_resp_msg);
-
+			mctp_resp_msg = NULL;
+			free(mctp_hdr_msg);
+			mctp_hdr_msg = NULL;	
 			/* Retry if the device is not ready */
 			if (mctp_ret == MCTP_RET_DEVICE_NOT_READY) {
 				/* Make sure it's not timedout before continuing */
@@ -1153,7 +1061,7 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 					__func__, eid_start);
 
 				mctp_ret =
-					mctp_i2c_get_endpoint_uuid_send_request(
+					mctp_kernel_get_endpoint_uuid_send_request(
 						ctrl->sock, eid_start);
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 					MCTP_CTRL_ERR(
@@ -1176,7 +1084,7 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 					__func__, eid_start);
 			} else {
 				/* Process the MCTP_GET_EP_UUID_RESPONSE */
-				mctp_ret = mctp_i2c_get_endpoint_uuid_response(
+				mctp_ret = mctp_kernel_get_endpoint_uuid_response(
 					eid_start, mctp_resp_msg, resp_msg_len);
 
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
@@ -1186,7 +1094,9 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 				}
 				/* Free Rx packet */
 				free(mctp_resp_msg);
-			}
+				mctp_resp_msg = NULL;
+				free(mctp_hdr_msg);
+				mctp_hdr_msg = NULL;				}
 
 			/* Increment the routing entry */
 			if (routing_entry) {
@@ -1219,7 +1129,7 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 					"%s: Send Get Msg type Request for EID: 0x%x\n",
 					__func__, eid_start);
 
-				mctp_ret = mctp_i2c_get_msg_type_request(
+				mctp_ret = mctp_kernel_get_msg_type_request(
 					ctrl->sock, eid_start);
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 					MCTP_CTRL_ERR(
@@ -1242,12 +1152,14 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 					__func__, eid_start);
 			} else {
 				/* Process the MCTP_GET_MSG_TYPE_RESPONSE */
-				mctp_ret = mctp_i2c_get_msg_type_response(
-					eid_start, mctp_resp_msg, resp_msg_len);
+				mctp_ret = mctp_kernel_get_msg_type_response(
+					eid_start, mctp_resp_msg, resp_msg_len, kernel_binding->binding);
 
 				/* Free Rx packet */
 				free(mctp_resp_msg);
-
+				mctp_resp_msg = NULL;
+				free(mctp_hdr_msg);
+				mctp_hdr_msg = NULL;	
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 					MCTP_CTRL_ERR(
 						"%s: MCTP_GET_MSG_TYPE_RESPONSE Failed\n",
@@ -1297,126 +1209,54 @@ mctp_ret_codes_t mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd,
 
 /* Routine to Discover the endpoint devices */
 mctp_ret_codes_t
-mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
+mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 				       mctp_ctrl_t *ctrl)
 {
 	static int discovery_mode = MCTP_SET_EP_REQUEST;
 	mctp_ret_codes_t mctp_ret;
 	mctp_ctrl_cmd_set_eid_op set_eid_op;
-	uint8_t eid = 0, eid_count = 0;
+	uint8_t eid_count = 0;
 	uint8_t *mctp_resp_msg = NULL;
+	uint8_t *mctp_hdr_msg = NULL;	
 	size_t resp_msg_len;
 	int timeout = 0;
 
-	if (g_endpoint_discovered)
-		MCTP_CTRL_DEBUG("Start mctp over i2c partial discovery\n");
+	struct mctp_kernel_binding *kernel_binding;
 
-	else {
-		g_i2c_bus_info.nitems = sizeof(cmd->i2c.logical_busses) /
-				sizeof(cmd->i2c.logical_busses[0]);
-		g_i2c_bus_info.buses =
-			calloc(g_i2c_bus_info.nitems, sizeof(*g_i2c_bus_info.buses));
-		if (g_i2c_bus_info.buses == NULL) {
-			MCTP_CTRL_ERR("%s: Could not allocate array for buses.",
-					__func__);
-		}
-
-		g_i2c_bridge_pool_start = cmd->i2c.bridge_pool_start;
-	}
-
-	bool device_changed = false;
-
-	for (size_t i = 0; i < sizeof(cmd->i2c.logical_busses) /
-				       sizeof(cmd->i2c.logical_busses[0]);
-	     i++) {
-
-		int retries = MCTP_CTRL_CMD_MAX_RETRY;
-
-		if (cmd->i2c.chosen_eid_type == EID_TYPE_ARP) {
-			if(cmd->i2c.logical_busses[i] == 0)
-				continue;
-		} else {
-			if (cmd->i2c.dest_slave_addr[i] == 0) {
-		 		continue;
-			}
-		}
-
-		if(g_i2c_bus_info.buses[i].dest_slave_addr) {
-			 if (check_endpoint_discovered(cmd->dest_eid_tab[i])) {
-				if (g_OEMMCTPHndlr[ON_DETECT_HOT_PLUG] != NULL) {
-					mctp_ret = g_OEMMCTPHndlr[ON_DETECT_HOT_PLUG] (&g_i2c_bus_info.buses[i].bus, &g_i2c_bus_info.buses[i].dest_slave_addr);
-					if(mctp_ret)
-						continue;
-				}
-				int ret = i2c_bus_reset_device(cmd->i2c.logical_busses[i], g_i2c_bus_info.buses[i].dest_slave_addr);
-				
-				if (ret < 0) {
-					device_changed = true;
-					MCTP_CTRL_INFO("%s: mctp_ctrl_sdbus_object_remove_eid %d \n", __func__,
-							ret);						
-					mctp_ctrl_sdbus_object_remove_eid(ctrl->bus, cmd->dest_eid_tab[i]);
-					g_i2c_bus_info.buses[i].dest_slave_addr = 0;				
-				} else
-					continue;
-			} else {
-				g_i2c_bus_info.buses[i].dest_slave_addr = 0;				
-			}
-		} else if (cmd->i2c.dest_slave_addr[i] && cmd->i2c.logical_busses[i]) {
-			int ret = i2c_bus_reset_device(cmd->i2c.logical_busses[i], cmd->i2c.dest_slave_addr[i]);
-			if (ret < 0) {
-				MCTP_CTRL_DEBUG("%s: discovery SKIP bus:%d slave address:%d\n", __func__,
-						cmd->i2c.logical_busses[i], cmd->i2c.dest_slave_addr[i]);						
-				continue;
-			}
-		}
-
+	for (size_t i = 0 ; i < cmd->kernel.binding_len ; i++) {
+		kernel_binding = (struct mctp_kernel_binding *)  &cmd->kernel.binding[i];
+		ctrl->active_binding = i;
 		discovery_mode = MCTP_SET_EP_REQUEST;
-		g_i2c_dest_slave_addr = cmd->i2c.dest_slave_addr[i];
-		g_i2c_bus = cmd->i2c.logical_busses[i];
-
-		g_i2c_bus_info.buses[i].bus = cmd->i2c.logical_busses[i];
-
-		if (cmd->i2c.dest_slave_addr[i])
-			g_i2c_bus_info.buses[i].dest_slave_addr = cmd->i2c.dest_slave_addr[i];
-#ifndef MCTP_IN_KERNEL
-		MCTP_CTRL_DEBUG("Doing discovery for: %d, address: %d, address: %d\n",
-				g_i2c_bus, g_i2c_dest_slave_addr, g_i2c_bus_info.buses[i].dest_slave_addr);
-#else
-		MCTP_CTRL_DEBUG("Doing discovery for: %d, address: %d\n",
-				cmd->dest_eid_tab[i],
-				g_i2c_bus_info.buses[i].dest_slave_addr);
-		char ifname[MAX_INTERFACE_LEN];
 		int rc = 0;
-		memset(ifname, '\0', MAX_INTERFACE_LEN);
-		sprintf(ifname, "mctpi2c%d", (int)g_i2c_bus_info.buses[i].bus);
-		if (g_OEMMCTPHndlr[ON_CHECK_INTERFACE_NAME] != NULL) {
-				rc = g_OEMMCTPHndlr[ON_CHECK_INTERFACE_NAME] (&ifname, &g_i2c_bus_info.buses[i].bus);
-		}
-
+		
 		update_interface_info(
-			ifname, &(g_i2c_bus_info.buses[i].dest_slave_addr), 1,
-			cmd->i2c.own_eid, MCTP_DEFAULT_NET, DEFAULT_MTU);
+			kernel_binding->interface_name, kernel_binding->dest_slave_addr,  kernel_binding->slave_addr_len,
+			kernel_binding->own_eid, MCTP_DEFAULT_NET, kernel_binding->mtu);
 
 		/* SMBUS/I2C require to set NETLINK socket for all slave devices*/
 		if ((rc = mctp_nl_socket_init()) < 0) {
 			MCTP_CTRL_ERR(
 				"%s failed to setup nl_socket for %s eid %d rc %d\n",
-				__func__, ifname, cmd->i2c.own_eid, rc);
+				__func__, kernel_binding->interface_name,kernel_binding->own_eid, rc);
 			//return MCTP_RET_DISCOVERY_FAILED;
 			continue;
 		}
-#endif
+
+		if (kernel_binding->device_role == MCTP_ENDPOINT) {
+			mctp_endpoint_mode_discover_endpoints(cmd, ctrl);
+			continue;
+		} else if (kernel_binding->device_role == MCTP_BUSOWNER) {
+			mctp_busowner_mode_discover_endpoints(cmd, ctrl);
+			continue;
+		} else if (check_endpoint_discovered(kernel_binding->eid))
+			continue;
+		
 		do {
 			/* Wait for MCTP response */
-#ifdef MCTP_IN_KERNEL
 			mctp_ret = mctp_discover_response(
-				discovery_mode, g_i2c_bus_info.buses[i].eid,
-				ctrl->sock, &mctp_resp_msg, &resp_msg_len);
-#else
-			mctp_ret = mctp_discover_response(
-				discovery_mode, cmd->i2c.own_eid, ctrl->sock,
-				&mctp_resp_msg, &resp_msg_len);
-#endif
+				discovery_mode, kernel_binding->own_eid,
+				ctrl->sock, &mctp_resp_msg, &resp_msg_len, &mctp_hdr_msg);
+
 			if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 				MCTP_CTRL_DEBUG(
 					"%s: Failed to received message %d\n",
@@ -1440,58 +1280,16 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 			switch (discovery_mode) {
 			case MCTP_SET_EP_REQUEST:
 				/* Update the EID operation and EID number */
-				set_eid_op = g_i2c_reject_set_eid ? force_eid : set_eid;
-				eid = cmd->dest_eid_tab[i];
-				if (cmd->i2c.chosen_eid_type == EID_TYPE_ARP) {
-					if(eid == 0)
-						eid = g_i2c_bridge_pool_start;
+				set_eid_op = g_kernel_reject_set_eid ? force_eid : set_eid;
 
-					if(g_i2c_reject_set_eid) {
-						g_i2c_reject_set_eid = 0;
-					} else if (!g_i2c_bus_info.buses[i].dest_slave_addr){
-						uint8_t next_addr = g_i2c_dest_slave_addr;
-						set_pool_of_endpoints(cmd->i2c.logical_busses[i], &next_addr, g_endpoint_discovered);
-						MCTP_CTRL_DEBUG("Scanning %d %x %x \n",cmd->i2c.logical_busses[i], g_i2c_dest_slave_addr, next_addr);
-						if(next_addr == g_i2c_dest_slave_addr || next_addr == 0){
-							MCTP_CTRL_DEBUG("%s: Nothing discovered on bus %d\n",__func__, cmd->i2c.logical_busses[i]);
-							clear_address_pool(g_i2c_dest_slave_addr);
-							discovery_mode = MCTP_FINISH_DISCOVERY;
-							break;
-						}else{
-							g_i2c_dest_slave_addr = next_addr;
-						}
-					} else {
-						g_i2c_dest_slave_addr = g_i2c_bus_info.buses[i].dest_slave_addr;
-					}		
-#ifdef MCTP_IN_KERNEL						
-					update_interface_info(
-						ifname, &g_i2c_dest_slave_addr, 1,
-						cmd->i2c.own_eid, MCTP_DEFAULT_NET, DEFAULT_MTU);
-
-					/* SMBUS/I2C require to set NETLINK socket for all slave devices*/
-					if ((rc = mctp_nl_socket_init()) < 0) {
-						MCTP_CTRL_ERR(
-							"%s failed to setup nl_socket for %s eid %d rc %d\n",
-							__func__, ifname, cmd->i2c.own_eid, rc);
-						discovery_mode = MCTP_FINISH_DISCOVERY;
-						break;
-					}
-#endif												
-				} else {
-					g_i2c_bus_info.buses[i].eid = eid;
-				}
-#ifdef MCTP_IN_KERNEL
-				if (g_OEMMCTPHndlr[ON_CHECK_I2C_DISCOVERY_BEFORE_SET_EP] != NULL) {
-					rc = g_OEMMCTPHndlr[ON_CHECK_I2C_DISCOVERY_BEFORE_SET_EP] (&eid, &g_i2c_bus_info.buses[i].bus);
-				}
-#endif
 				/* Send the MCTP_SET_EP_REQUEST */
-				mctp_ret = mctp_i2c_set_eid_send_request(
-					ctrl->sock, set_eid_op, eid);
+				mctp_ret = mctp_kernel_set_eid_send_request(
+					ctrl->sock, set_eid_op, kernel_binding->eid);
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 					MCTP_CTRL_ERR(
-						"%s: Failed MCTP_I2C_SET_EP_REQUEST of eid%d\n",
-						__func__, eid);
+						"%s: Failed MCTP_KERNEL_SET_EP_REQUEST\n",
+						__func__);
+					//return MCTP_RET_DISCOVERY_FAILED;
 					discovery_mode = MCTP_FINISH_DISCOVERY;
 					break;
 				}
@@ -1504,13 +1302,14 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 			case MCTP_SET_EP_RESPONSE:
 				if (mctp_ret == MCTP_RET_REQUEST_SUCCESS) {
 					/* Process the MCTP_SET_EP_RESPONSE */
-					mctp_ret = mctp_i2c_set_eid_get_response(
-						mctp_resp_msg, resp_msg_len, eid,
+					mctp_ret = mctp_kernel_set_eid_get_response(
+						mctp_resp_msg, resp_msg_len, kernel_binding->eid,
 						&eid_count);
 					/* Free Rx packet */
 					free(mctp_resp_msg);
 					mctp_resp_msg = NULL;
-					device_changed = true;
+					free(mctp_hdr_msg);
+					mctp_hdr_msg = NULL;					
 				}
 				/* Retry if the device is not ready */
 				if (mctp_ret == MCTP_RET_DEVICE_NOT_READY) {
@@ -1537,57 +1336,26 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 						__func__, timeout);
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
+				
+				if (g_kernel_reject_set_eid > 0) {
+					kernel_binding->eid = g_kernel_reject_set_eid;
+					g_kernel_reject_set_eid = 0;
+				}
 
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 					MCTP_CTRL_DEBUG(
 						"%s: Failed MCTP_SET_EP_RESPONSE\n",
 						__func__);
-					if (cmd->i2c.chosen_eid_type == EID_TYPE_ARP) {
-						if (g_i2c_bus_info.buses[i].dest_slave_addr) {
-							discovery_mode = MCTP_FINISH_DISCOVERY;
-						} else {
-							discovery_mode = MCTP_SET_EP_REQUEST;
-						}
-						break;
-					} else {
-						if(retries){
-							//Retry set endpoint
-							MCTP_CTRL_DEBUG(
-								"%s: Retry setting eid %d\n",
-								__func__, eid);
-							discovery_mode = MCTP_SET_EP_REQUEST;
-							retries--;
-						}else{
-							discovery_mode = MCTP_FINISH_DISCOVERY;
-						}
+						discovery_mode = MCTP_FINISH_DISCOVERY;
 						break;
 						//return MCTP_RET_DISCOVERY_FAILED;
-					}
 				}
 
 				/* Reset the timeout */
 				timeout = 0;
 				MCTP_CTRL_INFO(
 						"%s: Setting eid %d\n",
-						__func__, eid);
-
-				if (cmd->i2c.chosen_eid_type == EID_TYPE_ARP) {
-					if(g_i2c_reject_set_eid && !(set_eid_op == force_eid && eid == g_i2c_reject_set_eid)){
-						MCTP_CTRL_INFO(
-							"%s: Reject setting eid %d, device request %d\n",
-							__func__, eid, g_i2c_reject_set_eid);
-						if(set_eid_op == force_eid)
-							cmd->dest_eid_tab[i] = g_i2c_reject_set_eid;
-						discovery_mode = MCTP_SET_EP_REQUEST;
-						break;
-					}					
-					g_i2c_reject_set_eid = 0;
-					g_i2c_bus_info.buses[i].eid = eid;
-					cmd->dest_eid_tab[i] = eid;
-					g_i2c_bus_info.buses[i].dest_slave_addr = g_i2c_dest_slave_addr;
-					if(eid == g_i2c_bridge_pool_start)
-						g_i2c_bridge_pool_start++;
-				}
+						__func__, kernel_binding->eid);
 
 				discovery_mode = MCTP_GET_EP_UUID_REQUEST;
 
@@ -1598,12 +1366,12 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 
 				MCTP_CTRL_DEBUG(
 					"%s: Send UUID Request for EID: 0x%x\n",
-					__func__, cmd->dest_eid_tab[i]);
+					__func__, kernel_binding->eid);
 
 				mctp_ret =
-					mctp_i2c_get_endpoint_uuid_send_request(
+					mctp_kernel_get_endpoint_uuid_send_request(
 						ctrl->sock,
-						cmd->dest_eid_tab[i]);
+						kernel_binding->eid);
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 					MCTP_CTRL_ERR(
 						"%s: Failed MCTP_GET_EP_UUID_REQUEST\n",
@@ -1621,12 +1389,12 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 				if (mctp_ret == MCTP_RET_REQUEST_FAILED) {
 					MCTP_CTRL_ERR(
 						"%s: MCTP_GET_EP_UUID_RESPONSE Failed EID: %d\n",
-						__func__, cmd->dest_eid_tab[i]);
+						__func__, kernel_binding->eid);
 				} else {
 					/* Process the MCTP_GET_EP_UUID_RESPONSE */
 					mctp_ret =
-						mctp_i2c_get_endpoint_uuid_response(
-							cmd->dest_eid_tab[i],
+						mctp_kernel_get_endpoint_uuid_response(
+							kernel_binding->eid,
 							mctp_resp_msg,
 							resp_msg_len);
 
@@ -1639,6 +1407,8 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 					/* Free Rx packet */
 					free(mctp_resp_msg);
 					mctp_resp_msg = NULL;
+					free(mctp_hdr_msg);
+					mctp_hdr_msg = NULL;					
 				}
 
 				discovery_mode = MCTP_GET_MSG_TYPE_REQUEST;
@@ -1649,10 +1419,10 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 
 				MCTP_CTRL_DEBUG(
 					"%s: Send Get Msg type Request for EID: 0x%x\n",
-					__func__, cmd->dest_eid_tab[i]);
+					__func__, kernel_binding->eid);
 
-				mctp_ret = mctp_i2c_get_msg_type_request(
-					ctrl->sock, cmd->dest_eid_tab[i]);
+				mctp_ret = mctp_kernel_get_msg_type_request(
+					ctrl->sock, kernel_binding->eid);
 				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
 					MCTP_CTRL_ERR(
 						"%s: Failed MCTP_GET_MSG_TYPE_REQUEST\n",
@@ -1670,23 +1440,21 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 				if (mctp_ret == MCTP_RET_REQUEST_FAILED) {
 					MCTP_CTRL_ERR(
 						"%s: MCTP_GET_MSG_TYPE_RESPONSE Failed EID: %d\n",
-						__func__, cmd->dest_eid_tab[i]);
-					if(cmd->i2c.dest_slave_addr[i] == 0){
-						clear_address_pool(g_i2c_bus_info.buses[i].dest_slave_addr);
-						g_i2c_bus_info.buses[i].dest_slave_addr	= 0;
-					}
-
+						__func__, kernel_binding->eid);
 				} else {
 					/* Process the MCTP_GET_MSG_TYPE_RESPONSE */
 					mctp_ret =
-						mctp_i2c_get_msg_type_response(
-							cmd->dest_eid_tab[i],
+						mctp_kernel_get_msg_type_response(
+							kernel_binding->eid,
 							mctp_resp_msg,
-							resp_msg_len);
+							resp_msg_len,
+							kernel_binding->binding);
 
 					/* Free Rx packet */
 					free(mctp_resp_msg);
 					mctp_resp_msg = NULL;
+					free(mctp_hdr_msg);
+					mctp_hdr_msg = NULL;					
 
 					if (mctp_ret !=
 					    MCTP_RET_REQUEST_SUCCESS) {
@@ -1732,7 +1500,6 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 	/* Display all message type details */
 	MCTP_CTRL_DEBUG("%s: Obtained Message type entries\n", __func__);
 	mctp_msg_types_display();
-	
-	g_endpoint_discovered = 1;
-	return device_changed ? MCTP_RET_DISCOVERY_SUCCESS : MCTP_RET_DISCOVERY_FAILED;
+
+	return MCTP_RET_DISCOVERY_SUCCESS;
 }

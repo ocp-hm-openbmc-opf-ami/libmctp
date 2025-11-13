@@ -21,6 +21,10 @@
 #include "libmctp-cmds.h"
 #include "mctp-ctrl-log.h"
 
+#ifdef MCTP_IN_KERNEL
+#include "mctp-netlink.h"
+#endif
+
 /* Global pointer for Routing table and its length */
 mctp_routing_table_t *g_routing_table_entries = NULL;
 int g_routing_table_length = 0;
@@ -313,6 +317,22 @@ int mctp_routing_entry_add(struct get_routing_table_entry *routing_table_entry)
 		/* Update the routing ID */
 		new_entry->id = routing_id++;
 
+#ifdef MCTP_IN_KERNEL
+		/*Routes and neighour for downstream eid*/
+		if (mctp_nl_add_route(new_entry->routing_table.starting_eid) <
+		    0) {
+			MCTP_CTRL_ERR("%s: Failed to add route for eid %d\n",
+				      __func__,
+				      new_entry->routing_table.starting_eid);
+		}
+		mctp_update_endpoint_hwinfo(new_entry->routing_table.phys_address, new_entry->routing_table.phys_address_size);
+		if (mctp_nl_add_neigh(new_entry->routing_table.starting_eid) <
+		    0) {
+			MCTP_CTRL_ERR("%s: Failed to add neigh for eid %d\n",
+				      __func__,
+				      new_entry->routing_table.starting_eid);
+		}
+#endif
 		return 0;
 	}
 
@@ -355,6 +375,20 @@ int mctp_routing_entry_add(struct get_routing_table_entry *routing_table_entry)
 
 	/* Increment the global counter */
 	g_routing_table_length++;
+
+#ifdef MCTP_IN_KERNEL
+	/*Routes and neighour for downstream eid*/
+	if (mctp_nl_add_route(new_entry->routing_table.starting_eid) < 0) {
+		MCTP_CTRL_ERR("%s: Failed to add route for eid %d\n", __func__,
+			      new_entry->routing_table.starting_eid);
+	}
+
+	mctp_update_endpoint_hwinfo(new_entry->routing_table.phys_address, new_entry->routing_table.phys_address_size);
+	if (mctp_nl_add_neigh(new_entry->routing_table.starting_eid) < 0) {
+		MCTP_CTRL_ERR("%s: Failed to add neigh for eid %d\n", __func__,
+			      new_entry->routing_table.starting_eid);
+	}
+#endif
 
 	return 0;
 }
@@ -675,12 +709,32 @@ int mctp_msg_type_entry_add(mctp_msg_type_table_t *msg_type_tbl)
 	return 0;
 }
 
+#ifdef MCTP_IN_KERNEL
+int mctp_nl_clean_up(uint8_t eid)
+{
+	int rc;
+
+	rc = mctp_nl_del_route(eid);
+	if (rc)
+		MCTP_CTRL_ERR("Failed to delete route for eid %d\n", eid);
+
+	rc = mctp_nl_del_neigh(eid);
+	if (rc)
+		MCTP_CTRL_ERR("Failed to delete neighbor for eid %d\n", eid);
+
+	return 0;
+}
+#endif
+
 /* To remove MCTP type entry by EID */
 int mctp_msg_type_entry_remove(uint8_t eid)
 {
 	mctp_msg_type_table_t *prev = NULL, *curr = NULL;
 	for (curr = g_msg_type_entries; curr; curr = curr->next) {
 		if (curr->eid == eid) {
+#ifdef MCTP_IN_KERNEL
+			mctp_nl_clean_up(curr->eid);
+#endif
 			if (prev)
 				prev->next = curr->next;
 			else
@@ -706,7 +760,9 @@ void mctp_msg_types_delete_all(void)
 
 		MCTP_CTRL_DEBUG("%s: Deleting msg type entry: EID[%d]\n",
 				__func__, del_entry->eid);
-
+#ifdef MCTP_IN_KERNEL
+		mctp_nl_clean_up(del_entry->eid);
+#endif
 		free(del_entry);
 	}
 }

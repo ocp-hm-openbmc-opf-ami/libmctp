@@ -297,7 +297,7 @@ static int mctp_spi_tx(struct mctp_binding_spi *spi, const uint8_t len,
 	MCTP_ASSERT_RET(len <= SPI_TX_BUFF_SIZE, -1, "spb_ap_send length: %id",
 			len);
 
-	mctp_trace_tx(spi->txbuf, len);
+	mctp_trace_tx(spi->txbuf, len, 0);
 	mctp_prdebug("spb_ap_send");
 
 	status = spb_ap_send(&spi->nvda_spb_ap, len, spi->txbuf);
@@ -454,7 +454,7 @@ static int mctp_spi_rx(struct mctp_binding_spi *spi)
 	MCTP_ASSERT_RET(spi_hdr_rx->command_code == MCTP_COMMAND_CODE, 0,
 			"Got bad command code %d", spi_hdr_rx->command_code);
 
-	mctp_trace_rx(spi->rxbuf, payload_len);
+	mctp_trace_rx(spi->rxbuf, payload_len, 0);
 
 	spi->rx_pkt = mctp_pktbuf_alloc(&(spi->binding), 0);
 	MCTP_ASSERT_RET(spi->rx_pkt != NULL, ERR_SPI_RX, "spi->rx_pkt is NULL");

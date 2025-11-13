@@ -34,3 +34,15 @@ option(
     value: 'disabled',
     description: '''Enable chalupa oem extension..'''
 )
+option(
+    'enable-c41a8-oem-extension',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable c41a8 oem extension..'''
+)
+option(
+    'mctp-in-kernel-enable',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the in kernel MCTP stack and disable the demux daemon communication'
+)

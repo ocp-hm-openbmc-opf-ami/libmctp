@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <systemd/sd-bus.h>
 #include "mctp-utils.h"
+#include "mctp-ctrl.h"
+#include "mctp-discovery-common.h"
+#include "mctp-sdbus.h"
+#include "mctp-ext-sdbus.h"
+#include "mctp-netlink.h"
 
 int host_reset = 0;
 int host_power = 0;
@@ -367,6 +372,20 @@ int mctp_deregister_host_state_signal() {
 	return 0;
 }
 
+int mctp_ctrl_handle_host_reset(mctp_ctrl_t *mctp_ctrl)
+{
+	MCTP_SYS_INFO("%s: Host reset detected. Clear all endpoints.\n", __func__);
+	mctp_ctrl_sdbus_object_remove_all_signal(mctp_ctrl->bus);	
+	mctp_routing_entry_delete_all();
+	mctp_uuid_delete_all();
+	mctp_vdm_delete_all();
+	mctp_msg_types_delete_all();
+	
+	/* Reset the host_power_changed flag after handling the reset */
+	host_power_changed = 0;
+	
+	return 0;
+}
 
 int mctp_check_host_reset_event()
 {

@@ -39,6 +39,9 @@ typedef enum {
 	MCTP_EP_DISCOVERY_REQUEST,
 	MCTP_EP_DISCOVERY_RESPONSE,
 
+	MCTP_DISCOVERY_NOTIFY_REQUEST,
+	MCTP_DISCOVERY_NOTIFY_RESPONSE,
+
 	MCTP_SET_EP_REQUEST,
 	MCTP_SET_EP_RESPONSE,
 
@@ -81,6 +84,7 @@ typedef struct mctp_msg_type_table {
 	bool enabled;	  /* Is the endpoint enabled? */
 	bool new; /* Use to indicate a newly discovered endpoint - To be published to D-Bus */
 	uint16_t data_len;
+	const char* binding_type;
 	uint8_t data[MCTP_MSG_TYPE_MAX_SIZE];
 	struct mctp_msg_type_table *next;
 	void* slot[MCTP_DBUS_SLOT_MAX_SIZE];

@@ -24,6 +24,9 @@
 #include "mctp-json.h"
 #include "libmctp-log.h"
 #include "libmctp-smbus.h"
+#include "ctrld/mctp-ctrl-cmdline.h"
+#include "ctrld/mctp-ctrl-log.h"
+#include "mctp-netlink.h"
 
 #define MCTP_JSON_CONFIG_MAX_SIZE (128 * 1024)
 
@@ -41,6 +44,8 @@ static int parse_num(const char *param)
 
 	return (int)num;
 }
+
+
 
 /**
  * @brief Open JSON file and parse string to json_object
@@ -939,6 +944,157 @@ int mctp_json_i2c_get_params_arp_ctrl(json_object *jo, uint8_t *bus_num,
 	return EXIT_SUCCESS;
 }
 
+#ifdef MCTP_IN_KERNEL
+
+static int parse_addr(const char *src, uint8_t *dest)
+{
+	int len = strlen(src) / 2;
+
+	for(int i = 0 ; i < len ; i++) {
+		sscanf(src + 2*i, "%2hhx", &dest[i]);
+	}
+
+	return len;
+}
+
+/**
+ * @brief Get common paramiters from json_object for mctp-ctrl
+ *        using kernel.
+ *
+ * @param[in]  jo - json_object got after parse string from JSON file
+ */
+void mctp_json_kernel_get_common_params_ctrl(json_object *jo,
+		void* cmdline_kernel)
+{
+	json_object *jo_kernel_struct;
+	json_object *jo_kernel_obj_main;
+	json_object *jo_kernel_obj_i, *jo_kernel_obj_j;
+	struct mctp_cmdline_kernel * kernel = (struct mctp_cmdline_kernel *) cmdline_kernel;
+
+	const char *string_val;
+	size_t i, j, k = 0;
+
+	jo_kernel_struct = json_object_object_get(jo, "kernel");
+	jo_kernel_obj_main = json_object_object_get(jo_kernel_struct, "interfaces");
+	size_t val_conf_kernel = json_object_array_length(jo_kernel_obj_main);
+
+	for (i = 0; i < val_conf_kernel; i++) {
+		uint8_t own_eid = 0;
+		uint8_t eid_pool_start = 0;
+		const char* interface_name;
+		uint16_t mtu = DEFAULT_MTU; 
+		const char* binding_type = NULL;
+
+		jo_kernel_struct = json_object_array_get_idx(jo_kernel_obj_main, i);
+
+		/* Get own EID */
+		jo_kernel_obj_i = json_object_object_get(jo_kernel_struct, "own_eid");
+		string_val = json_object_get_string(jo_kernel_obj_i);
+		own_eid =  parse_num(string_val);
+
+		jo_kernel_obj_i = json_object_object_get(jo_kernel_struct, "eid_pool_start");
+		string_val = json_object_get_string(jo_kernel_obj_i);
+		eid_pool_start = parse_num(string_val);
+
+		jo_kernel_obj_i =
+			json_object_object_get(jo_kernel_struct, "network_interface");
+		if (jo_kernel_obj_i != NULL) {
+			string_val = json_object_get_string(jo_kernel_obj_i);
+			interface_name = string_val;
+		} else 
+			continue;
+
+		jo_kernel_obj_i = json_object_object_get(
+			jo_kernel_struct, "device_role");
+		string_val =
+			json_object_get_string(jo_kernel_obj_i);
+
+		mctp_device_role_t device_role = strcmp(string_val, "static") == 0 ? MCTP_STATIC : 
+											strcmp(string_val, "endpoint") == 0 ? MCTP_ENDPOINT :
+											strcmp(string_val, "busowner") == 0 ? MCTP_BUSOWNER :
+											strcmp(string_val, "bridge") == 0 ? MCTP_BRIDGE : -1;
+											
+		/* Get destination slave address */
+		jo_kernel_obj_i = json_object_object_get(
+			jo_kernel_struct,
+			"src_slave_addr");
+		string_val = json_object_get_string(
+			jo_kernel_obj_i);
+		uint8_t src_slave_addr[MAX_ADDR_LEN];
+		uint8_t addr_len = parse_addr(string_val, src_slave_addr);
+
+		/* Get MTU */		
+		jo_kernel_obj_i = json_object_object_get(jo_kernel_struct, "mtu");
+		string_val = json_object_get_string(jo_kernel_obj_i);
+		mtu = (uint16_t)parse_num(string_val);
+
+		/* Get binding type */
+		jo_kernel_obj_i = json_object_object_get(jo_kernel_struct, "binding_type");
+		binding_type = json_object_get_string(jo_kernel_obj_i);
+
+		/* Get parameters for endpoints*/
+		jo_kernel_obj_i = json_object_object_get(jo_kernel_struct,
+								"endpoints");
+		size_t val_endpoints =
+			json_object_array_length(jo_kernel_obj_i);
+
+		for (j = 0; j < val_endpoints; j++) {
+
+			jo_kernel_struct = json_object_array_get_idx(
+				jo_kernel_obj_i, j);
+
+			jo_kernel_obj_j = json_object_object_get(
+				jo_kernel_struct, "eid_type");
+			string_val =
+				json_object_get_string(jo_kernel_obj_j);
+
+			if (strcmp(string_val, "static") == 0 ) {
+				kernel->binding[k].eid_type = 0;
+			} else 
+				continue;
+
+			kernel->binding[k].own_eid = own_eid;
+			kernel->binding[k].eid_pool_start = eid_pool_start;
+			kernel->binding[k].device_role = device_role;
+			kernel->binding[k].slave_addr_len = addr_len;
+			memcpy(kernel->binding[k].src_slave_addr, src_slave_addr, MAX_ADDR_LEN);
+			strcpy(kernel->binding[k].interface_name, interface_name);
+			kernel->binding[k].mtu = mtu;
+			strncpy(kernel->binding[k].binding, binding_type, sizeof(kernel->binding[k].binding) - 1);
+			kernel->binding[k].binding[sizeof(kernel->binding[k].binding) - 1] = '\0';
+
+			jo_kernel_obj_j = json_object_object_get(
+				jo_kernel_struct, "eid");
+			string_val = json_object_get_string(
+				jo_kernel_obj_j);
+			kernel->binding[k].eid = parse_num(string_val);
+
+			if (kernel->binding[k].device_role >= 0) {
+				/* Get destination slave address */
+				jo_kernel_obj_j = json_object_object_get(
+					jo_kernel_struct,
+					"dest_slave_addr");
+				string_val = json_object_get_string(
+					jo_kernel_obj_j);
+				addr_len = parse_addr(string_val, kernel->binding[k].dest_slave_addr);
+				kernel->binding[k].slave_addr_len = addr_len;
+			} else {
+				memset(kernel->binding[k].dest_slave_addr, 0x0, MAX_ADDR_LEN);
+				memset(kernel->binding[k].src_slave_addr, 0x0, MAX_ADDR_LEN);
+			}
+
+			if (++k >= MCTP_KERNEL_MAX_INTERFACES) {
+				break;
+			}
+		}
+		if (k >= MCTP_KERNEL_MAX_INTERFACES) {
+			break;
+		}
+	}
+	kernel->binding_len = k;
+}
+#endif
+
 /**
  * @brief Get paramiters for eid_type = bridge from json_object
  *        for mctp-ctrl using I2C.
@@ -1280,4 +1436,181 @@ void mctp_json_spi_get_params_ctrl(json_object *jo, char **sockname,
 		val_str = json_object_get_string(j_tmp);
 		memcpy(cmdline->uuid_str, val_str, strlen(val_str));
 	}
+}
+
+/**
+ * @brief Get paramiters from json_file_path for mctp-ctrl
+ *        using USB.
+ *
+ * @param[in] cmdline - struct for config setting with will be updated after
+ * parsing json file.
+ * @param[in] json_file_path - JSON file path
+ */
+int mctp_json_usb_get_params_ctrl(mctp_cmdline_args_t *cmdline,
+				  const char *json_file_path)
+{
+	json_object *json = NULL, *obj = NULL, *attr = NULL;
+	char bus_port_path[MCTP_USB_PORT_PATH_MAX_LEN] = { 0 };
+	struct mctp_cmdline_usb *usb = &cmdline->usb;
+	int rc;
+
+	/* No need to parse from json file */
+	if (!json_file_path)
+		return EXIT_SUCCESS;
+
+	rc = mctp_json_get_tokener_parse(&json, json_file_path);
+	if (rc == EXIT_FAILURE) {
+		MCTP_ERR("Failed to get Json tokener\n");
+		return EXIT_FAILURE;
+	}
+
+	obj = json_object_object_get(json, "usb");
+	if (obj == NULL) {
+		MCTP_ERR("Failed to get usb object\n");
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+
+	/* Format the string as "<bus_id>-<port_path>" */
+	rc = snprintf(bus_port_path, sizeof(bus_port_path), "%d-%s",
+		      usb->bus_id, usb->port_path);
+
+	if (rc < 0 || (size_t)rc >= sizeof(bus_port_path)) {
+		fprintf(stderr,
+			"Buffer size is too small to hold the combined string\n");
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+	rc = EXIT_SUCCESS;
+
+	obj = json_object_object_get(obj, bus_port_path);
+	if (obj == NULL) {
+		MCTP_ERR("Failed to get usb port path object:%s\n",
+			 bus_port_path);
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+
+	attr = json_object_object_get(obj, "own_eid");
+	if (attr == NULL) {
+		MCTP_ERR("Failed to get own_eid\n");
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+	usb->own_eid = json_object_get_int(attr);
+
+	attr = json_object_object_get(obj, "bridge_eid");
+	if (attr == NULL) {
+		MCTP_ERR("Failed to get bridge_eid\n");
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+	usb->bridge_eid = json_object_get_int(attr);
+
+	attr = json_object_object_get(obj, "bridge_pool_start");
+	if (attr == NULL) {
+		MCTP_ERR("Failed to get bridge_pool_start\n");
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+	usb->bridge_pool_start = json_object_get_int(attr);
+
+	attr = json_object_object_get(obj, "get_eid_max_fails");
+	if (attr != NULL) {
+		usb->get_eid_max_fails = json_object_get_int(attr);
+	}
+
+	attr = json_object_object_get(obj, "perform_device_reset");
+	if (attr != NULL) {
+		usb->perform_device_reset = json_object_get_boolean(attr);
+	}
+
+	/* Parse optional ignore_eids array */
+	attr = json_object_object_get(obj, "ignore_eids");
+	if (attr != NULL) {
+		size_t num_eids = json_object_array_length(attr);
+		size_t i;
+
+		/* Initialize ignore_eids array */
+		memset(cmdline->ignore_eids, 0, sizeof(cmdline->ignore_eids));
+		cmdline->ignore_eids_len = 0;
+
+		/* Copy valid EIDs (0-255) to the array */
+		for (i = 0; i < num_eids && i < MCTP_MAX_IGNORE_EID_LEN; i++) {
+			int eid = json_object_get_int(
+				json_object_array_get_idx(attr, i));
+			if (eid >= 0 && eid <= 255) {
+				cmdline->ignore_eids[cmdline->ignore_eids_len++] =
+					(uint8_t)eid;
+			} else {
+				MCTP_ERR(
+					"Invalid EID value %d in ignore_eids array (must be 0-255)\n",
+					eid);
+			}
+		}
+
+		if (i < num_eids) {
+			MCTP_ERR(
+				"Warning: Some ignore_eids were truncated (max %d allowed)\n",
+				MCTP_MAX_IGNORE_EID_LEN);
+		}
+	}
+
+exit:
+	json_object_put(json);
+	return rc;
+}
+
+/**
+ * @brief Get paramiters from cfg->json_file_path for mctp-demux-daemon
+ *        using USB.
+ */
+int mctp_json_usb_get_params_demux(mctp_usb_dev_cfg_t *cfg,
+				   const char *json_file_path)
+{
+	json_object *json, *obj;
+	char bus_port_path[MCTP_USB_PORT_PATH_MAX_LEN] = { 0 };
+	int rc;
+
+	/* No need to parse from json file */
+	if (!json_file_path)
+		return EXIT_SUCCESS;
+
+	rc = mctp_json_get_tokener_parse(&json, json_file_path);
+	if (rc == EXIT_FAILURE) {
+		MCTP_ERR("Failed to get Json tokener\n");
+		return EXIT_FAILURE;
+	}
+
+	obj = json_object_object_get(json, "usb");
+	if (obj == NULL) {
+		MCTP_ERR("Failed to get usb object\n");
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+
+	// Format the string as "<bus_id>-<port_path>"
+	rc = snprintf(bus_port_path, sizeof(bus_port_path), "%d-%s",
+		      cfg->bus_id, cfg->port_path);
+
+	// Check if the result fits in the buffer
+	if (rc < 0 || (size_t)rc >= sizeof(bus_port_path)) {
+		fprintf(stderr,
+			"Buffer size is too small to hold the combined string\n");
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+	rc = EXIT_SUCCESS;
+
+	obj = json_object_object_get(obj, bus_port_path);
+	if (obj == NULL) {
+		MCTP_ERR("Failed to get usb port path object:%s\n",
+			 bus_port_path);
+		rc = EXIT_FAILURE;
+		goto exit;
+	}
+
+exit:
+	json_object_put(json);
+	return rc;
 }
