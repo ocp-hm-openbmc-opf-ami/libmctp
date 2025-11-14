@@ -1,4 +1,3 @@
-
 #include <bits/time.h>
 #define _GNU_SOURCE
 
@@ -119,8 +118,13 @@ int64_t mctp_ext_millis()
 	return ((int64_t)now.tv_sec) * 1000 + ((int64_t)now.tv_nsec) / 1000000;
 }
 
-int mctp_get_sys_verbose_level() {
-    char buffer[2];
+const char * mctp_get_sys_trace_module(char binding_type) 
+{
+	return phy_transport_binding_to_string(binding_type);
+}
+
+int mctp_get_sys_verbose_level(const char* module) {
+    char buffer[1024];
 
     int fd = open(MCTP_TRACE_FILE_PATH, O_RDONLY);
     if (fd < 0) {
@@ -134,20 +138,127 @@ int mctp_get_sys_verbose_level() {
         buffer[bytes_read] = '\0';
     }
 
-	if (isdigit(buffer[0])) {
-	    level = buffer[0] - '0';
-	} else {
-		level = buffer[0];
-	}
+	const char s[3] = ", ";  // Delimiter
+	char *token;
 
-	if (!(level > MCTP_SYS_LOG_NONE && level <= MCTP_SYS_LOG_TRACE))
-	    level = 0;
+	// Get the first token
+	token = strtok(buffer, s);
+
+	// Walk through the rest of the tokens
+	while (token != NULL) {
+		// Remove leading and trailing whitespace from token
+		while (*token == ' ' || *token == '\t') token++;
+		
+		// Check for colon separator
+		char *colon = strchr(token, ':');
+		if (colon != NULL) {
+			// Format: "PCIe:4" or "PCIe:8:29"
+			*colon = '\0';  // Temporarily split the string
+			if (strcmp(module, token) == 0) {
+				char *level_str = colon + 1;
+				// Remove leading whitespace from level string
+				while (*level_str == ' ' || *level_str == '\t') level_str++;
+				
+				// Check for second colon (for EID specification)
+				char *second_colon = strchr(level_str, ':');
+				if (second_colon != NULL) {
+					// Format: "PCIe:8:29" - has specified EID
+					*second_colon = '\0';
+				}
+				
+				if (isdigit(*level_str)) {
+					level = *level_str - '0';
+				} else {
+					level = 3;  // Default to INFO level
+				}
+				
+				if (!(level > MCTP_SYS_LOG_NONE && level <= MCTP_SYS_LOG_TRACE))
+					level = 0;
+
+				MCTP_SYS_DEBUG("change debug level %s %d\n", module, level);
+				
+				// Restore modified string
+				if (second_colon != NULL) {
+					*second_colon = ':';
+				}
+				break;
+			}
+			*colon = ':';  // Restore original string
+		}
+		token = strtok(NULL, s);
+	}
 
     close(fd);
 	return level;
 }
 
-int mctp_handle_sys_trace_event() 
+int mctp_get_sys_target_eid(const char* module) {
+    char buffer[1024];
+
+    int fd = open(MCTP_TRACE_FILE_PATH, O_RDONLY);
+    if (fd < 0) {
+        MCTP_SYS_ERR("mctp_get_sys_target_eid open fail!\n");
+        return -1;  // Return -1 indicates no specified EID or file open failed
+    }
+
+    ssize_t bytes_read;
+	int target_eid = 0;  // Default no specified EID
+    while ((bytes_read = read(fd, buffer, sizeof(buffer) - 1)) > 0) {
+        buffer[bytes_read] = '\0';
+    }
+
+	const char s[3] = ", ";  // Delimiter
+	char *token;
+
+	// Get the first token
+	token = strtok(buffer, s);
+
+	// Walk through the rest of the tokens
+	while (token != NULL) {
+		// Remove leading and trailing whitespace from token
+		while (*token == ' ' || *token == '\t') token++;
+		
+		// Check for colon separator
+		char *colon = strchr(token, ':');
+		if (colon != NULL) {
+			// Format: "PCIe:4" or "PCIe:8:29"
+			*colon = '\0';  // Temporarily split the string
+			if (strcmp(module, token) == 0) {
+				char *level_str = colon + 1;
+				// Remove leading whitespace from level string
+				while (*level_str == ' ' || *level_str == '\t') level_str++;
+				
+				// Check for second colon (for EID specification)
+				char *second_colon = strchr(level_str, ':');
+				if (second_colon != NULL) {
+					// Format: "PCIe:8:29" - has specified EID
+					char *eid_str = second_colon + 1;
+					// Remove leading whitespace from EID string
+					while (*eid_str == ' ' || *eid_str == '\t') eid_str++;
+					
+					// Parse EID (support decimal and hexadecimal)
+					if (eid_str[0] == '0' && (eid_str[1] == 'x' || eid_str[1] == 'X')) {
+						// Hexadecimal format: 0x1d
+						target_eid = (int)strtol(eid_str, NULL, 16);
+					} else if (isdigit(*eid_str)) {
+						// Decimal format: 29
+						target_eid = (int)strtol(eid_str, NULL, 10);
+					}
+					
+					MCTP_SYS_DEBUG("Found target EID %s %d\n", module, target_eid);
+				}
+				break;
+			}
+			*colon = ':';  // Restore original string
+		}
+		token = strtok(NULL, s);
+	}
+
+    close(fd);
+	return target_eid;
+}
+
+int mctp_handle_sys_trace_event(const char* module) 
 {
     char buffer[BUF_LEN];
     int length, i = 0;
@@ -172,14 +283,14 @@ int mctp_handle_sys_trace_event()
 				if (event->mask & IN_ISDIR) {
 					MCTP_SYS_DEBUG("The directory %s was created.\n", event_name);
 				} else if(strstr(event_name, MCTP_TRACE_FILE)) {
-					return mctp_get_sys_verbose_level();
+					return mctp_get_sys_verbose_level(module);
 				}
 			}
 			if (event->mask & IN_MODIFY) {
 				if (event->mask & IN_ISDIR) {
 					MCTP_SYS_DEBUG("The directory %s was modified.\n", event_name);
 				} else if(strstr(event_name, MCTP_TRACE_FILE)) {
-					return mctp_get_sys_verbose_level();
+					return mctp_get_sys_verbose_level(module);
 				}
 			}
 			if (event->mask & IN_DELETE) {

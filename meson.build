@@ -9,6 +9,7 @@ comp = meson.get_compiler('c')
 
 add_project_arguments('-Werror', language: ['c', 'cpp'])
 add_project_arguments('-Wall', language: ['c', 'cpp'])
+add_project_arguments('-Wno-pointer-arith', language: ['c', 'cpp'])
 add_project_arguments('-DMCTP_LOG_STDERR', language: ['c', 'cpp'])
 add_project_arguments('-DMCTP_HAVE_FILEIO', language: ['c', 'cpp'])
 add_project_arguments('-DMCTP_HAVE_STDIO', language: ['c', 'cpp'])
@@ -31,7 +32,9 @@ sources = [
   'serial.c',
   'smbus.c',
   'mctp-json.c',
-  'mctp-socket.c'
+  'mctp-socket.c',
+  'mctp-netlink.c',
+  'ctrld/mctp-oem-extensions.c'
 ]
 
 json_c = declare_dependency(dependencies: [comp.find_library('json-c')])
@@ -57,6 +60,10 @@ endif
 if get_option('enable-mockup-endpoint').enabled()
   summary('enable-mockup-endpoint','-DMOCKUP_ENDPOINT', section : 'Enabled mockup endpoint')
   add_project_arguments('-DMOCKUP_ENDPOINT', language: ['c', 'cpp'])
+endif
+
+if get_option('mctp-in-kernel-enable').enabled()
+    add_project_arguments('-DMCTP_IN_KERNEL', language: ['c', 'cpp'])
 endif
 
 conf_data = configuration_data()
@@ -91,7 +98,9 @@ install_headers(
   'ctrld/mctp-ctrl-cmdline.h',
   'ctrld/mctp-ctrl.h',
   'ctrld/mctp-ctrl-cmds.h',
+  'ctrld/mctp-ctrl-usb.h',
   'ctrld/mctp-discovery-common.h',
+  'ctrld/mctp-oem-extensions.h',
   'mctp-common-api/mctp-discovery-endpoint.h',
   'mctp-common-api/mctp-discovery-busowner.h',
   'mctp-common-api/mctp-utils.h'
@@ -213,4 +222,8 @@ endif
 
 if get_option('enable-bhs-oem-extension').enabled()
 subdir('oem-mctp-pdk-bhs')
+endif
+
+if get_option('enable-c41a8-oem-extension').enabled()
+subdir('oem-mctp-pdk-c41a8')
 endif

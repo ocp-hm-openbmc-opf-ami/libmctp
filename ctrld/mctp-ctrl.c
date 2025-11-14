@@ -17,6 +17,7 @@
 /* SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later */
 
 #include <bits/time.h>
+#include <ctype.h>
 #define _GNU_SOURCE
 
 #include <assert.h>
@@ -67,6 +68,14 @@
 #ifdef MOCKUP_ENDPOINT
 #include "fsdyn-endpoint.h"
 #endif
+#ifdef MCTP_IN_KERNEL
+#include "mctp-netlink.h"
+#include "mctp-common-api/mctp-discovery-kernel.h"
+#endif
+#ifdef ENABLE_USB
+#include "mctp-ctrl-usb.h"
+#endif
+
 #include <dirent.h>
 #include "mctp-oem-extensions.h"
 #include "mctp-common-api/mctp-share-mutex.h"
@@ -92,8 +101,16 @@ uint8_t g_verbose_level = 0;
 static pthread_t g_keepalive_thread = 0;
 extern const uint8_t MCTP_MSG_TYPE_HDR;
 extern const uint8_t MCTP_CTRL_MSG_TYPE;
-
+#ifdef MCTP_IN_KERNEL
+#define MCTP_KERNEL_SOCK_PATH "AF_MCTP"
+char *mctp_sock_path = MCTP_KERNEL_SOCK_PATH;
+#else
 char *mctp_sock_path = NULL;
+#endif
+
+/* 21 character for portpath + 14 for prefix sock name + 
+end padding to avoid overflow*/
+char usb_sock_path[2 * MCTP_USB_PORT_PATH_MAX_LEN] = MCTP_SOCK_PATH_USB;
 const char *mctp_medium_type;
 
 // Table with destination EIDs
@@ -108,7 +125,13 @@ int g_mon_fd = -1;
 int g_disc_timer_fd = -1;
 static sd_bus *g_sdbus = NULL;
 
+mctp_eid_t local_eid;
+/* State for GetEID Polling Failure Tracking */
+static int get_eid_failure_count = 0;
+static bool get_eid_bridge_eid_unavailable = false;
+
 static uint8_t chosen_eid_type = EID_TYPE_BRIDGE;
+extern int command_line_mode;
 
 extern void mctp_routing_entry_delete_all(void);
 extern void mctp_uuid_delete_all(void);
@@ -121,6 +144,50 @@ mctp_i2c_discover_endpoints(const mctp_cmdline_args_t *cmd, mctp_ctrl_t *ctrl);
 extern void *mctp_spi_keepalive_event(void *arg);
 extern mctp_ret_codes_t
 mctp_spi_discover_endpoint(const mctp_cmdline_args_t *cmd, mctp_ctrl_t *ctrl);
+
+#ifdef MCTP_IN_KERNEL
+int fill_interface_info(mctp_binding_ids_t binding_type, char *pattern,
+			uint8_t *phy_addr, uint8_t phy_addlen, uint8_t ifeid)
+{
+	char ifname[MAX_INTERFACE_LEN];
+	int rc = 0;
+
+	memset(ifname, '\0', MAX_INTERFACE_LEN);
+	if (ifeid < MIN_EID) {
+		MCTP_CTRL_WARN(
+			"%s ifeid (%d) should be greater than MIN_EID (8)\n",
+			__func__, ifeid);
+		ifeid = MIN_EID;
+	}
+
+	if (binding_type == MCTP_BINDING_USB ||
+	    binding_type == MCTP_BINDING_SPI) {
+		/* Can get ifindex via alternate as well*/
+		memcpy(ifname, pattern, MAX_INTERFACE_LEN - 1);
+		ifname[MAX_INTERFACE_LEN - 1] = '\0';
+		memset(phy_addr, 0x0, MAX_ADDR_LEN);
+		phy_addlen = 0;
+	} else if (binding_type == MCTP_BINDING_SMBUS ||
+		binding_type == MCTP_BINDING_KERNEL ) {
+		/* Ignore as SMBUS/I2c will be filled during discovery*/
+		return 0;
+	}
+
+	if (update_interface_info(ifname, phy_addr, phy_addlen, ifeid, MCTP_DEFAULT_NET, DEFAULT_MTU) < 0) {
+		MCTP_CTRL_ERR("%s failed to update interface info\n", __func__);
+		return -1;
+	}
+
+	if ((rc = mctp_nl_socket_init()) < 0) {
+		MCTP_CTRL_ERR(
+			"%s failed to setup nl_socket for %s eid %d rc [%d]\n",
+			__func__, ifname, ifeid, rc);
+		return -1;
+	}
+
+	return 0;
+}
+#endif
 
 #ifdef MOCKUP_ENDPOINT
 // Create selected endpoint
@@ -175,8 +242,20 @@ static const fsdyn_ep_ops_t fmon_emulation_fops = {
 };
 #endif
 
-static void mctp_ctrl_clean_up(void)
+static void mctp_ctrl_clean_up(mctp_ctrl_t *mctp_ctrl)
 {
+	(void)mctp_ctrl;
+#ifdef ENABLE_USB
+	mctp_binding_ids_t binding_type = mctp_ctrl_get_binding_type(mctp_ctrl);
+
+	switch (binding_type) {
+	case MCTP_BINDING_USB:
+		mctp_ctrl_usb_hotplug_exit(mctp_ctrl->pvt_binding_data);
+		break;
+	default:
+		break;
+	};
+#endif
 	/* Make sure opened threads are closed */
 	if (g_keepalive_thread != 0) {
 		pthread_kill(g_keepalive_thread, SIGUSR2);
@@ -208,7 +287,7 @@ static void mctp_ctrl_clean_up(void)
 	mctp_msg_types_delete_all();
 
 }
-
+#ifndef MCTP_IN_KERNEL
 mctp_requester_rc_t
 mctp_msg_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
 			      const uint8_t *mctp_req_msg, size_t req_msg_len,
@@ -242,11 +321,11 @@ mctp_msg_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
 	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
 
 	mctp_trace_common("mctp_bind_id  >> ", (uint8_t *)bind_id,
-			       sizeof(uint8_t));
+			       sizeof(uint8_t), dest_eid);
 	mctp_trace_common("mctp_pvt_data >> ", mctp_binding_info,
-			       mctp_binding_len);
-	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr));
-	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len);
+			       mctp_binding_len, dest_eid);
+	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr), dest_eid);
+	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len, dest_eid);
 
 	ssize_t rc = sendmsg(mctp_fd, &msg, 0);
 	MCTP_ASSERT_RET(rc >= 0, MCTP_REQUESTER_SEND_FAIL,
@@ -285,11 +364,11 @@ mctp_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
 	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
 
 	mctp_trace_common("mctp_bind_id  >> ", (uint8_t *)bind_id,
-			  sizeof(uint8_t));
+			  sizeof(uint8_t), dest_eid);
 	mctp_trace_common("mctp_pvt_data >> ", mctp_binding_info,
-			  mctp_binding_len);
-	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr));
-	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len);
+			  mctp_binding_len, dest_eid);
+	mctp_trace_common("mctp_req_hdr  >> ", hdr, sizeof(hdr), dest_eid);
+	mctp_trace_common("mctp_req_msg  >> ", mctp_req_msg, req_msg_len, dest_eid);
 
 	ssize_t rc = sendmsg(mctp_fd, &msg, 0);
 	MCTP_ASSERT_RET(rc >= 0, MCTP_REQUESTER_SEND_FAIL,
@@ -297,6 +376,7 @@ mctp_client_with_binding_send(mctp_eid_t dest_eid, int mctp_fd,
 
 	return MCTP_REQUESTER_SUCCESS;
 }
+#endif
 
 static const struct option g_options[] = {
 	{ "verbose", no_argument, 0, 'v' },
@@ -325,12 +405,20 @@ static const struct option g_options[] = {
 	{ "cmd_mode", required_argument, 0, 'x' },
 	{ "mctp-iana-vdm", required_argument, 0, 'i' },
 
+	/* USB specific options */
+	{ "get_eid_timer", required_argument, 0, 'g' },
+	{ "perform_device_reset", no_argument, false, 'W' },
+	{ "get-eid-max-fails", required_argument, 0, 'K' },
+
+	/* USB specific options */
+	{ "port_path", required_argument, 0, 'w' },
+
 	{ "help", optional_argument, 0, 'h' },
 	{ 0 },
 };
 
 static const char *const short_options =
-	"v:c:e:m:t:d:s:r:b:f:n:u:a:i:j:p:q:x:y:h::";
+	"v:c:e:m:t:d:s:r:b:f:n:u:a:i:j:p:q:x:y:z:w:k:l:oh:g:WK:h::";
 
 static void usage(void)
 {
@@ -417,7 +505,15 @@ static void usage_usb(void)
 		"\t-i\t usb own eid\n"
 		"\t-p\t usb bridge eid\n"
 		"\t-x\t usb bridge pool start eid\n"
+		"\t-w\t port path of device <busid>-<port1>.<port2> eg 1-2.3 \n"
 		"\t-c\t option to remove duplicate EID entries from the routing table\n"
+		"\t-z\t option to ignore certain EID entries from the routing table"
+		" supplied as a space separated list in decimal\n"
+		"\t-g\t Time interval for polling getEID from FPGA in seconds. 0 to disable polling. 1s by default\n"
+		"\t-W\t Perform reset of the device (e.g., for FPGA bridge). Default: no reset.\n"
+		"\t-K\t Max GetEID consecutive failures before marking EID unavailable\n"
+		"\t-k\t vendor ID of USB device in hex (0x)\n"
+		"\t-l\t product ID of USB device in hex (0x)\n"
 		"To send MCTP message for USB binding type\n"
 		"Eg: Prepare for Endpoint Discovery\n");
 }
@@ -433,9 +529,10 @@ static int do_mctp_cmdline(const mctp_cmdline_args_t *cmd, int sock_fd)
 {
 	mctp_requester_rc_t mctp_ret;
 	size_t resp_msg_len;
-	uint8_t *mctp_resp_msg;
+	uint8_t *mctp_resp_msg = NULL;
 	struct mctp_astpcie_pkt_private pvt_binding;
 	struct mctp_smbus_pkt_private pvt_binding_smbus;
+	struct mctp_usb_pkt_private pvt_binding_usb = { 0 };
 	int64_t t_start, t_end;
 	int retry = 0;
 
@@ -499,7 +596,8 @@ static int do_mctp_cmdline(const mctp_cmdline_args_t *cmd, int sock_fd)
 				MCTP_CTRL_ERR("%s: Failed to send message..\n",
 					      __func__);
 			}
-		} else if (cmd->binding_type == MCTP_BINDING_SMBUS) {
+		} else if (cmd->binding_type == MCTP_BINDING_SMBUS ||
+					cmd->binding_type == MCTP_BINDING_KERNEL) {
 			memcpy(&pvt_binding_smbus, &cmd->bind_info,
 			       sizeof(struct mctp_smbus_pkt_private));
 
@@ -515,6 +613,18 @@ static int do_mctp_cmdline(const mctp_cmdline_args_t *cmd, int sock_fd)
 				(const uint8_t *)cmd->tx_data, cmd->tx_len,
 				&cmd->binding_type, (void *)&pvt_binding_smbus,
 				sizeof(pvt_binding_smbus));
+
+			if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
+				MCTP_CTRL_ERR("%s: Failed to send message..\n",
+					      __func__);
+			}
+		} else if (cmd->binding_type == MCTP_BINDING_USB) {
+			/* Send the request message over socket */
+			mctp_ret = mctp_client_with_binding_send(
+				cmd->dest_eid, sock_fd,
+				(const uint8_t *)cmd->tx_data, cmd->tx_len,
+				&cmd->binding_type, (void *)&pvt_binding_usb,
+				sizeof(pvt_binding_usb));
 
 			if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
 				MCTP_CTRL_ERR("%s: Failed to send message..\n",
@@ -567,12 +677,15 @@ static int do_mctp_cmdline(const mctp_cmdline_args_t *cmd, int sock_fd)
 			t_start = t_end;
 		} else {
 			/* End time */
-			t_end = mctp_millis();
+			t_end = mctp_millis();		
 
 			printf("%s: Successfully received message\n", __func__);
 			break;
 		}
 	}
+
+	if (mctp_resp_msg)
+		free(mctp_resp_msg);
 
 	printf("Command Done in [%zu] ms\n", (size_t)(t_end - t_start));
 
@@ -783,6 +896,7 @@ static int exec_command_line_mode(const mctp_cmdline_args_t *cmdline,
 				  mctp_ctrl_t *mctp_ctrl)
 {
 	int rc, fd;
+	command_line_mode = 1;
 
 	MCTP_CTRL_INFO("%s: Run mode: Commandline mode\n", __func__);
 	mctp_set_log_stdio(cmdline->verbose ? MCTP_LOG_DEBUG :
@@ -798,7 +912,10 @@ static int exec_command_line_mode(const mctp_cmdline_args_t *cmdline,
 		}
 	} else if (cmdline->binding_type == MCTP_BINDING_USB) {
 		MCTP_CTRL_DEBUG("%s: Setting up USB socket\n", __func__);
-		mctp_sock_path = MCTP_SOCK_PATH_USB;
+		int len = strlen(&usb_sock_path[1]);
+		snprintf(usb_sock_path + len + 1, sizeof(usb_sock_path) - len,
+			 "-%d-%s", cmdline->usb.bus_id, cmdline->usb.port_path);
+		mctp_sock_path = usb_sock_path;
 	} else if (cmdline->binding_type == MCTP_BINDING_SPI) {
 		MCTP_CTRL_DEBUG("%s: Setting up SPI socket\n", __func__);
 		mctp_sock_path = MCTP_SOCK_PATH_SPI;
@@ -881,13 +998,24 @@ static int open_mctp_sock(const mctp_cmdline_args_t *cmdline,
 					  MCTP_CTRL_TXRX_TIMEOUT_5SECS);
 	} else if (cmdline->binding_type == MCTP_BINDING_USB) {
 		MCTP_CTRL_INFO("%s: Binding type: USB\n", __func__);
-		mctp_sock_path = MCTP_SOCK_PATH_USB;
+		snprintf(usb_sock_path + strlen(&usb_sock_path[1]) + 1,
+			 sizeof(usb_sock_path) - strlen(&usb_sock_path[1]),
+			 "-%d-%s", cmdline->usb.bus_id, cmdline->usb.port_path);
+		mctp_sock_path = usb_sock_path;
 		mctp_medium_type = "USB";
 
 		/* Open the user socket file-descriptor */
 		rc = mctp_usr_socket_init(&fd, mctp_sock_path,
 					  MCTP_CTRL_MSG_TYPE,
 					  MCTP_CTRL_TXRX_TIMEOUT_5SECS);
+	} else if (cmdline->binding_type == MCTP_BINDING_KERNEL) {
+		MCTP_CTRL_INFO("%s: Binding type: KERNEL\n", __func__);
+		mctp_medium_type = "KERNEL_BINDING";
+
+		/* Open the user socket file-descriptor */
+		rc = mctp_usr_socket_init(&fd, mctp_sock_path,
+					  MCTP_CTRL_MSG_TYPE,
+					  MCTP_CTRL_TXRX_TIMEOUT_5SECS);					  
 	} else {
 		MCTP_CTRL_ERR("Unknown binding type: %d\n",
 			      cmdline->binding_type);
@@ -977,13 +1105,14 @@ static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 				mctp_err_ret = mctp_discover_endpoints(
 					cmdline, mctp_ctrl,
 					MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST);
-			else if (cmdline->pcie.mode == 1)
+			else if (cmdline->pcie.mode == 1) 
 				mctp_err_ret = mctp_endpoint_mode_discover_endpoints(cmdline,
 										mctp_ctrl);
 			else if (cmdline->pcie.mode == 2)
 				mctp_err_ret = mctp_busowner_mode_discover_endpoints(cmdline,
 										mctp_ctrl);
 		}
+		local_eid = mctp_ctrl->local_eid;
 		if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
 			MCTP_CTRL_ERR("MCTP-Ctrl discovery unsuccessful\n");
 #ifdef MOCKUP_ENDPOINT
@@ -991,7 +1120,7 @@ static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 				// discovery failure is allowed when mocking up EID
 				return EXIT_SUCCESS;
 			}
-			mctp_ctrl_clean_up();
+			mctp_ctrl_clean_up(mctp_ctrl);
 #endif
 			if (cmdline->pcie.mode == 0)
 				return EXIT_FAILURE;
@@ -1067,10 +1196,24 @@ static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 			MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST);
 		if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
 			MCTP_CTRL_ERR("MCTP-Ctrl discovery unsuccessful\n");
-			mctp_ctrl_clean_up();
+			mctp_ctrl_clean_up(mctp_ctrl);
 			return EXIT_FAILURE;
 		}
+	} 
+#ifdef MCTP_IN_KERNEL
+	else if (cmdline->binding_type == MCTP_BINDING_KERNEL) {
+		/* Make sure all EID options are available from commandline */
+		/* Discover endpoints via USB*/
+		MCTP_CTRL_INFO("%s: Start KERNEL Discovery\n", __func__);
+		mctp_err_ret = mctp_kernel_discover_static_pool_endpoint(
+			cmdline, mctp_ctrl);
+		if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
+			MCTP_CTRL_ERR("MCTP-Ctrl discovery unsuccessful\n");
+			//mctp_ctrl_clean_up();
+			//return EXIT_FAILURE;
+		}
 	}
+#endif
 
 	return EXIT_SUCCESS;
 }
@@ -1130,6 +1273,8 @@ static void parse_smbus_json_config(char *config_json_file_path,
 	chosen_eid_type = mctp_json_get_eid_type(parsed_json, "smbus",
 						 &cmdline->i2c.bus_num);
 
+	i2c_mutex_open(cmdline->i2c.bus_num);
+
 	switch (chosen_eid_type) {
 	case EID_TYPE_BRIDGE:
 		MCTP_CTRL_INFO("[%s] Use bridge endpoint", __func__);
@@ -1176,6 +1321,29 @@ static void parse_smbus_json_config(char *config_json_file_path,
 	json_object_put(parsed_json);
 }
 
+#ifdef MCTP_IN_KERNEL
+static void parse_kernel_json_config(char *config_json_file_path,
+				    mctp_cmdline_args_t *cmdline)
+{
+	json_object *parsed_json;
+	int rc;
+	rc = mctp_json_get_tokener_parse(&parsed_json, config_json_file_path);
+
+	if (rc == EXIT_FAILURE) {
+		MCTP_CTRL_ERR("[%s] Json tokener parse fail\n", __func__);
+		exit(EXIT_FAILURE);
+	}
+
+	// Get common parameters
+	mctp_json_kernel_get_common_params_ctrl(
+		parsed_json, 
+		&cmdline->kernel);
+
+	// free parsed json object
+	json_object_put(parsed_json);
+}
+#endif
+
 static void parse_spi_json_config(char *config_json_file_path,
 				  mctp_cmdline_args_t *cmdline)
 {
@@ -1195,6 +1363,12 @@ static void parse_spi_json_config(char *config_json_file_path,
 	json_object_put(parsed_json);
 }
 
+static int parse_usb_json_config(mctp_cmdline_args_t *cmdline,
+				 const char *json_file_path)
+{
+	return mctp_json_usb_get_params_ctrl(cmdline, json_file_path);
+}
+
 static void parse_command_line(int argc, char *const *argv,
 			       mctp_cmdline_args_t *cmdline,
 			       mctp_ctrl_t *mctp_ctrl)
@@ -1203,10 +1377,12 @@ static void parse_command_line(int argc, char *const *argv,
 
 	cmdline->verbose = false;
 	cmdline->use_json = false;
+	cmdline->get_eid_timer = 0;
 	cmdline->binding_type = MCTP_BINDING_RESERVED;
 	cmdline->delay = MCTP_CTRL_DELAY_DEFAULT;
 	cmdline->ops = MCTP_CMDLINE_OP_WRITE_DATA;
 	cmdline->dest_eid = 8;
+	cmdline->exit_on_discovery_fail = false;
 
 	memset(&cmdline->tx_data, 0, MCTP_WRITE_DATA_BUFF_SIZE);
 	memset(&cmdline->rx_data, 0, MCTP_READ_DATA_BUFF_SIZE);
@@ -1239,7 +1415,7 @@ static void parse_command_line(int argc, char *const *argv,
 		case 'v':
 			cmdline->verbose = true;
 			g_verbose_level = cmdline->verbose;
-			mctp_set_tracing_enabled(cmdline->verbose);
+			mctp_set_tracing_enabled(cmdline->verbose, 0);
 			mctp_set_sys_verbose_level(MCTP_SYS_LOG_DEBUG);
 			MCTP_CTRL_INFO("%s: Verbose level:%d\n", __func__,
 				       cmdline->verbose);
@@ -1325,6 +1501,73 @@ static void parse_command_line(int argc, char *const *argv,
 				command_mode = atoi(optarg);
 			}
 			break;
+		case 'g':
+			if (cmdline->binding_type == MCTP_BINDING_USB) {
+				cmdline->get_eid_timer = (uint8_t)atoi(optarg);
+				MCTP_CTRL_INFO("%s: getEid timer: %d\n",
+					       __func__,
+					       cmdline->get_eid_timer);
+			}
+			break;
+		case 'W':
+			if (cmdline->binding_type == MCTP_BINDING_USB) {
+				cmdline->usb.perform_device_reset = true;
+				MCTP_CTRL_INFO(
+					"%s: Perform FPGA reset: %u\n",
+					__func__,
+					cmdline->usb.perform_device_reset);
+			}
+			break;
+		case 'K':
+			if (cmdline->binding_type == MCTP_BINDING_USB) {
+				cmdline->usb.get_eid_max_fails =
+					(uint8_t)atoi(optarg);
+				MCTP_CTRL_INFO(
+					"%s: GetEID max failures in window: %u\n",
+					__func__,
+					cmdline->usb.get_eid_max_fails);
+			}
+			break;
+		case 'w':
+			if (cmdline->binding_type == MCTP_BINDING_USB) {
+				//get busid from port path which is separated via -
+				size_t port_path_len;
+				char recv_usb_path[2 *
+						   MCTP_USB_PORT_PATH_MAX_LEN];
+				strncpy(recv_usb_path, optarg,
+					2 * MCTP_USB_PORT_PATH_MAX_LEN - 1);
+				char *hyphen_pos = strchr(recv_usb_path, '-');
+				if (hyphen_pos) {
+					char *start = recv_usb_path;
+					*hyphen_pos = '\0';
+					cmdline->usb.bus_id = atoi(start);
+				} else {
+					MCTP_CTRL_INFO(
+						"%s: No Bus id in port path: %s\n",
+						__func__, optarg);
+					exit(EXIT_FAILURE);
+				}
+				strncpy(cmdline->usb.port_path, hyphen_pos + 1,
+					sizeof(cmdline->usb.port_path) - 1);
+
+				// Convert port_path .  to -
+				port_path_len = strlen(cmdline->usb.port_path);
+				if (port_path_len == 0) {
+					MCTP_CTRL_INFO(
+						"%s: No port hierarchy in port path: %s\n",
+						__func__,
+						cmdline->usb.port_path);
+					exit(EXIT_FAILURE);
+				}
+				for (size_t i = 0; i < port_path_len; i++) {
+					if (cmdline->usb.port_path[i] == '.') {
+						cmdline->usb.port_path[i] = '-';
+					}
+				}
+			}
+			break;
+
+
 		case 'a':
 			if (cmdline->binding_type == MCTP_BINDING_PCIE) {
 				pcie_mode = (uint8_t)atoi(optarg);
@@ -1357,7 +1600,10 @@ static void parse_command_line(int argc, char *const *argv,
 			exit(EXIT_FAILURE);
 		}
 	}
-
+#ifdef MCTP_IN_KERNEL
+	uint8_t phy_addr[MAX_ADDR_LEN] = { 0 };
+	uint8_t phy_addlen = 0;
+#endif
 	switch (cmdline->binding_type) {
 	case MCTP_BINDING_PCIE:
 		cmdline->pcie.bridge_eid = bridge_eid;
@@ -1365,6 +1611,8 @@ static void parse_command_line(int argc, char *const *argv,
 		cmdline->pcie.own_eid = own_eid;
 		cmdline->pcie.remove_duplicates = remove_duplicates;
 		cmdline->pcie.mode = pcie_mode;
+		mctp_ctrl->local_eid = own_eid;
+		local_eid = own_eid;
 		break;
 	case MCTP_BINDING_SPI:
 		cmdline->spi.vdm_ops = vdm_ops;
@@ -1388,13 +1636,47 @@ static void parse_command_line(int argc, char *const *argv,
 			cmdline->i2c.bridge_pool_start = bridge_pool;
 			cmdline->i2c.own_eid = own_eid;
 		}
+		local_eid = cmdline->i2c.own_eid;
 		break;
 	case MCTP_BINDING_USB:
 		cmdline->usb.bridge_eid = bridge_eid;
 		cmdline->usb.bridge_pool_start = bridge_pool;
 		cmdline->usb.own_eid = own_eid;
 		cmdline->usb.remove_duplicates = remove_duplicates;
+		local_eid = own_eid;
+		/* overwrite value from json file */
+		if (parse_usb_json_config(cmdline, config_json_file_path) ==
+		    EXIT_FAILURE)
+			exit(EXIT_FAILURE);
+#ifdef MCTP_IN_KERNEL
+		if (cmdline->mode == MCTP_MODE_DAEMON) {
+			char altname[5 * MCTP_USB_PORT_PATH_MAX_DEPTH];
+			char port_path[MCTP_USB_PORT_PATH_MAX_LEN];
+			memset(altname, '\0', sizeof(altname));
+			memset(port_path, '\0', sizeof(port_path));
+			strncpy(port_path, cmdline->usb.port_path,
+				sizeof(port_path) - 1);
+			port_path[sizeof(port_path) - 1] = '\0';
+			for (size_t ind = 0; ind < strlen(port_path); ind++)
+				if (port_path[ind] == '-')
+					port_path[ind] = '.';
+			snprintf(altname, sizeof(altname), "%d-%s",
+				 cmdline->usb.bus_id, port_path);
+			if (fill_interface_info(MCTP_BINDING_USB, altname,
+						phy_addr, phy_addlen,
+						cmdline->usb.own_eid) < 0) {
+				exit(EXIT_FAILURE);
+			}
+		}
+#endif
 		break;
+#ifdef MCTP_IN_KERNEL
+	case MCTP_BINDING_KERNEL:
+		if (config_json_file_path != NULL) {
+			parse_kernel_json_config(config_json_file_path, cmdline);
+		}	
+		break;
+#endif		
 	default:
 		break;
 	}
@@ -1486,11 +1768,11 @@ int main_ctrl(int argc, char *const *argv)
 		MCTP_CTRL_INFO("%s: Run mode: Daemon mode\n", __func__);
 
 		if (!cmdline.verbose) {
-			int debug_level = mctp_get_sys_verbose_level();
+			int debug_level = mctp_get_sys_verbose_level(mctp_get_sys_trace_module(cmdline.binding_type));
 			cmdline.verbose = debug_level > 0; 
 			if (cmdline.verbose) {
 				g_verbose_level = cmdline.verbose;
-				mctp_set_tracing_enabled(cmdline.verbose);
+				mctp_set_tracing_enabled(cmdline.verbose, 0);
 				mctp_set_sys_verbose_level(debug_level);
 				MCTP_CTRL_INFO("%s: Verbose level:%d\n", __func__,
 						cmdline.verbose);			
@@ -1520,6 +1802,13 @@ int main_ctrl(int argc, char *const *argv)
 		mctp_register_host_state_signal(mctp_ctrl->bus);
 		if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
 			i2c_mutex_open(mctp_ctrl->cmdline->i2c.bus_num);
+#ifdef MCTP_IN_KERNEL
+			if (g_OEMMCTPHndlr[ON_I2C_INIT] != NULL) {
+				rc = g_OEMMCTPHndlr[ON_I2C_INIT](&cmdline, mctp_ctrl);
+				if(rc < 0)
+					MCTP_CTRL_ERR("Failed to set I2C init\n");
+			}
+#endif
 		}
 	
 		if (exec_daemon_mode(&cmdline, mctp_ctrl) != EXIT_SUCCESS) {
@@ -1571,7 +1860,7 @@ int main_ctrl(int argc, char *const *argv)
 		}
 	}
 
-	mctp_ctrl_clean_up();
+	mctp_ctrl_clean_up(mctp_ctrl);
 
 #ifdef MOCKUP_ENDPOINT
 	/* Disable monitoring service */
@@ -1586,3 +1875,24 @@ int main(int argc, char *const *argv)
 	return main_ctrl(argc, argv);
 }
 #endif
+
+void mctp_ctrl_bridge_poll_resume(void)
+{
+	if (get_eid_bridge_eid_unavailable) {
+		MCTP_CTRL_INFO(
+			"%s: Bridge device arrived/recovered. Bridge EID communication potentially restored. Polling will resume.",
+			__func__);
+	}
+	get_eid_bridge_eid_unavailable = false;
+	get_eid_failure_count = 0;
+}
+
+void mctp_ctrl_bridge_poll_suspend(uint8_t bridge_eid)
+{
+	if (!get_eid_bridge_eid_unavailable) {
+		MCTP_CTRL_WARN(
+			"%s: Bridge device detached/unavailable. Bridge EID %u marked unavailable. Polling will stop.",
+			__func__, bridge_eid);
+		get_eid_bridge_eid_unavailable = true;
+	}
+}

@@ -105,7 +105,7 @@ void mctp_usb_rx_transfer_callback(struct libusb_transfer *xfr)
 	switch (xfr->status) {
 	case LIBUSB_TRANSFER_COMPLETED:
 
-		mctp_trace_rx(xfr->buffer, xfr->actual_length);
+		mctp_trace_rx(xfr->buffer, xfr->actual_length, 0);
 
 		if (xfr->actual_length < (ssize_t)sizeof(*hdr)) {
 			mctp_prerr(
@@ -124,7 +124,7 @@ void mctp_usb_rx_transfer_callback(struct libusb_transfer *xfr)
 			// Got an incorrectly sized payload
 			mctp_prerr("Expecting payload sized %d, got %d",
 				   hdr->byte_count, xfr->actual_length);
-			mctp_trace_rx(xfr->buffer, xfr->actual_length);
+			mctp_trace_rx(xfr->buffer, xfr->actual_length, 0);
 			goto out;
 		}
 		usb->rx_pkt = mctp_pktbuf_alloc(&usb->binding, 0);
@@ -294,7 +294,7 @@ static int mctp_usb_tx(struct mctp_binding_usb *usb, size_t len)
 {
 	struct libusb_transfer *tx_xfr = libusb_alloc_transfer(0);
 
-	mctp_trace_tx(usb->txbuf, len);
+	mctp_trace_tx(usb->txbuf, len, 0);
 
 	void *data_tx = (void *)usb->txbuf;
 

@@ -50,7 +50,11 @@ mctp_ret_codes_t mctp_requester_alloc_eid_send_request(
 	struct mctp_astpcie_pkt_private pvt_binding_pcie;
 	struct mctp_astspi_pkt_private pvt_binding_spi;
 	size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
 	struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
 
 	/* Set private binding */
 	if (MCTP_BINDING_PCIE == bind_id) {
@@ -190,7 +194,11 @@ mctp_ret_codes_t mctp_requester_set_eid_send_request(int sock_fd,
 	void *pvt_binding = NULL;
 	struct mctp_astpcie_pkt_private pvt_binding_pcie;
 	size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
 	struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
 
 	/* Set private binding */
 	if (MCTP_BINDING_PCIE == bind_id) {
@@ -455,7 +463,11 @@ mctp_ret_codes_t mctp_requester_get_routing_table_send_request(int sock_fd,
 	struct mctp_astpcie_pkt_private pvt_binding_pcie;
 	struct mctp_astspi_pkt_private pvt_binding_spi;
 	size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
 	struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
 
 	/* Set private binding */
 	if (MCTP_BINDING_PCIE == bind_id) {
@@ -521,8 +533,11 @@ mctp_ret_codes_t mctp_requester_get_endpoint_uuid_send_request(int sock_fd,
 	struct mctp_astpcie_pkt_private pvt_binding_pcie;
 	struct mctp_astspi_pkt_private pvt_binding_spi;
 	size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
 	struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
-
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
 
 	/* Set private binding */
 	if (MCTP_BINDING_PCIE == bind_id) {
@@ -586,8 +601,11 @@ mctp_ret_codes_t mctp_requester_get_vdm_support_send_request(int sock_fd,
 	struct mctp_astpcie_pkt_private pvt_binding_pcie;
 	struct mctp_astspi_pkt_private pvt_binding_spi;
 	size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
 	struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
-
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
 
 	/* Set private binding */
 	if (MCTP_BINDING_PCIE == bind_id) {
@@ -712,7 +730,11 @@ mctp_ret_codes_t mctp_requester_get_msg_type_send_request(int sock_fd,
 	struct mctp_astpcie_pkt_private pvt_binding_pcie;
 	struct mctp_astspi_pkt_private pvt_binding_spi;
 	size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
 	struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
 
 	/* Set private binding */
 	if (MCTP_BINDING_PCIE == bind_id) {
@@ -779,7 +801,11 @@ mctp_requester_prepare_ep_discovery_send_request(
     void *pvt_binding = NULL;
     struct mctp_astpcie_pkt_private pvt_binding_pcie;
     size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
     struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
  
     /* Set private binding */
     if (MCTP_BINDING_PCIE == bind_id) {
@@ -843,7 +869,11 @@ mctp_ret_codes_t mctp_requester_ep_discovery_send_request(int sock_fd,
 	void *pvt_binding = NULL;
 	struct mctp_astpcie_pkt_private pvt_binding_pcie;
 	size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
 	struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
 
 	/* Set private binding */
 	if (MCTP_BINDING_PCIE == bind_id) {
@@ -881,6 +911,74 @@ mctp_ret_codes_t mctp_requester_ep_discovery_send_request(int sock_fd,
     mctp_ret = mctp_msg_client_with_binding_send(
         dest_eid, sock_fd, (const uint8_t *)&ep_req,
         sizeof(struct mctp_ctrl_cmd_ep_discovery), (uint8_t*)&mctp_hdr, &bind_id,
+        pvt_binding, binding_size);
+
+	if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {
+		MCTP_SYS_ERR("%s: Failed to send message..\n", __func__);
+	}
+
+	return MCTP_RET_REQUEST_SUCCESS;
+}
+
+
+/* Send function for Endpoint discovery */
+mctp_ret_codes_t mctp_requester_discovery_notify_send_request(int sock_fd,
+						mctp_binding_ids_t bind_id,
+						mctp_eid_t pci_own_eid, 
+						int g_target_bdf)
+{
+	bool req_ret;
+	mctp_requester_rc_t mctp_ret;
+	struct mctp_ctrl_cmd_discovery_notify ep_discovery;
+	struct mctp_ctrl_req ep_req;
+	size_t msg_len;
+	/* Set destination EID as broadcast */
+	mctp_eid_t dest_eid = MCTP_EID_NULL;
+	void *pvt_binding = NULL;
+	struct mctp_astpcie_pkt_private pvt_binding_pcie;
+	size_t binding_size = 0;
+#ifndef MCTP_IN_KERNEL	
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, 0};
+ #else
+    struct mctp_hdr mctp_hdr = {1, dest_eid, pci_own_eid, MCTP_TAG_OWNER};
+ #endif
+
+	/* Set private binding */
+	if (MCTP_BINDING_PCIE == bind_id) {
+		pvt_binding_pcie.routing = PCIE_ROUTE_TO_RC;
+		pvt_binding_pcie.remote_id = g_target_bdf;
+		pvt_binding = &pvt_binding_pcie;
+		binding_size = sizeof(pvt_binding_pcie);
+	}
+
+	/* Prepare the endpoint discovery message */
+	req_ret = mctp_encode_ctrl_cmd_discovery_notify(&ep_discovery);
+	if (req_ret == false) {
+		MCTP_SYS_ERR("%s: Packet preparation failed\n", __func__);
+		return MCTP_RET_ENCODE_FAILED;
+	}
+
+	/* Get the message length */
+	msg_len = sizeof(struct mctp_ctrl_cmd_discovery_notify) -
+		  sizeof(struct mctp_ctrl_cmd_msg_hdr);
+
+	MCTP_SYS_DEBUG("%s: message length: %zu\n", __func__, msg_len);
+
+	/* Initialize the buffers */
+	memset(&ep_req, 0, sizeof(ep_req));
+
+	/* Copy to Tx packet */
+	memcpy(&ep_req, &ep_discovery,
+	       sizeof(struct mctp_ctrl_cmd_discovery_notify));
+
+	mctp_print_req_msg(&ep_req,
+               "MCTP_DISCOVERY_NOTIFY_REQUEST", msg_len);
+
+	/* Send the request message over socket */
+	MCTP_SYS_TRACE("%s: Sending EP request\n", __func__);
+    mctp_ret = mctp_msg_client_with_binding_send(
+        dest_eid, sock_fd, (const uint8_t *)&ep_req,
+        sizeof(struct mctp_ctrl_cmd_discovery_notify), (uint8_t*)&mctp_hdr, &bind_id,
         pvt_binding, binding_size);
 
 	if (mctp_ret == MCTP_REQUESTER_SEND_FAIL) {

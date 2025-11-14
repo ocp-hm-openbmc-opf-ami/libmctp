@@ -478,8 +478,8 @@ static void forward_message(struct client *src_client, uint8_t eid,
 		if (ctx->verbose)
 			fprintf(stderr, "  forwarding to client %d\n", i);
 
-		mctp_trace_common(">SOCK RX HDR>", &tag_eid, 2);
-		mctp_trace_common(">SOCK RX>", msg, len);
+		mctp_trace_common(">SOCK RX HDR>", &tag_eid, 2, eid);
+		mctp_trace_common(">SOCK RX>", msg, len, eid);
 
 		rc = sendmsg(client->sock, &msghdr, 0);
 		/* EAGAIN shouldn't close socket. Otherwise,spi-ctrl daemon will fail 
@@ -536,8 +536,8 @@ static void rx_message(uint8_t eid, bool tag_owner, uint8_t msg_tag, void *data,
 		if (ctx->verbose)
 			fprintf(stderr, "  forwarding to client %d\n", i);
 
-		mctp_trace_common(">SOCK RX HDR>", &tag_eid, 2);
-		mctp_trace_common(">SOCK RX>", msg, len);
+		mctp_trace_common(">SOCK RX HDR>", &tag_eid, 2, eid);
+		mctp_trace_common(">SOCK RX>", msg, len, eid);
 
 		rc = sendmsg(client->sock, &msghdr, 0);
 		/* EAGAIN shouldn't close socket. Otherwise,spi-ctrl daemon will fail 
@@ -618,7 +618,7 @@ static void rx_control_message(uint8_t eid, bool tag_owner, uint8_t msg_tag, voi
 	header[0] = remote_id >> 8;
 	header[1] = remote_id;
 	
-	mctp_trace_common("> HEADER SOCK RX>", header, sizeof(struct mctp_hdr_ext_));
+	mctp_trace_common("> HEADER SOCK RX>", header, sizeof(struct mctp_hdr_ext_), eid);
 
 	iov[2].iov_base = header;
 	iov[2].iov_len = sizeof(struct mctp_hdr_ext_);
@@ -638,8 +638,8 @@ static void rx_control_message(uint8_t eid, bool tag_owner, uint8_t msg_tag, voi
 		if (ctx->verbose)
 			fprintf(stderr, "  forwarding to client %d\n", i);
 
-		mctp_trace_common(">SOCK RX HDR>", &tag_eid, 2);
-		mctp_trace_common(">SOCK RX>", msg, len);
+		mctp_trace_common(">SOCK RX HDR>", &tag_eid, 2, eid);
+		mctp_trace_common(">SOCK RX>", msg, len, eid);
 
 		rc = sendmsg(client->sock, &msghdr, 0);
 		/* EAGAIN shouldn't close socket. Otherwise,spi-ctrl daemon will fail 
@@ -1661,8 +1661,8 @@ static int client_process_recv(struct ctx *ctx, int idx)
 	if (ctx->pcap.socket.path)
 		capture_socket(ctx->pcap.socket.dumper, ctx->buf, rc);
 
-	mctp_trace_common("<SOCK TX<", ctx->buf, len);
 	eid = *((uint8_t *)ctx->buf + 1);
+	mctp_trace_common("<SOCK TX<", ctx->buf, len, eid);
 
 	if (ctx->verbose)
 		fprintf(stderr, "client[%d] sent message: dest 0x%02x len %d\n",
@@ -1903,12 +1903,13 @@ static int run_daemon(struct ctx *ctx)
 		}
 
 		if (ctx->pollfds[FD_TRACE].revents) {
-			int debug_level = mctp_handle_sys_trace_event();
+			int debug_level = mctp_handle_sys_trace_event(ctx->binding->name);
+			int debug_eid = mctp_get_sys_target_eid(ctx->binding->name);
 			if (debug_level >= 0) {
 				ctx->verbose = debug_level > 0;
 				mctp_set_sys_verbose_level(debug_level);
 				mctp_set_log_stdio(ctx->verbose ? MCTP_LOG_DEBUG : MCTP_LOG_WARNING);
-				mctp_set_tracing_enabled(ctx->verbose);				
+				mctp_set_tracing_enabled(ctx->verbose, debug_eid);				
 			}
 		}		
 
@@ -2090,14 +2091,8 @@ int main(int argc, char *const *argv)
 		goto initialize_exit;
 	}
 
-	if (!ctx->verbose) {
-		int debug_level = mctp_get_sys_verbose_level();
-		ctx->verbose = debug_level > 0; 
-		mctp_set_sys_verbose_level(debug_level);
-	}
-
 	mctp_set_log_stdio(ctx->verbose ? MCTP_LOG_DEBUG : MCTP_LOG_WARNING);
-	mctp_set_tracing_enabled(ctx->verbose);
+	mctp_set_tracing_enabled(ctx->verbose, 0);
 
 	rc = sd_notifyf(0, "STATUS=Initializing MCTP.\nMAINPID=%d", getpid());
 	if (rc < 0) {
@@ -2155,6 +2150,15 @@ int main(int argc, char *const *argv)
 		fprintf(stderr, "Failed to initialise binding: %d\n", rc);
 		rc = EXIT_FAILURE;
 		goto cleanup_pcap_binding;
+	}
+
+	if (!ctx->verbose) {
+		int debug_level = mctp_get_sys_verbose_level(ctx->binding->name);
+		int debug_eid = mctp_get_sys_target_eid(ctx->binding->name);
+		ctx->verbose = debug_level > 0; 
+		mctp_set_sys_verbose_level(debug_level);
+		mctp_set_log_stdio(ctx->verbose ? MCTP_LOG_DEBUG : MCTP_LOG_WARNING);
+		mctp_set_tracing_enabled(ctx->verbose, debug_eid);
 	}
 
 	rc = sd_notify(0, "STATUS=Creating sockets.");

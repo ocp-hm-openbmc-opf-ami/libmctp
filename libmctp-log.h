@@ -5,6 +5,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 /* libmctp-internal logging */
 
@@ -12,7 +13,7 @@ void mctp_prlog(int level, const char *fmt, ...)
 	__attribute__((format(printf, 2, 3)));
 
 void mctp_trace_common(const char *tag, const void *const payload,
-		       const size_t len);
+		       const size_t len, const uint8_t eid);
 
 #ifndef pr_fmt
 #define pr_fmt(x) x
@@ -51,9 +52,9 @@ void mctp_trace_common(const char *tag, const void *const payload,
 		}                                                              \
 	} while (0)
 
-#define mctp_trace_rx(payload, len)                                            \
-	mctp_trace_common(pr_fmt("<RX<"), (payload), (len))
-#define mctp_trace_tx(payload, len)                                            \
-	mctp_trace_common(pr_fmt(">TX>"), (payload), (len))
+#define mctp_trace_rx(payload, len, eid)                                            \
+	mctp_trace_common(pr_fmt("<RX<"), (payload), (len), (eid))
+#define mctp_trace_tx(payload, len, eid)                                            \
+	mctp_trace_common(pr_fmt(">TX>"), (payload), (len), (eid))
 
 #endif /* _LIBMCTP_LOG_H */

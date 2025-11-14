@@ -344,8 +344,8 @@ int send_direct_get_udid_command(int32_t out_fd, size_t idx, uint8_t *inbuf,
 	MCTP_SYS_DEBUG("%s: TX and RX Direct Get UDID command", __func__);
 	/* Reason for false positive - Checked the length for Out-of-bounds write */
 	/* coverity[overrun-buffer-val : FALSE] */
-	mctp_trace_tx(outbuf, msgs[0].len);
-	mctp_trace_rx(inbuf, msgs[1].len);
+	mctp_trace_tx(outbuf, msgs[0].len, 0);
+	mctp_trace_rx(inbuf, msgs[1].len, 0);
 
 	return EXIT_SUCCESS;
 }
@@ -466,6 +466,9 @@ int i2c_bus_reset_device(int bus_num, u_int8_t slave_addr)
 	int ret = 0;
 
 	i2c_mutex_lock();
+	
+	if(bus_num == 0)
+		return 0;
 
 	int out_fd = mctp_smbus_open_out_bus(NULL, bus_num);
 
@@ -502,7 +505,7 @@ int i2c_bus_reset_device(int bus_num, u_int8_t slave_addr)
 
 	close(out_fd);
 	i2c_mutex_unlock();
-	return -1;
+	return ret;
 }
 
 int set_pool_of_endpoints(int32_t bus_num, uint8_t *target_address,

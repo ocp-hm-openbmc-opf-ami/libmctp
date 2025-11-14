@@ -41,6 +41,10 @@
 #include "mctp-ctrl-log.h"
 #include "dbus_log_event.h"
 
+#ifdef MCTP_IN_KERNEL
+#include "mctp-netlink.h"
+#endif
+
 extern const char *phy_transport_binding_to_string(uint8_t id);
 
 extern uint8_t g_eid_pool_size;
@@ -388,7 +392,17 @@ int mctp_set_eid_get_response(uint8_t *mctp_resp_msg, size_t resp_msg_len,
 		/* Reset the EID pool size */
 		g_eid_pool_size = 0;
 	}
+#ifdef MCTP_IN_KERNEL
+	if (mctp_nl_add_route(set_eid_resp->eid_set) < 0) {
+		MCTP_CTRL_ERR("%s: Failed to add route for eid %d\n", __func__,
+			      set_eid_resp->eid_set);
+	}
 
+	if (mctp_nl_add_neigh(set_eid_resp->eid_set) < 0) {
+		MCTP_CTRL_ERR("%s: Failed to add neigh for eid %d\n", __func__,
+			      set_eid_resp->eid_set);
+	}
+#endif
 	return MCTP_RET_REQUEST_SUCCESS;
 }
 
@@ -950,6 +964,7 @@ int mctp_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
 	msg_type_table.enabled = true;
 	msg_type_table.new = true;
 	msg_type_table.eid = eid;
+	msg_type_table.binding_type = NULL;
 	msg_type_table.data_len = ((struct mctp_ctrl_resp *)mctp_resp_msg)
 					  ->data[MCTP_MSG_TYPE_DATA_LEN_OFFSET];
 	memset(msg_type_table.slot, 0, sizeof(msg_type_table.slot));
