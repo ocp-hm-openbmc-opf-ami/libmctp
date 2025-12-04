@@ -24,10 +24,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "mctp-ctrl.h"
-#include "mctp-ctrl-cmdline.h"
-#include "mctp-ctrl-cmds.h"
-#include "mctp-discovery-common.h"
+#include "ctrld/mctp-ctrl.h"
+#include "ctrld/mctp-ctrl-cmdline.h"
+#include "ctrld/mctp-ctrl-cmds.h"
+#include "ctrld/mctp-discovery-common.h"
+
+/* PCIe VDM address length: route_type (1) + BDF (2) = 3 bytes */
+#define PCIE_VDM_ADDR_LEN 3
+
+/* External variable declarations */
+extern uint8_t g_pci_bridge_address[PCIE_VDM_ADDR_LEN];
 
 // /* Function prototypes */
 void set_g_val_for_pvt_binding(uint8_t bus_num, uint8_t dest_slave_addr,
@@ -67,8 +73,8 @@ int mctp_kernel_get_endpoint_uuid_response(mctp_eid_t eid, uint8_t *mctp_resp_ms
 					size_t resp_msg_len);
 
 mctp_ret_codes_t mctp_kernel_get_msg_type_request(int sock_fd, mctp_eid_t eid);
-int mctp_kernel_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
-				   size_t resp_msg_len, const char* binding);
+int mctp_kernel_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg, size_t resp_msg_len, const char* binding, 
+				   mctp_eid_t own_eid, const char* iface, uint8_t ifindex, uint8_t network);
 
 mctp_ret_codes_t mctp_kernel_discover_endpoints(const mctp_cmdline_args_t *cmd,
 					     mctp_ctrl_t *ctrl);
@@ -77,5 +83,8 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 				       mctp_ctrl_t *ctrl);
 
 void mctp_kernel_clean_up();
+
+int mctp_kernel_setup_routing_entry(struct get_routing_table_entry *routing_table_entry);
+int mctp_kernel_setup_all_routing_entries(void);
 
 #endif /* __MCTP_KERNEL_DISCOVERY_H__ */

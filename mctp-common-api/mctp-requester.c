@@ -26,6 +26,9 @@
 #include "compiler.h"
 #include "uuid/uuid.h"
 #include "mctp-utils.h"
+#ifdef MCTP_IN_KERNEL
+#include "mctp-discovery-kernel.h"
+#endif
 
 extern const char *phy_transport_binding_to_string(uint8_t id);
 
@@ -361,6 +364,7 @@ int mctp_requester_get_routing_table_get_response(mctp_ctrl_t *ctrl, mctp_eid_t 
 							routing_table_entry
 								.phys_transport_binding_id),
 						"Unknown", 7) != 0) {
+
 					/* Add the entry to a linked list */
 					ret = mctp_routing_entry_add(
 						&routing_table_entry);
@@ -370,7 +374,23 @@ int mctp_requester_get_routing_table_get_response(mctp_ctrl_t *ctrl, mctp_eid_t 
 							__func__);
 						return MCTP_RET_REQUEST_FAILED;
 					}
-
+#ifdef MCTP_IN_KERNEL
+					/* Setup kernel-specific routing operations only for bridge entries */
+					/* Check if entry type indicates a bridge (bits [7:6] = 10b or 11b) */
+					uint8_t entry_type_bits = (routing_table_entry.entry_type >> 6) & 0x3;
+					if (entry_type_bits == 0x2 || entry_type_bits == 0x3) {
+						MCTP_SYS_DEBUG("%s: Bridge entry detected (entry_type=0x%02x), setting up kernel routing for EID %d\n",
+								__func__, routing_table_entry.entry_type, routing_table_entry.starting_eid);
+						if (mctp_kernel_setup_routing_entry(&routing_table_entry) < 0) {
+							MCTP_SYS_ERR(
+								"%s: Failed to setup kernel routing entry for bridge EID %d\n",
+								__func__, routing_table_entry.starting_eid);
+						}
+					} else {
+						MCTP_SYS_DEBUG("%s: Non-bridge entry (entry_type=0x%02x), skipping kernel routing setup for EID %d\n",
+								__func__, routing_table_entry.entry_type, routing_table_entry.starting_eid);
+					}
+#endif
 					/* Print the routing table entry */
 					mctp_print_routing_table_entry(
 						g_routing_table_entries->id,

@@ -84,10 +84,10 @@ mctp_requester_rc_t mctp_usr_socket_init(int *fd, const char *path,
 	}
 
 	addr.smctp_family = AF_MCTP;
-	addr.smctp_network = MCTP_NET_ANY;
+	addr.smctp_network = local_interface.net;
 	addr.smctp_addr.s_addr = local_interface.ifeid;
-	addr.smctp_type = 0;
-	addr.smctp_tag = MCTP_TAG_OWNER;
+	addr.smctp_type = msgtype;
+	//addr.smctp_tag = MCTP_TAG_OWNER;
 
 	if ((rc = bind(*fd, (struct sockaddr *)&addr, sizeof(addr))) < 0) {
 		MCTP_ERR("AF_MCTP socket[%d] bind failed: rc [%d] %s\n", *fd,
@@ -136,7 +136,7 @@ mctp_requester_rc_t mctp_client_send(mctp_eid_t dest_eid, int mctp_fd,
 	}
 
 	addr.smctp_family = AF_MCTP;
-	addr.smctp_network = MCTP_NET_ANY; /* any network */
+	addr.smctp_network = local_interface.net; /* any network */
 	addr.smctp_addr.s_addr = dest_eid; /* remote eid */
 	addr.smctp_tag = MCTP_TAG_OWNER; /* kernel will allocate an owned tag */
 	addr.smctp_type = msgtype;
@@ -179,7 +179,7 @@ mctp_requester_rc_t mctp_client_send_ext(mctp_eid_t dest_eid, int mctp_fd,
 
 	addrlen = sizeof(struct sockaddr_mctp);
 	addr.smctp_base.smctp_family = AF_MCTP;
-	addr.smctp_base.smctp_network = 1;
+	addr.smctp_base.smctp_network = local_interface.net;
 	addr.smctp_base.smctp_addr.s_addr = dest_eid;
 	addr.smctp_base.smctp_type = msgtype;
 	addr.smctp_base.smctp_tag = MCTP_TAG_OWNER;
@@ -243,7 +243,7 @@ static mctp_requester_rc_t mctp_recv(mctp_eid_t eid, int mctp_fd,
 	addrlen = sizeof(addr);
 
 	addr.smctp_family = AF_MCTP;
-	addr.smctp_network = MCTP_NET_ANY; /* any network */
+	addr.smctp_network = local_interface.net; /* any network */
 	addr.smctp_addr.s_addr = eid;	   /* remote eid */
 	addr.smctp_tag = MCTP_TAG_OWNER; /* kernel will allocate an owned tag */
 	addr.smctp_type = 0;

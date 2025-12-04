@@ -6,6 +6,8 @@
 extern "C" {
 #endif
 
+#define MCTP_CTRL_TXRX_TIMEOUT_16SECS 16
+
 mctp_requester_rc_t mctp_msg_client_with_binding_send(
 	mctp_eid_t dest_eid, int mctp_fd, const uint8_t *mctp_req_msg,
 	size_t req_msg_len, const uint8_t *mctp_hdr_msg,
@@ -47,7 +49,7 @@ mctp_requester_rc_t mctp_client_sync_send(mctp_eid_t dest_eid, int mctp_fd,
 				     size_t req_msg_len,
 					 uint8_t msgtag);		
 
-mctp_requester_rc_t mctp_endpoint_socket_init(int *intf, const char *path,
+mctp_requester_rc_t mctp_endpoint_socket_init(int *intf, mctp_eid_t,
 					 uint8_t msgtype, time_t timeout);	
 #ifdef __cplusplus
 }

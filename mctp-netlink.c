@@ -137,8 +137,14 @@ int mctp_nl_socket_init()
 
 		local_interface.nl_sd = nl_sd;
 	}
+	do_link_set(ifindex, true, true, local_interface.mtu, true, local_interface.net);
+
+	//if (!mctp_nl_get_addr(eid))
 	mctp_nl_add_addr(eid);
-	do_link_set(ifindex, true, true, local_interface.mtu, false, local_interface.net);
+	// if (!mctp_nl_get_addr(0xFF))
+	// 	mctp_nl_add_addr(0xFF);
+
+	//do_link_set(ifindex, true, true, local_interface.mtu, true, local_interface.net);
 	mctp_nl_get_link(0);
 	
 #if 0	
@@ -153,7 +159,8 @@ int mctp_nl_socket_init()
 			strerror(errno));
 		goto out;
 	}
-#endif		
+#endif
+	
 	return 0;
 out:
 	if (local_interface.nl_sd != 0) {
@@ -161,6 +168,15 @@ out:
 		local_interface.nl_sd = 0;
 	}
 	return rc;
+}
+
+int mctp_nl_socket_close()
+{
+	if (local_interface.nl_sd != 0) {
+		close(local_interface.nl_sd);
+		local_interface.nl_sd = 0;
+	}
+	return 0;
 }
 
 
@@ -259,7 +275,7 @@ static int handle_nlmsg_ack()
 				MCTP_CTRL_INFO("handle_nlmsg_ack %d \n", errmsg->error);
 			}
 		} else {
-			MCTP_CTRL_INFO("Received unexpected message type %d instead of status",
+			MCTP_CTRL_INFO("Received unexpected message type %d instead of status\n",
 			      msg->nlmsg_type);							  
 			//mctp_hexdump(msg, msg->nlmsg_len, "    ");
 		}
@@ -287,7 +303,7 @@ int mctp_nl_send(struct nlmsghdr *msg)
 		return rc;
 
 	if (rc != (int)msg->nlmsg_len)
-		MCTP_CTRL_INFO("sendto: short send (%d, expected %d)", rc,
+		MCTP_CTRL_INFO("sendto: short send (%d, expected %d)\n", rc,
 		      msg->nlmsg_len);
 
 	if (msg->nlmsg_flags & NLM_F_ACK) {
@@ -306,7 +322,7 @@ static int fill_neighalter_args(struct mctp_neighalter_msg *msg,
 
 	ifindex = if_nametoindex(local_interface.ifname);
 	if (!ifindex) {
-		MCTP_CTRL_INFO("invalid device %s", local_interface.ifname);
+		MCTP_CTRL_INFO("invalid device %s\n", local_interface.ifname);
 		return -1;
 	}
 
@@ -475,10 +491,6 @@ int mctp_nl_del_route(uint8_t eid)
 
 int mctp_update_endpoint_hwinfo(const void *phy_addr, size_t phy_addlen)
 {
-	if (phy_addlen == 2) {
-		endpoint_hwinfo.phy_addr[0] = ((uint8_t*)phy_addr)[1];
-		endpoint_hwinfo.phy_addr[1] = ((uint8_t*)phy_addr)[0];
-	} else 
 	memcpy(endpoint_hwinfo.phy_addr, phy_addr, phy_addlen);
 	endpoint_hwinfo.phy_addlen = phy_addlen;
 	return 0;
@@ -576,7 +588,7 @@ bool mctp_get_rtnlmsg_attr_u32(int rta_type, struct rtattr *rta, size_t len,
 			*ret_value = *p;
 			return true;
 		} else {
-			MCTP_CTRL_INFO("Unexpected attribute length %zu for type %d",
+			MCTP_CTRL_INFO("Unexpected attribute length %zu for type %d\n",
 			      plen, rta_type);
 		}
 	}
@@ -593,7 +605,7 @@ bool mctp_get_rtnlmsg_attr_u8(int rta_type, struct rtattr *rta, size_t len,
 			*ret_value = *p;
 			return true;
 		} else {
-			MCTP_CTRL_INFO("Unexpected attribute length %zu for type %d",
+			MCTP_CTRL_INFO("Unexpected attribute length %zu for type %d\n",
 			      plen, rta_type);
 		}
 	}
@@ -610,7 +622,7 @@ bool mctp_get_rtnlmsg_fq_addr(int rta_type, struct rtattr *rta, size_t len,
 			memcpy(addr, p, plen);
 			return true;
 		} else {
-			MCTP_CTRL_INFO("Unexpected attribute length %zu for mctp_fq_addr",
+			MCTP_CTRL_INFO("Unexpected attribute length %zu for mctp_fq_addr\n",
 			      plen);
 		}
 	}
@@ -798,9 +810,7 @@ static int decode_neighbour(void *p, size_t len, uint8_t id_exist)
 		print_hex_addr(lladdr, lladdr_len);
 	}
 
-	if (eid == id_exist)
-		return 1;
-			return 0;
+	return id_exist>0 && eid == id_exist ? 1: 0;
 }
 
 static int decode_route(void *p, size_t len, uint8_t id_exist)
@@ -880,14 +890,14 @@ static int decode_ifinfo(void *p, size_t len, uint8_t id_exist)
 	// Nested IFLA_MCTP_NET
 	rt_mctp = NULL;
 	rt_nest = mctp_get_rtnlmsg_attr(IFLA_AF_SPEC, rta, rta_len, &nest_len);
-		if (rt_nest) {
+	if (rt_nest) {
 		rt_mctp = mctp_get_rtnlmsg_attr(AF_MCTP, rt_nest, nest_len,
 						&mctp_len);
-		}
-		if (!rt_mctp) {
+	}
+	if (!rt_mctp) {
 		// Ignore other interfaces
 		return 0;
-		}
+	}
 	if (!mctp_get_rtnlmsg_attr_u32(IFLA_MCTP_NET, rt_mctp, mctp_len,
 				       &net)) {
 		MCTP_CTRL_INFO("No network attribute from %*s", (int)name_len, name);
@@ -907,7 +917,7 @@ static int decode_ifinfo(void *p, size_t len, uint8_t id_exist)
 
 	MCTP_CTRL_INFO(" net %d mtu %d %s\n", net, mtu, updown);
 	return 0;
-		}
+}
 
 int decode_addr(void *p, size_t len, uint8_t id_exist)
 {
@@ -934,12 +944,9 @@ int decode_addr(void *p, size_t len, uint8_t id_exist)
 		return -1;
 	}
 
-	if (if_nametoindex(local_interface.ifname) == ifa->ifa_index) {
-		local_interface.ifeid = eid;	
-		MCTP_CTRL_INFO("decode_addr eid = %d", eid);
-	}
-	return 0;
-		}
+	MCTP_CTRL_INFO("decode_addr eid = %d\n", eid);
+	return id_exist > 0 && id_exist == eid? 1: 0;
+}
 
 // Calls pretty printing decode_ function for wanted message type
 int decode_rtnlmsgs(struct nlmsghdr *msg, size_t len,
@@ -957,7 +964,7 @@ int decode_rtnlmsgs(struct nlmsghdr *msg, size_t len,
 		if (msg->nlmsg_type == want_type) {
 			rc = decode_fn(NLMSG_DATA(msg), NLMSG_PAYLOAD(msg, 0), id_exist);
 			if (rc == 1) {
-				MCTP_CTRL_INFO("decode_rtnlmsgs return %d exist", id_exist);
+				MCTP_CTRL_INFO("decode_rtnlmsgs return %d exist \n", id_exist);
 				return rc;
 			}
 		} else
@@ -976,7 +983,7 @@ int decode_rtnlmsgs(struct nlmsghdr *msg, size_t len,
 				//MCTP_CTRL_INFO("unknown nlmsg type\n");
 				//mctp_hexdump(msg, sizeof(msg), "    ");
 				break;
-	}
+		}
 	}
 	return 0;
 }

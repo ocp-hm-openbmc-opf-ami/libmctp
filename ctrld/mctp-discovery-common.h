@@ -88,6 +88,12 @@ typedef struct mctp_msg_type_table {
 	uint8_t data[MCTP_MSG_TYPE_MAX_SIZE];
 	struct mctp_msg_type_table *next;
 	void* slot[MCTP_DBUS_SLOT_MAX_SIZE];
+#ifdef MCTP_IN_KERNEL
+	const char* ifname;
+	uint8_t ifindex;
+	uint8_t own_eid;
+	uint8_t net;
+#endif
 } mctp_msg_type_table_t;
 
 /* List for UUIDs */

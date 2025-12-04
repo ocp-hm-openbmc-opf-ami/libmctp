@@ -35,13 +35,15 @@
 #include "mctp-ext-socket.h"
 #include "mctp-socket.h"
 #include "mctp-discovery-kernel.h"
+extern uint8_t g_pci_bridge_address[PCIE_VDM_ADDR_LEN];
+#define MCTP_ADDR_ANY		0xff
 #endif
 
 extern uint8_t g_eid_pool_size;
 extern uint8_t g_eid_pool_start;
 extern mctp_routing_table_t *g_routing_table_entries;
 extern const uint8_t MCTP_ROUTING_ENTRY_START;
-static int mctp_endpoint_sock = 0;
+
 
 /* PCIe target bdf */
 static int g_target_bdf = 0;
@@ -60,22 +62,7 @@ static mctp_ret_codes_t mctp_discover_request(mctp_ctrl_t *ctrl,
 					       size_t *mctp_resp_len,
    						   uint8_t **mctp_hdr_msg)
 {
-#ifdef MCTP_IN_KERNEL
-	int sock;
-	if(g_endpoint_dicovered) {
-		MCTP_SYS_TRACE("%s: Using ctrl->sock %d\n", __func__, ctrl->sock);
-		(void) mctp_endpoint_sock;
-		sock = ctrl->sock;
-	} else {
-		MCTP_SYS_TRACE("%s: Using mctp_endpoint_sock %d\n", __func__, mctp_endpoint_sock);
-		sock = mctp_endpoint_sock;//ctrl->sock;
-		(void)ctrl;
-	}
-#else
-	(void) mctp_endpoint_sock;
 	int sock = ctrl->sock;
-#endif
-
 	mctp_requester_rc_t mctp_ret;
 	//char *device_name = "PCIe Device Enumeration Service";
     
@@ -104,10 +91,6 @@ static mctp_ret_codes_t mctp_discover_request(mctp_ctrl_t *ctrl,
 	case MCTP_GET_EP_VDM_SUPPORT_RESPONSE:
 	case MCTP_GET_MSG_TYPE_RESPONSE:
 	case MCTP_WAITING_BUSOWNER_CMD:
-	
-#ifdef MCTP_IN_KERNEL
-		*eid = 0xff;
-#endif
 
 		/* Receive MCTP packets */
 		mctp_ret = mctp_client_sync_recv(eid, sock, mctp_resp_msg,
@@ -177,12 +160,13 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 
 	/* Update the EID lists */
 #ifdef MCTP_IN_KERNEL
-	if (!mctp_endpoint_sock) mctp_endpoint_socket_init(&mctp_endpoint_sock, NULL, 0, 5000);
 	uint8_t active_binding = ctrl->active_binding;
 	g_pci_own_eid = cmd->kernel.binding[active_binding].own_eid;
 	g_pci_bridge_eid = cmd->kernel.binding[active_binding].eid;
 	g_pci_bridge_pool_start = cmd->kernel.binding[active_binding].eid_pool_start;
-
+	memcpy(g_pci_bridge_address, cmd->kernel.binding[active_binding].dest_slave_addr, PCIE_VDM_ADDR_LEN);
+	mctp_endpoint_socket_init(&ctrl->sock, g_endpoint_dicovered ? g_pci_own_eid : MCTP_ADDR_ANY , 0, MCTP_CTRL_TXRX_TIMEOUT_16SECS);
+	
 	if (mctp_nl_add_route(g_pci_bridge_eid) < 0) {
 		MCTP_SYS_ERR("%s: Failed to add route for eid %d\n", __func__,
 			      g_pci_bridge_eid);
@@ -193,7 +177,7 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 		MCTP_SYS_ERR("%s: Failed to add neigh for eid %d\n", __func__,
 			      g_pci_bridge_eid);
 	}
-	// if (!g_endpoint_dicovered) discovery_mode = MCTP_DISCOVERY_NOTIFY_REQUEST;
+
 #endif
 
 	t_start = mctp_ext_millis();
@@ -209,6 +193,9 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 		g_pci_bridge_pool_start);
 
 	do {
+#ifdef MCTP_IN_KERNEL
+		eid = g_endpoint_dicovered ? g_pci_own_eid : MCTP_ADDR_ANY ;
+#endif
 		/* Wait for MCTP response */
 		mctp_ret =
 			mctp_discover_request(ctrl, discovery_mode, &eid,
@@ -239,6 +226,9 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 				if (!g_endpoint_dicovered) {
 					t_end = mctp_ext_millis();
 					if ((t_end - t_start) / 1000 > MAX_DISCOVERY_RETRY_PERIOD) {
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
 						return MCTP_RET_DISCOVERY_FAILED;
 					}
 					continue;
@@ -361,6 +351,10 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 				      "PCIe Device Enumeration Service",
 				      "No valid routing table", EVT_CRITICAL,
 				      "Reset the baseboard");
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 				return MCTP_RET_DISCOVERY_FAILED;
 			}
 
@@ -416,8 +410,13 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 				      "No valid routing table", EVT_CRITICAL,
 				      "Reset the baseboard");
 
-				if (!get_busowner_routing_table)
+				if (!get_busowner_routing_table) {
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 					return MCTP_RET_DISCOVERY_FAILED;
+				}
 			}
 
 			/* Reset the timeout */
@@ -462,6 +461,10 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 			if(discovery_mode == MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST)
 				break;
 
+#ifdef MCTP_IN_KERNEL
+			/* Setup all routing entries in kernel */
+			mctp_kernel_setup_all_routing_entries();
+#endif
 			/* Get the start of Routing entry */
 			routing_entry = g_routing_table_entries;
 			while(routing_entry != NULL)
@@ -506,6 +509,11 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 					      "Failed to get unique identifier for endpoint",
 					      EVT_CRITICAL,
 					      "Reset the baseboard");
+
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 				/* Wait for the endpoint response */
@@ -607,6 +615,10 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 					      "Failed to get unique identifier for endpoint",
 					      EVT_CRITICAL,
 					      "Reset the baseboard");
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 
@@ -718,6 +730,10 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 					      "Failed to get supported message types for endpoint",
 					      EVT_CRITICAL,
 					      "Reset the baseboard");
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 
@@ -740,7 +756,8 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 #ifdef MCTP_IN_KERNEL				
 				/* Process the MCTP_GET_MSG_TYPE_RESPONSE */
 				mctp_ret = mctp_kernel_get_msg_type_response(
-					eid_start, mctp_resp_msg, resp_msg_len, cmd->kernel.binding[active_binding].binding);
+					eid_start, mctp_resp_msg, resp_msg_len, cmd->kernel.binding[active_binding].binding, cmd->kernel.binding[active_binding].own_eid,
+					cmd->kernel.binding[active_binding].interface_name, if_nametoindex(cmd->kernel.binding[active_binding].interface_name), cmd->kernel.binding[active_binding].network);
 #else
 				/* Process the MCTP_GET_MSG_TYPE_RESPONSE */
 				mctp_ret = mctp_get_msg_type_response(
@@ -822,6 +839,11 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 		MCTP_SYS_DEBUG("%s: Obtained Message type entries\n", __func__);
 		mctp_msg_types_display();
 	}
+
+#ifdef MCTP_IN_KERNEL						
+	close(ctrl->sock);
+#endif
+
 	return MCTP_RET_DISCOVERY_SUCCESS;
 }
 
@@ -881,32 +903,58 @@ mctp_ret_codes_t mctp_endpoint_mode_ctrl_cmd_responder(mctp_ctrl_t *ctrl,
 
 				break;
 
-			case MCTP_CTRL_CMD_SET_ENDPOINT_ID:
+		case MCTP_CTRL_CMD_SET_ENDPOINT_ID:
 
-				g_pci_own_eid = ((struct mctp_ctrl_cmd_set_eid *)*mctp_msg )->eid;
-				g_pci_bridge_eid = eid;
-				g_target_bdf = g_remote_id;
-				ctrl->local_eid = g_pci_own_eid;
-				/* Send the set endpoint id message */
-				mctp_ret = mctp_responder_set_eid_send_response(
-					ctrl->sock, bind_id, eid, *mctp_hdr, g_remote_id, (struct mctp_ctrl_cmd_set_eid *)*mctp_msg);
-				if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
-					MCTP_SYS_ERR(
-						"%s: Failed MCTP_SET_EP_RESPONSE\n",
-						__func__);
-					doLog(ctrl->bus,
-						"PCIe Device Enumeration Service",
-						"Failed to discover", EVT_CRITICAL,
-						"Reset the baseboard");
-					return MCTP_RET_REQUEST_FAILED;
+			g_pci_own_eid = ((struct mctp_ctrl_cmd_set_eid *)*mctp_msg )->eid;
+			g_pci_bridge_eid = eid;
+			g_target_bdf = g_remote_id;
+			ctrl->local_eid = g_pci_own_eid;			
+			/* Send the set endpoint id message */
+			mctp_ret = mctp_responder_set_eid_send_response(
+				ctrl->sock, bind_id, eid, *mctp_hdr, g_remote_id, (struct mctp_ctrl_cmd_set_eid *)*mctp_msg);
+			if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
+				MCTP_SYS_ERR(
+					"%s: Failed MCTP_SET_EP_RESPONSE\n",
+					__func__);
+				doLog(ctrl->bus,
+					"PCIe Device Enumeration Service",
+					"Failed to discover", EVT_CRITICAL,
+					"Reset the baseboard");
+				return MCTP_RET_REQUEST_FAILED;
+			}
+
+			if (!g_endpoint_dicovered || own_eid != g_pci_own_eid) {
+				g_endpoint_dicovered = 1;
+#ifdef MCTP_IN_KERNEL
+				close(ctrl->sock);
+				/* PCIe endpoint specific: Clean up old EID if different */
+				if (own_eid != g_pci_own_eid && own_eid != 0) {
+					MCTP_SYS_DEBUG("%s: Cleaning up old EID %d before setting new EID %d\n", 
+						__func__, own_eid, g_pci_own_eid);
+					mctp_nl_del_addr(own_eid);
+					mctp_nl_del_route(own_eid);
+					mctp_nl_del_neigh(own_eid);
+				}
+				
+				mctp_nl_add_addr(g_pci_own_eid);
+
+				/* Re-initialize socket with new EID */
+				mctp_endpoint_socket_init(&ctrl->sock, g_pci_own_eid , 0, MCTP_CTRL_TXRX_TIMEOUT_16SECS);
+				
+				if (mctp_nl_add_route(g_pci_own_eid) < 0) {
+					MCTP_SYS_ERR("%s: Failed to add route for eid %d\n", __func__,
+							g_pci_own_eid);
 				}
 
-				if (!g_endpoint_dicovered || own_eid != g_pci_own_eid) {
-					g_endpoint_dicovered = 1;
-					return MCTP_RET_DISCOVERY_SUCCESS;
+				if (mctp_nl_add_neigh(g_pci_own_eid) < 0) {
+					MCTP_SYS_ERR("%s: Failed to add neigh for eid %d\n", __func__,
+							g_pci_own_eid);
 				}
-
-				break;
+#endif
+				return MCTP_RET_DISCOVERY_SUCCESS;
+			}
+			
+			break;
 
 			case MCTP_CTRL_CMD_GET_ENDPOINT_ID:
 

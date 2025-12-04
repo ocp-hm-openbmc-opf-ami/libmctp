@@ -981,6 +981,7 @@ void mctp_json_kernel_get_common_params_ctrl(json_object *jo,
 	for (i = 0; i < val_conf_kernel; i++) {
 		uint8_t own_eid = 0;
 		uint8_t eid_pool_start = 0;
+		uint8_t network = 0;
 		const char* interface_name;
 		uint16_t mtu = DEFAULT_MTU; 
 		const char* binding_type = NULL;
@@ -1003,6 +1004,10 @@ void mctp_json_kernel_get_common_params_ctrl(json_object *jo,
 			interface_name = string_val;
 		} else 
 			continue;
+
+		jo_kernel_obj_i = json_object_object_get(jo_kernel_struct, "network");
+		string_val = json_object_get_string(jo_kernel_obj_i);
+		network =  parse_num(string_val);
 
 		jo_kernel_obj_i = json_object_object_get(
 			jo_kernel_struct, "device_role");
@@ -1056,6 +1061,7 @@ void mctp_json_kernel_get_common_params_ctrl(json_object *jo,
 			kernel->binding[k].own_eid = own_eid;
 			kernel->binding[k].eid_pool_start = eid_pool_start;
 			kernel->binding[k].device_role = device_role;
+			kernel->binding[k].network = network;
 			kernel->binding[k].slave_addr_len = addr_len;
 			memcpy(kernel->binding[k].src_slave_addr, src_slave_addr, MAX_ADDR_LEN);
 			strcpy(kernel->binding[k].interface_name, interface_name);
