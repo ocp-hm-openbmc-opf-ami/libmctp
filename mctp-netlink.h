@@ -34,6 +34,7 @@ extern "C" {
 #define MIN_EID		  8  /* minimum eid value per NETLINK spec*/
 #define DEFAULT_MTU	  68 /*Base MTU value*/
 #define MCTP_DEFAULT_NET 	1
+#define MAX_ADDR_LEN	  32 /* maximum hardware address length */
 
 /* Structure Definition */
 struct g_interface_data {
@@ -59,6 +60,13 @@ struct g_hw_info {
  * @return 0 on success, -1 on failure
  */
 int mctp_nl_socket_init();
+
+/**
+ * @brief Close the AF_NETLINK socket interface and cleanup resources
+ *
+ * @return 0 on success, -1 on failure
+ */
+int mctp_nl_socket_close();
 
 /**
  * @brief Set network route for eid to local interface 

@@ -47,7 +47,7 @@ extern struct g_interface_data local_interface;
 extern struct g_hw_info endpoint_hwinfo;
 
 
-mctp_requester_rc_t mctp_endpoint_socket_init(int *fd, const char *path,
+mctp_requester_rc_t mctp_endpoint_socket_init(int *fd, mctp_eid_t eid,
 					 uint8_t msgtype, time_t time_out)
 {
 	int rc = 0;
@@ -58,8 +58,6 @@ mctp_requester_rc_t mctp_endpoint_socket_init(int *fd, const char *path,
 	/* Set timeout as 5 seconds */
 	timeout.tv_sec = time_out;
 	timeout.tv_usec = MCTP_CTRL_TXRX_TIMEOUT_MICRO_SECS;
-	(void)path;
-	(void)msgtype;
 
 	*fd = socket(AF_MCTP, SOCK_DGRAM, 0);
 	if (*fd < 0) {
@@ -68,11 +66,10 @@ mctp_requester_rc_t mctp_endpoint_socket_init(int *fd, const char *path,
 	}
 
 	addr.smctp_family = AF_MCTP;
-	addr.smctp_network = MCTP_NET_ANY;
-	addr.smctp_addr.s_addr = MCTP_ADDR_ANY;//local_interface.ifeid;
-	addr.smctp_type = 0;
-	addr.smctp_tag = MCTP_TAG_OWNER;
-
+	addr.smctp_network = local_interface.net;
+	addr.smctp_addr.s_addr = eid;
+	addr.smctp_type = msgtype;
+		
 	if ((rc = bind(*fd, (struct sockaddr *)&addr, sizeof(addr))) < 0) {
 		MCTP_ERR("AF_MCTP socket[%d] bind failed: rc [%d] %s\n", *fd,
 			 rc, strerror(errno));
@@ -119,11 +116,10 @@ mctp_requester_rc_t mctp_client_sync_send(mctp_eid_t dest_eid, int mctp_fd,
 			   __func__, mctp_fd, strerror(errno));
 		return MCTP_REQUESTER_SEND_FAIL;
 	}
-
 	addr.smctp_family = AF_MCTP;
-	addr.smctp_network = MCTP_NET_ANY; /* any network */
+	addr.smctp_network = local_interface.net; /* any network */
 	addr.smctp_addr.s_addr = dest_eid; /* remote eid */
-	addr.smctp_tag = msgtag;//MCTP_TAG_OWNER; /* kernel will allocate an owned tag */
+	addr.smctp_tag = msgtag; //MCTP_TAG_OWNER; /* kernel will allocate an owned tag */
 	addr.smctp_type = msgtype;
 
 	rc = sendto(mctp_fd, mctp_req_msg, req_msg_len, 0,
@@ -133,7 +129,8 @@ mctp_requester_rc_t mctp_client_sync_send(mctp_eid_t dest_eid, int mctp_fd,
 			"%s: Failed to send message on mctp_fd %d. Sent %d bytes, expected %d bytes: %s",
 			__func__, mctp_fd, rc, (int)req_msg_len,
 			strerror(errno));
-		err(EXIT_FAILURE, "sendto(%zd) - rc: %d", req_msg_len, rc);
+		//err(EXIT_FAILURE, "sendto(%zd) - rc: %d", req_msg_len, rc);
+		MCTP_ERR("sendto(%zd) - rc: %d", req_msg_len, rc);
 		return MCTP_REQUESTER_SEND_FAIL;
 	}
 
@@ -164,7 +161,7 @@ mctp_requester_rc_t mctp_client_send_ext(mctp_eid_t dest_eid, int mctp_fd,
 
 	addrlen = sizeof(struct sockaddr_mctp);
 	addr.smctp_base.smctp_family = AF_MCTP;
-	addr.smctp_base.smctp_network = 1;
+	addr.smctp_base.smctp_network = local_interface.net;
 	addr.smctp_base.smctp_addr.s_addr = dest_eid;
 	addr.smctp_base.smctp_type = msgtype;
 	addr.smctp_base.smctp_tag = MCTP_TAG_OWNER;
@@ -179,7 +176,9 @@ mctp_requester_rc_t mctp_client_send_ext(mctp_eid_t dest_eid, int mctp_fd,
 	rc = sendto(mctp_fd, mctp_req_msg, req_msg_len, 0,
 		    (struct sockaddr *)&addr, addrlen);
 	if (rc != (int)req_msg_len) {
-		err(EXIT_FAILURE, "%s: sendto(%zd) - rc: %d Error %s", __func__,
+		// err(EXIT_FAILURE, "%s: sendto(%zd) - rc: %d Error %s", __func__,
+		//     req_msg_len, rc, strerror(errno));
+		MCTP_ERR("%s: sendto(%zd) - rc: %d Error %s", __func__,
 		    req_msg_len, rc, strerror(errno));
 		return MCTP_REQUESTER_SEND_FAIL;
 	}
@@ -221,9 +220,9 @@ static mctp_requester_rc_t mctp_endpoint_recv(mctp_eid_t eid, int mctp_fd,
 	addrlen = sizeof(addr);
 
 	addr.smctp_family = AF_MCTP;
-	addr.smctp_network = MCTP_NET_ANY; /* any network */
+	addr.smctp_network = local_interface.net; /* any network */
 	addr.smctp_addr.s_addr = eid;	   /* remote eid */
-	addr.smctp_tag = MCTP_TAG_OWNER; /* kernel will allocate an owned tag */
+	//addr.smctp_tag = MCTP_TAG_OWNER; /* kernel will allocate an owned tag */
 	addr.smctp_type = 0;
 
 	bufLen = recv(mctp_fd, NULL, 0, MSG_PEEK | MSG_TRUNC);

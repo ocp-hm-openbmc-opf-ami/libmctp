@@ -104,6 +104,8 @@ extern const uint8_t MCTP_CTRL_MSG_TYPE;
 #ifdef MCTP_IN_KERNEL
 #define MCTP_KERNEL_SOCK_PATH "AF_MCTP"
 char *mctp_sock_path = MCTP_KERNEL_SOCK_PATH;
+extern struct g_interface_data local_interface;
+#define DEFAULT_LOCAL_EID 		11;
 #else
 char *mctp_sock_path = NULL;
 #endif
@@ -1205,6 +1207,7 @@ static int exec_daemon_mode(const mctp_cmdline_args_t *cmdline,
 		/* Make sure all EID options are available from commandline */
 		/* Discover endpoints via USB*/
 		MCTP_CTRL_INFO("%s: Start KERNEL Discovery\n", __func__);
+		mctp_ctrl->update_routing_table = true;
 		mctp_err_ret = mctp_kernel_discover_static_pool_endpoint(
 			cmdline, mctp_ctrl);
 		if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
@@ -1468,11 +1471,19 @@ static void parse_command_line(int argc, char *const *argv,
 		case 'n':
 			if (cmdline->binding_type == MCTP_BINDING_SMBUS) {
 				cmdline->i2c.bus_num = (uint8_t)atoi(optarg);
+#ifdef MCTP_IN_KERNEL
+			}else if(cmdline->binding_type == MCTP_BINDING_KERNEL){
+				local_interface.net = (uint8_t)atoi(optarg);
+#endif
 			}
 			break;
 		case 'j':
 			if (cmdline->binding_type == MCTP_BINDING_SMBUS) {
 				own_eid = (uint8_t)atoi(optarg);
+#ifdef MCTP_IN_KERNEL
+			}else if(cmdline->binding_type == MCTP_BINDING_KERNEL){
+				local_interface.ifeid = (uint8_t)atoi(optarg);
+#endif
 			}
 			break;
 		case 'q':

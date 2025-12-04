@@ -166,7 +166,11 @@ static int mctp_ctrl_sdbus_get_nw_id(sd_bus *bus, const char *path,
 
 	while (entry != NULL) {
 		if (entry->eid == eid_req) {
+#ifdef MCTP_IN_KERNEL
+			mctp_nw_id = entry->net;
+#else
 			mctp_nw_id = MCTP_CTRL_SDBUS_NETWORK_ID;
+#endif
 			break;
 		}
 
@@ -332,7 +336,36 @@ static int mctp_ctrl_sdbus_get_sock_name(sd_bus *bus, const char *path,
 	return sd_bus_message_close_container(reply);
 }
 
+#ifdef MCTP_IN_KERNEL
+static int mctp_ctrl_sdbus_get_local_eid(sd_bus *bus, const char *path,
+					    const char *interface,
+					    const char *property,
+					    sd_bus_message *reply,
+					    void *userdata, sd_bus_error *error)
+{
+	uint8_t eid_req = 0;
+	mctp_msg_type_table_t *entry = g_msg_type_entries;
 
+	(void)bus;
+	(void)interface;
+	(void)property;
+	(void)userdata;
+	(void)error;
+
+	eid_req = mctp_ctrl_get_eid_from_sdbus_path(path);
+
+	while (entry != NULL) {
+		if (entry->eid == eid_req) {
+			return sd_bus_message_append(reply, "u", entry->own_eid);
+		}
+
+		/* Increment for next entry */
+		entry = entry->next;
+	}
+
+	return sd_bus_message_append(reply, "u", 0);
+}
+#else
 static int mctp_ctrl_sdbus_get_local_eid(sd_bus *bus, const char *path,
 					    const char *interface,
 					    const char *property,
@@ -349,6 +382,7 @@ static int mctp_ctrl_sdbus_get_local_eid(sd_bus *bus, const char *path,
 	/* append the message */
 	return sd_bus_message_append(reply, "u", local_eid);
 }
+#endif
 
 static int mctp_ctrl_sdbus_get_bus(sd_bus *bus, const char *path,
 				   const char *interface, const char *property,
@@ -367,6 +401,65 @@ static int mctp_ctrl_sdbus_get_bus(sd_bus *bus, const char *path,
 
 	return sd_bus_message_append(reply, "u", i2c_bus);
 }
+
+#ifdef MCTP_IN_KERNEL
+static int mctp_ctrl_sdbus_get_interface_name(sd_bus *bus, const char *path,
+					const char *interface,
+					const char *property,
+					sd_bus_message *reply, void *userdata,
+					sd_bus_error *error)
+{
+	uint8_t eid_req = 0;
+	mctp_msg_type_table_t *entry = g_msg_type_entries;
+
+	(void)bus;
+	(void)interface;
+	(void)property;
+	(void)userdata;
+	(void)error;
+
+	eid_req = mctp_ctrl_get_eid_from_sdbus_path(path);
+
+	while (entry != NULL) {
+		if (entry->eid == eid_req) {
+			return sd_bus_message_append(reply, "s", entry->ifname);
+		}
+
+		/* Increment for next entry */
+		entry = entry->next;
+	}
+
+	return sd_bus_message_append(reply, "u", "NULL");
+}
+
+static int mctp_ctrl_sdbus_get_ifindex(sd_bus *bus, const char *path,
+				   const char *interface, const char *property,
+				   sd_bus_message *reply, void *userdata,
+				   sd_bus_error *error)
+{
+	uint8_t eid_req = 0;
+	mctp_msg_type_table_t *entry = g_msg_type_entries;
+
+	(void)bus;
+	(void)interface;
+	(void)property;
+	(void)userdata;
+	(void)error;
+
+	eid_req = mctp_ctrl_get_eid_from_sdbus_path(path);
+
+	while (entry != NULL) {
+		if (entry->eid == eid_req) {
+			return sd_bus_message_append(reply, "u", entry->ifindex);
+		}
+
+		/* Increment for next entry */
+		entry = entry->next;
+	}
+
+	return sd_bus_message_append(reply, "u", 0);
+}
+#endif
 
 static int mctp_ctrl_sdbus_get_location(sd_bus *bus, const char *path,
 				   const char *interface, const char *property,
@@ -900,6 +993,12 @@ static const sd_bus_vtable mctp_ctrl_common_sock_vtable[] = {
 			SD_BUS_VTABLE_PROPERTY_CONST),
 	SD_BUS_PROPERTY("LocalEID", "u", mctp_ctrl_sdbus_get_local_eid, 0,
 			SD_BUS_VTABLE_PROPERTY_CONST),
+#ifdef MCTP_IN_KERNEL
+	SD_BUS_PROPERTY("InterfaceName", "s", mctp_ctrl_sdbus_get_interface_name, 0,
+			SD_BUS_VTABLE_PROPERTY_CONST),
+	SD_BUS_PROPERTY("ifindex", "u", mctp_ctrl_sdbus_get_ifindex, 0,
+			SD_BUS_VTABLE_PROPERTY_CONST),
+#endif
 	SD_BUS_VTABLE_END
 };
 

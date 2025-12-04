@@ -30,7 +30,14 @@
 #include "time.h"
 #include "mctp-ext-sdbus.h"
 #include "mctp-utils.h"
+#include "mctp-ext-socket.h"
 
+#ifdef MCTP_IN_KERNEL
+#include "mctp-netlink.h"
+#include "mctp-socket.h"
+#include "mctp-discovery-kernel.h"
+extern uint8_t g_pci_bridge_address[PCIE_VDM_ADDR_LEN];
+#endif
 
 extern const char *phy_transport_binding_to_string(uint8_t id);
 
@@ -152,11 +159,13 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 	g_target_bdf = mctp_ctrl_get_target_bdf(cmd);
 	int64_t t_start, t_end;
 	int retry_discovery = 0;
+#ifdef MCTP_IN_KERNEL
+	uint8_t active_binding = ctrl->active_binding;
+#endif
 	
 	/* Update the EID lists */
 	if (!daemon_mode) {
 #ifdef MCTP_IN_KERNEL
-       uint8_t active_binding = ctrl->active_binding;
        g_pci_own_eid = cmd->kernel.binding[active_binding].own_eid;
        g_pci_bridge_eid = cmd->kernel.binding[active_binding].eid;
        g_pci_bridge_pool_start = cmd->kernel.binding[active_binding].eid_pool_start;
@@ -166,6 +175,21 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 		g_pci_bridge_pool_start = cmd->pcie.bridge_pool_start;
 #endif		
 	}
+
+#ifdef MCTP_IN_KERNEL
+	mctp_endpoint_socket_init(&ctrl->sock, g_pci_own_eid , 0, MCTP_CTRL_TXRX_TIMEOUT_16SECS);
+	if (mctp_nl_add_route(g_pci_own_eid) < 0) {
+		MCTP_SYS_ERR("%s: Failed to add route for eid %d\n", __func__,
+				g_pci_own_eid);
+	}
+
+	mctp_update_endpoint_hwinfo(cmd->kernel.binding[active_binding].dest_slave_addr, cmd->kernel.binding[active_binding].slave_addr_len);
+	if (mctp_nl_add_neigh(g_pci_own_eid) < 0) {
+		MCTP_SYS_ERR("%s: Failed to add neigh for eid %d\n", __func__,
+				g_pci_own_eid);
+	}
+#endif	
+
 	t_start = mctp_ext_millis();
 
 	MCTP_SYS_DEBUG(
@@ -302,6 +326,9 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					MCTP_SYS_ERR(
 						"%s: Failed MCTP_EP_DISCOVERY_REQUEST\n",
 						__func__);
+#ifdef MCTP_IN_KERNEL
+					close(ctrl->sock);
+#endif					
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 
@@ -312,9 +339,12 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 
 			case MCTP_EP_DISCOVERY_RESPONSE:
 
-				if (retry_discovery ++ < MAX_RETRY_PREPARE_DISCOVERY)
+				if (retry_discovery ++ < MAX_RETRY_PREPARE_DISCOVERY){
 					discovery_mode = MCTP_EP_DISCOVERY_REQUEST;
-				else {
+#ifdef MCTP_IN_KERNEL
+					mctp_update_endpoint_hwinfo(cmd->kernel.binding[active_binding].dest_slave_addr, cmd->kernel.binding[active_binding].slave_addr_len);
+#endif
+				} else {
 					if (g_endpoint_dicovered && ctrl->update_routing_table) {
 						discovery_mode = MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST;
 					} else {
@@ -381,6 +411,9 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 						"PCIe Device Enumeration Service",
 						"No valid routing table", EVT_CRITICAL,
 						"Reset the baseboard");
+#ifdef MCTP_IN_KERNEL
+					close(ctrl->sock);
+#endif					
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 
@@ -436,6 +469,9 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 						"PCIe Device Enumeration Service",
 						"No valid routing table", EVT_CRITICAL,
 						"Reset the baseboard");
+#ifdef MCTP_IN_KERNEL
+					close(ctrl->sock);
+#endif					
 
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
@@ -472,6 +508,11 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 
 				if(discovery_mode == MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST)
 					break;
+
+#ifdef MCTP_IN_KERNEL
+				/* Setup all routing entries in kernel */
+				mctp_kernel_setup_all_routing_entries();
+#endif
 
 				/* Get the start of Routing entry */
 				routing_entry = g_routing_table_entries;
@@ -517,6 +558,10 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 							"Failed to get unique identifier for endpoint",
 							EVT_CRITICAL,
 							"Reset the baseboard");
+#ifdef MCTP_IN_KERNEL
+						close(ctrl->sock);
+#endif					
+
 						return MCTP_RET_DISCOVERY_FAILED;
 					}
 
@@ -612,6 +657,10 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 					      "Failed to get unique identifier for endpoint",
 					      EVT_CRITICAL,
 					      "Reset the baseboard");
+#ifdef MCTP_IN_KERNEL
+					close(ctrl->sock);
+#endif					
+
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 			} else {
@@ -723,6 +772,9 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 							"Failed to get supported message types for endpoint",
 							EVT_CRITICAL,
 							"Reset the baseboard");
+#ifdef MCTP_IN_KERNEL
+						close(ctrl->sock);
+#endif					
 						return MCTP_RET_DISCOVERY_FAILED;
 					}
 					/* Wait for the endpoint response */
@@ -742,10 +794,16 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 						"%s: MCTP_GET_MSG_TYPE_RESPONSE Failed EID: %d\n",
 						__func__, eid_start);
 				} else {
+#ifdef MCTP_IN_KERNEL				
+				/* Process the MCTP_GET_MSG_TYPE_RESPONSE */
+				mctp_ret = mctp_kernel_get_msg_type_response(
+					eid_start, mctp_resp_msg, resp_msg_len, cmd->kernel.binding[active_binding].binding, cmd->kernel.binding[active_binding].own_eid,
+					cmd->kernel.binding[active_binding].interface_name, if_nametoindex(cmd->kernel.binding[active_binding].interface_name), cmd->kernel.binding[active_binding].network);
+#else
 					/* Process the MCTP_GET_MSG_TYPE_RESPONSE */
 					mctp_ret = mctp_get_msg_type_response(
 						eid_start, mctp_resp_msg, resp_msg_len);
-
+#endif
 					/* Free Rx packet */
 					free(mctp_resp_msg);
 					mctp_resp_msg = NULL;
@@ -807,6 +865,9 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 		MCTP_SYS_DEBUG("%s: Obtained Message type entries\n", __func__);
 		mctp_msg_types_display();
 	}
+#ifdef MCTP_IN_KERNEL
+	close(ctrl->sock);
+#endif					
 	
 	return MCTP_RET_DISCOVERY_SUCCESS;
 }
@@ -878,7 +939,7 @@ mctp_ret_codes_t mctp_busowner_mode_ctrl_cmd_responder(mctp_ctrl_t *ctrl,
 				routing_table_entry.eid_range_size = 1;
 				routing_table_entry.phys_address_size = 2;
 				routing_table_entry.phys_address[0] = g_remote_id >> 8;
-				routing_table_entry.phys_address[1] = g_remote_id;
+				routing_table_entry.phys_address[1] = g_remote_id;			
 
 				/* Add the entry to a linked list */
 				ret = mctp_routing_entry_add(
@@ -889,6 +950,15 @@ mctp_ret_codes_t mctp_busowner_mode_ctrl_cmd_responder(mctp_ctrl_t *ctrl,
 						__func__);
 					return MCTP_RET_REQUEST_FAILED;
 				}
+
+#ifdef MCTP_IN_KERNEL
+				/* Setup kernel-specific routing operations */
+				if (mctp_kernel_setup_routing_entry(&routing_table_entry) < 0) {
+					MCTP_SYS_ERR(
+						"%s: Failed to setup kernel routing entry..\n",
+						__func__);
+				}
+#endif	
 
 				if (eid_pool_size > 0) {
 					/* Update the Allocate EIDs operation, number of EIDs, Starting EID */
@@ -948,6 +1018,15 @@ mctp_ret_codes_t mctp_busowner_mode_ctrl_cmd_responder(mctp_ctrl_t *ctrl,
 						__func__);
 					return MCTP_RET_REQUEST_FAILED;
 				}
+
+#ifdef MCTP_IN_KERNEL
+				/* Setup kernel-specific routing operations */
+				if (mctp_kernel_setup_routing_entry(&routing_table_entry) < 0) {
+					MCTP_SYS_ERR(
+						"%s: Failed to setup kernel routing entry..\n",
+						__func__);
+				}
+#endif
 				break;
 
 			case MCTP_CTRL_CMD_GET_ROUTING_TABLE_ENTRIES:

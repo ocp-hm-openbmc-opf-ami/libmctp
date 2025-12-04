@@ -161,6 +161,7 @@ struct mctp_kernel_binding {
 	char binding[MAX_MCTP_BINDING_NAME_LEN];
 	char interface_name[MAX_NETWORK_INTERFACE_NAME_LEN];
 	mctp_device_role_t device_role;
+	uint8_t network;
 };
 
 /* KERNEL specific configuration */

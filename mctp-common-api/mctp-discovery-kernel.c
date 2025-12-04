@@ -39,10 +39,12 @@
 #include "mctp-ext-sdbus.h"
 #include "mctp-discovery-endpoint.h"
 #include "mctp-discovery-busowner.h"
+#include "libmctp-astpcie.h"
 
 #include "mctp-netlink.h"
 #include "mctp-ctrl-cmdline.h"
 #include "linux/mctp.h"
+#include  "mctp-ext-socket.h"
 
 extern uint8_t g_eid_pool_size;
 extern uint8_t g_eid_pool_start;
@@ -53,6 +55,144 @@ extern mctp_msg_type_table_t *g_msg_type_entries;
 static mctp_eid_t g_kernel_bridge_eid;
 static mctp_eid_t g_kernel_reject_set_eid = 0;
 static u_int16_t g_remote_id;
+
+/* bridge address variable */
+uint8_t g_pci_bridge_address[PCIE_VDM_ADDR_LEN];
+
+/* Helper function to handle kernel-specific routing operations */
+int mctp_kernel_setup_routing_entry(struct get_routing_table_entry *routing_table_entry)
+{
+	int rc = 0;
+
+	/* Validate input parameter */
+	if (!routing_table_entry) {
+		MCTP_CTRL_ERR("%s: Invalid routing table entry parameter\n", __func__);
+		return -1;
+	}
+
+	/* Add route for the EID */
+	if (mctp_nl_add_route(routing_table_entry->starting_eid) < 0) {
+		MCTP_CTRL_ERR("%s: Failed to add route for eid %d\n",
+			      __func__, routing_table_entry->starting_eid);
+		rc = -1; /* Mark error but continue with cleanup */
+	}
+
+	/* Prepare and update hardware info based on binding type */
+	if (routing_table_entry->phys_transport_binding_id == MCTP_BINDING_PCIE &&
+	    routing_table_entry->phys_address_size == 2) {
+		/* PCIe VDM requires 3 bytes: route_type + BDF */
+		uint8_t pcie_addr[PCIE_VDM_ADDR_LEN];
+		/* Set route type based on command type */
+		pcie_addr[0] = PCIE_ROUTE_BY_ID; /* Route type = 2 (routed to ID) */
+		pcie_addr[1] = routing_table_entry->phys_address[0]; /* BDF low byte */
+		pcie_addr[2] = routing_table_entry->phys_address[1]; /* BDF high byte */
+		
+		MCTP_CTRL_DEBUG("%s: PCIe VDM address setup - Route type: %d, BDF: 0x%02x%02x\n", 
+				__func__, pcie_addr[0], pcie_addr[2], pcie_addr[1]);
+		
+		mctp_update_endpoint_hwinfo(pcie_addr, PCIE_VDM_ADDR_LEN);
+	} else if (routing_table_entry->phys_transport_binding_id == MCTP_BINDING_VDM && 
+		   routing_table_entry->phys_address_size == 2) {
+		/* For VDM devices, use match_bridge_routing_entry to find correct bridge address */
+		uint8_t pcie_addr[PCIE_VDM_ADDR_LEN];
+		uint16_t bridge_bdf;
+		int original_bdf = (routing_table_entry->phys_address[0] << 8) | 
+				   routing_table_entry->phys_address[1];
+		
+		/* Create a temporary routing entry for match_bridge_routing_entry */
+		mctp_routing_table_t temp_routing_entry;
+		memcpy(&temp_routing_entry.routing_table, routing_table_entry, 
+		       sizeof(struct get_routing_table_entry));
+		
+		/* Find the bridge BDF using match_bridge_routing_entry */
+		bridge_bdf = match_bridge_routing_entry(&temp_routing_entry, original_bdf);
+		
+		/* Check if bridge BDF is same as original BDF */
+		if (bridge_bdf == original_bdf) {
+			MCTP_CTRL_DEBUG("%s: VDM binding - Bridge BDF same as original BDF (0x%04x), using global bridge address\n", 
+					__func__, original_bdf);
+			mctp_update_endpoint_hwinfo(g_pci_bridge_address, PCIE_VDM_ADDR_LEN);
+		} else {
+			/* Set up PCIe VDM address with bridge BDF */
+			pcie_addr[0] = PCIE_ROUTE_BY_ID; /* Route type = 2 (routed to ID) */
+			pcie_addr[1] = (uint8_t)((bridge_bdf >> 8) & 0xFF); /* BDF high byte */
+			pcie_addr[2] = (uint8_t)(bridge_bdf & 0xFF);        /* BDF low byte */
+			
+			MCTP_CTRL_DEBUG("%s: VDM binding - Original BDF: 0x%04x, Bridge BDF: 0x%04x, Route type: %d\n", 
+					__func__, original_bdf, bridge_bdf, pcie_addr[0]);
+			
+			mctp_update_endpoint_hwinfo(pcie_addr, PCIE_VDM_ADDR_LEN);
+		}
+	} else {
+		MCTP_CTRL_DEBUG("%s: Using physical address directly - binding: %d, size: %d\n", 
+				__func__, routing_table_entry->phys_transport_binding_id, 
+				routing_table_entry->phys_address_size);
+		mctp_update_endpoint_hwinfo(routing_table_entry->phys_address, 
+					   routing_table_entry->phys_address_size);
+	}
+
+	/* Add neighbor entry for the EID */
+	if (mctp_nl_add_neigh(routing_table_entry->starting_eid) < 0) {
+		MCTP_CTRL_ERR("%s: Failed to add neigh for eid %d\n",
+			      __func__, routing_table_entry->starting_eid);
+		rc = -1; /* Mark error but continue with cleanup */
+	}
+	
+	MCTP_CTRL_DEBUG("%s: Kernel routing setup completed for EID %d, result: %d\n", 
+			__func__, routing_table_entry->starting_eid, rc);
+	
+	return rc;
+}
+
+/* Helper function to setup all routing entries from global routing table to kernel */
+int mctp_kernel_setup_all_routing_entries(void)
+{
+	int rc = 0;
+	int success_count = 0;
+	int total_entries = 0;
+	mctp_routing_table_t *routing_entry = NULL;
+
+	/* Check if global routing table exists */
+	if (!g_routing_table_entries) {
+		MCTP_CTRL_WARN("%s: No routing table entries found in global table\n", __func__);
+		return 0; /* Not an error, just no entries to process */
+	}
+
+	MCTP_CTRL_DEBUG("%s: Starting to setup all routing entries from global table\n", __func__);
+
+	/* Iterate through all routing table entries */
+	routing_entry = g_routing_table_entries;
+	while (routing_entry) {
+		total_entries++;
+		
+		MCTP_CTRL_DEBUG("%s: Processing routing entry %d - EID: %d, Transport: %d\n", 
+				__func__, total_entries, 
+				routing_entry->routing_table.starting_eid,
+				routing_entry->routing_table.phys_transport_binding_id);
+
+		/* Setup individual routing entry using existing function */
+		int entry_result = mctp_kernel_setup_routing_entry(&routing_entry->routing_table);
+		
+		if (entry_result == 0) {
+			success_count++;
+			MCTP_CTRL_DEBUG("%s: Successfully setup routing entry for EID %d\n", 
+					__func__, routing_entry->routing_table.starting_eid);
+		} else {
+			MCTP_CTRL_ERR("%s: Failed to setup routing entry for EID %d, error: %d\n", 
+				      __func__, routing_entry->routing_table.starting_eid, entry_result);
+			rc = -1; /* Mark that we had failures, but continue processing */
+		}
+
+		/* Move to next entry */
+		routing_entry = routing_entry->next;
+	}
+
+	MCTP_CTRL_INFO("%s: Completed routing table setup - Total: %d, Success: %d, Failed: %d\n", 
+		       __func__, total_entries, success_count, (total_entries - success_count));
+
+	/* Return 0 if all succeeded, -1 if any failed */
+	return (success_count == total_entries) ? 0 : rc;
+}
 
 /* Send function for Get MCTP version support */
 mctp_ret_codes_t mctp_kernel_get_mctp_ver_support_request(int sock_fd, uint8_t eid)
@@ -126,7 +266,6 @@ mctp_ret_codes_t mctp_kernel_set_eid_send_request(int sock_fd,
 	mctp_binding_ids_t bind_id;
 	struct mctp_smbus_pkt_private pvt_binding;
     struct mctp_hdr mctp_hdr = {1, MCTP_EID_NULL, MCTP_EID_NULL, MCTP_TAG_OWNER};
-
 
 	/* Set destination EID as NULL */
 	dest_eid = MCTP_EID_NULL;
@@ -649,8 +788,8 @@ mctp_ret_codes_t mctp_kernel_get_msg_type_request(int sock_fd, mctp_eid_t eid)
 }
 
 /* Receive function for Get Messgae types */
-int mctp_kernel_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
-				   size_t resp_msg_len, const char* binding)
+int mctp_kernel_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg, size_t resp_msg_len, const char* binding,
+				    mctp_eid_t own_eid, const char* iface, uint8_t ifindex, uint8_t network)
 {
 	bool req_ret;
 	struct mctp_ctrl_resp_get_msg_type_support *msg_type_resp;
@@ -696,6 +835,10 @@ int mctp_kernel_get_msg_type_response(mctp_eid_t eid, uint8_t *mctp_resp_msg,
 					  ->data[MCTP_MSG_TYPE_DATA_LEN_OFFSET];
 	memset(msg_type_table.slot, 0, sizeof(msg_type_table.slot));
 	msg_type_table.binding_type = binding;
+	msg_type_table.ifname = iface;
+	msg_type_table.ifindex = ifindex;
+	msg_type_table.own_eid = own_eid;
+	msg_type_table.net = network;
 
 	if (msg_type_table.data_len > (MCTP_BTU - 1)) {
 		MCTP_CTRL_INFO(
@@ -800,7 +943,7 @@ mctp_ret_codes_t mctp_kernel_discover_endpoints(const mctp_cmdline_args_t *cmd,
 
 	do {
 		/* Wait for MCTP response */
-		mctp_ret = mctp_discover_response(discovery_mode, local_eid,
+		mctp_ret = mctp_discover_response(discovery_mode, bridge_eid,
 						  ctrl->sock, &mctp_resp_msg,
 						  &resp_msg_len, &mctp_hdr_msg);
 		if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
@@ -1153,7 +1296,8 @@ mctp_ret_codes_t mctp_kernel_discover_endpoints(const mctp_cmdline_args_t *cmd,
 			} else {
 				/* Process the MCTP_GET_MSG_TYPE_RESPONSE */
 				mctp_ret = mctp_kernel_get_msg_type_response(
-					eid_start, mctp_resp_msg, resp_msg_len, kernel_binding->binding);
+					eid_start, mctp_resp_msg, resp_msg_len, kernel_binding->binding, kernel_binding->own_eid, 
+					kernel_binding->interface_name, if_nametoindex(kernel_binding->interface_name), kernel_binding->network);
 
 				/* Free Rx packet */
 				free(mctp_resp_msg);
@@ -1231,7 +1375,7 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 		
 		update_interface_info(
 			kernel_binding->interface_name, kernel_binding->dest_slave_addr,  kernel_binding->slave_addr_len,
-			kernel_binding->own_eid, MCTP_DEFAULT_NET, kernel_binding->mtu);
+			kernel_binding->own_eid, kernel_binding->network, kernel_binding->mtu);
 
 		/* SMBUS/I2C require to set NETLINK socket for all slave devices*/
 		if ((rc = mctp_nl_socket_init()) < 0) {
@@ -1251,10 +1395,11 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 		} else if (check_endpoint_discovered(kernel_binding->eid))
 			continue;
 		
+		mctp_endpoint_socket_init(&ctrl->sock, kernel_binding->own_eid , 0, MCTP_CTRL_TXRX_TIMEOUT_16SECS);
 		do {
 			/* Wait for MCTP response */
 			mctp_ret = mctp_discover_response(
-				discovery_mode, kernel_binding->own_eid,
+				discovery_mode, kernel_binding->eid,
 				ctrl->sock, &mctp_resp_msg, &resp_msg_len, &mctp_hdr_msg);
 
 			if (mctp_ret != MCTP_RET_REQUEST_SUCCESS) {
@@ -1291,6 +1436,10 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 						__func__);
 					//return MCTP_RET_DISCOVERY_FAILED;
 					discovery_mode = MCTP_FINISH_DISCOVERY;
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 					break;
 				}
 
@@ -1334,6 +1483,10 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 					MCTP_CTRL_ERR(
 						"%s: Timedout[%d] MCTP_SET_EP_RESPONSE\n",
 						__func__, timeout);
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 				
@@ -1376,6 +1529,10 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 					MCTP_CTRL_ERR(
 						"%s: Failed MCTP_GET_EP_UUID_REQUEST\n",
 						__func__);
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 
@@ -1427,6 +1584,10 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 					MCTP_CTRL_ERR(
 						"%s: Failed MCTP_GET_MSG_TYPE_REQUEST\n",
 						__func__);
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 					return MCTP_RET_DISCOVERY_FAILED;
 				}
 
@@ -1448,7 +1609,11 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 							kernel_binding->eid,
 							mctp_resp_msg,
 							resp_msg_len,
-							kernel_binding->binding);
+							kernel_binding->binding,
+							kernel_binding->own_eid,
+							kernel_binding->interface_name,
+							if_nametoindex(kernel_binding->interface_name),
+							kernel_binding->network);
 
 					/* Free Rx packet */
 					free(mctp_resp_msg);
@@ -1491,6 +1656,10 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 			}
 
 		} while (discovery_mode != MCTP_FINISH_DISCOVERY);
+#ifdef MCTP_IN_KERNEL						
+						close(ctrl->sock);
+#endif
+
 	}
 
 	/* Display all UUID details */
