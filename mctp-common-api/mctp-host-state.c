@@ -215,7 +215,7 @@ int powerSignalHandler(sd_bus_message *m, void *userdata,
 					state);
 
 			int current_host_power = strstr(state, ".Running") ? 0 : 1;
-			host_power_changed = current_host_power != host_power ? 1: 0;
+			host_power_changed = (host_power_changed || (current_host_power != host_power)) ? 1: 0;
 			host_power = current_host_power;
 			
 			r = sd_bus_message_exit_container(m); // variant

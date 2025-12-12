@@ -1557,11 +1557,19 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 	}
 #endif
 
+#ifdef MCTP_IN_KERNEL
+	if(!atomic_load(&partial_discover_running)){
+		int reset = mctp_check_host_reset_event();
+		if (reset) {
+			mctp_ctrl_handle_host_reset(mctp_ctrl);
+		}
+	}
+#else
 	int reset = mctp_check_host_reset_event();
 	if (reset) {
-		mctp_ctrl_handle_host_reset(mctp_ctrl);
+		return -1;
 	}
-	
+#endif	
 	r = mctp_ctrl_handle_timer(mctp_ctrl, context);
 	if (r < 0) {
 		MCTP_CTRL_ERR("Error handling timer event: %d\n", r);
