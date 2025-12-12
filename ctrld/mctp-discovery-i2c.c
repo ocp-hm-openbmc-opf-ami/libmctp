@@ -68,6 +68,7 @@ struct {
 	} *buses;
 } g_i2c_bus_info;
 
+
 void mctp_i2c_clean_up() {
 	if(g_i2c_bus_info.buses)
 		free(g_i2c_bus_info.buses);
