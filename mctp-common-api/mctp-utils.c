@@ -128,7 +128,7 @@ int mctp_get_sys_verbose_level(const char* module) {
 
     int fd = open(MCTP_TRACE_FILE_PATH, O_RDONLY);
     if (fd < 0) {
-        MCTP_SYS_ERR("mctp_get_sys_verbose_level open fail!\n");
+        MCTP_SYS_DEBUG("mctp_get_sys_verbose_level open fail!\n");
         return 0;
     }
 
@@ -197,7 +197,7 @@ int mctp_get_sys_target_eid(const char* module) {
 
     int fd = open(MCTP_TRACE_FILE_PATH, O_RDONLY);
     if (fd < 0) {
-        MCTP_SYS_ERR("mctp_get_sys_target_eid open fail!\n");
+        MCTP_SYS_DEBUG("mctp_get_sys_target_eid open fail!\n");
         return -1;  // Return -1 indicates no specified EID or file open failed
     }
 
