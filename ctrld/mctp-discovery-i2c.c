@@ -1450,16 +1450,19 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 					if(g_i2c_reject_set_eid) {
 						g_i2c_reject_set_eid = 0;
 					} else if (!g_i2c_bus_info.buses[i].dest_slave_addr){
-						uint8_t next_addr = g_i2c_dest_slave_addr;
-						set_pool_of_endpoints(cmd->i2c.logical_busses[i], &next_addr, g_endpoint_discovered);
-						MCTP_CTRL_DEBUG("Scanning %d %x %x \n",cmd->i2c.logical_busses[i], g_i2c_dest_slave_addr, next_addr);
-						if(next_addr == g_i2c_dest_slave_addr || next_addr == 0){
-							MCTP_CTRL_DEBUG("%s: Nothing discovered on bus %d\n",__func__, cmd->i2c.logical_busses[i]);
-							clear_address_pool(g_i2c_dest_slave_addr);
-							discovery_mode = MCTP_FINISH_DISCOVERY;
-							break;
-						}else{
-							g_i2c_dest_slave_addr = next_addr;
+						if(retries == MCTP_CTRL_CMD_MAX_RETRY)
+						{
+							uint8_t next_addr = g_i2c_dest_slave_addr;
+							set_pool_of_endpoints(cmd->i2c.logical_busses[i], &next_addr, g_endpoint_discovered);
+							MCTP_CTRL_DEBUG("Scanning %d %x %x \n",cmd->i2c.logical_busses[i], g_i2c_dest_slave_addr, next_addr);
+							if(next_addr == g_i2c_dest_slave_addr || next_addr == 0){
+								MCTP_CTRL_DEBUG("%s: Nothing discovered on bus %d\n",__func__, cmd->i2c.logical_busses[i]);
+								clear_address_pool(g_i2c_dest_slave_addr);
+								discovery_mode = MCTP_FINISH_DISCOVERY;
+								break;
+							}else{
+								g_i2c_dest_slave_addr = next_addr;
+							}
 						}
 					} else {
 						g_i2c_dest_slave_addr = g_i2c_bus_info.buses[i].dest_slave_addr;
@@ -1548,6 +1551,11 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 							discovery_mode = MCTP_FINISH_DISCOVERY;
 						} else {
 							discovery_mode = MCTP_SET_EP_REQUEST;
+							if(!retries){
+								retries = MCTP_CTRL_CMD_MAX_RETRY;
+							}else{
+								retries --;
+							}
 						}
 						break;
 					} else {
@@ -1631,15 +1639,17 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 							mctp_resp_msg,
 							resp_msg_len);
 
+					/* Free Rx packet */
+					free(mctp_resp_msg);
+					mctp_resp_msg = NULL;
+
 					if (mctp_ret !=
 					    MCTP_RET_REQUEST_SUCCESS) {
 						MCTP_CTRL_ERR(
 							"%s: MCTP_GET_EP_UUID_RESPONSE Failed\n",
 							__func__);
+						break;
 					}
-					/* Free Rx packet */
-					free(mctp_resp_msg);
-					mctp_resp_msg = NULL;
 				}
 
 				discovery_mode = MCTP_GET_MSG_TYPE_REQUEST;
@@ -1694,6 +1704,7 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 						MCTP_CTRL_ERR(
 							"%s: MCTP_GET_MSG_TYPE_RESPONSE Failed\n",
 							__func__);
+						break;
 					}
 				}
 
