@@ -603,12 +603,12 @@ void mctp_bus_rx(struct mctp_binding *binding, struct mctp_pktbuf *pkt)
 		/* start of a new message - start the new context for
 		 * future message reception. If an existing context is
 		 * already present, drop it. */
-		ctx = mctp_msg_ctx_lookup(mctp, hdr->src, hdr->dest, tag);
+		ctx = mctp_msg_ctx_lookup(mctp, hdr->src, hdr->dest, tag | (tag_owner << MCTP_HDR_TO_SHIFT));
 		if (ctx) {
 			mctp_msg_ctx_reset(ctx);
 		} else {
 			ctx = mctp_msg_ctx_create(mctp, hdr->src, hdr->dest,
-						  tag);
+						  tag | (tag_owner << MCTP_HDR_TO_SHIFT));
 			/* If context creation fails due to exhaution of contexts we
 			* can support, drop the packet */
 			if (!ctx) {
@@ -631,7 +631,7 @@ void mctp_bus_rx(struct mctp_binding *binding, struct mctp_pktbuf *pkt)
 		break;
 
 	case MCTP_HDR_FLAG_EOM:
-		ctx = mctp_msg_ctx_lookup(mctp, hdr->src, hdr->dest, tag);
+		ctx = mctp_msg_ctx_lookup(mctp, hdr->src, hdr->dest, tag | (tag_owner << MCTP_HDR_TO_SHIFT));
 		if (!ctx)
 			goto out;
 
@@ -665,7 +665,7 @@ void mctp_bus_rx(struct mctp_binding *binding, struct mctp_pktbuf *pkt)
 
 	case 0:
 		/* Neither SOM nor EOM */
-		ctx = mctp_msg_ctx_lookup(mctp, hdr->src, hdr->dest, tag);
+		ctx = mctp_msg_ctx_lookup(mctp, hdr->src, hdr->dest, tag | (tag_owner << MCTP_HDR_TO_SHIFT));
 		if (!ctx)
 			goto out;
 
