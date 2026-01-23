@@ -89,6 +89,9 @@ extern void mctp_handle_discovery_notify();
 int mctp_ctrl_running = 1;
 _Atomic (bool) partial_discover_running = false;
 
+pthread_mutex_t mctp_ctrl_running_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t  mctp_ctrl_running_cv  = PTHREAD_COND_INITIALIZER;
+
 typedef struct {
 	mctp_ctrl_t *mctp_ctrl;
 	mctp_sdbus_context_t *context;
@@ -132,6 +135,15 @@ static int mctp_ctrl_supported_bus_types(sd_bus *bus, const char *path,
 	return sd_bus_message_close_container(reply);
 }
 #endif
+
+static void add_ms_to_timespec(struct timespec *ts, long ms) {
+    ts->tv_nsec += (ms % 1000) * 1000000L;
+    ts->tv_sec  += ms / 1000;
+    if (ts->tv_nsec >= 1000000000L) {
+        ts->tv_sec += 1;
+        ts->tv_nsec -= 1000000000L;
+    }
+}
 
 static uint8_t mctp_ctrl_get_eid_from_sdbus_path(const char *path)
 {
@@ -1451,7 +1463,19 @@ void* partial_discovery_mode(void* args)
 			local_eid = mctp_ctrl->local_eid;
 			atomic_store(&partial_discover_running, false);
 		} else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
-			sleep(30);
+
+			struct timespec discovery_interval;
+			clock_gettime(CLOCK_REALTIME, &discovery_interval);
+			add_ms_to_timespec(&discovery_interval, 30*1000);
+			pthread_mutex_lock(&mctp_ctrl_running_mtx);
+			int rc = pthread_cond_timedwait(&mctp_ctrl_running_cv, &mctp_ctrl_running_mtx, &discovery_interval);
+			if (rc != ETIMEDOUT) {
+				MCTP_CTRL_DEBUG("mctp_ctrl_running = 0 \n");
+				pthread_mutex_unlock(&mctp_ctrl_running_mtx);
+				continue;  
+			}
+			pthread_mutex_unlock(&mctp_ctrl_running_mtx);
+
 			if (mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC){
 				atomic_store(&partial_discover_running, true);
 				mctp_err_ret = mctp_i2c_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
@@ -1509,7 +1533,7 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 	r = mctp_ctrl_monitor_signal_events(context);
 	if (r < 0) {
 		MCTP_CTRL_INFO("Signal event is capatured\n");
-		return -1;
+		return SIGNAL_EVENT;
 	}
 
 	r = mctp_ctrl_dispatch_sd_bus(context);
@@ -1581,7 +1605,11 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 
 void mctp_ctrl_sdbus_stop(void)
 {
+
+	pthread_mutex_lock(&mctp_ctrl_running_mtx);
 	mctp_ctrl_running = 0;
+	pthread_cond_signal(&mctp_ctrl_running_cv);     // wake the waiter
+	pthread_mutex_unlock(&mctp_ctrl_running_mtx);
 }
 #ifdef MOCKUP_ENDPOINT
 /* MCTP ctrl D-Bus initialization */
@@ -1660,7 +1688,7 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 #endif
 
 	while (mctp_ctrl_running) {
-		if ((r = mctp_ctrl_sdbus_dispatch(mctp_ctrl, context)) < 0) {
+		if ((r = mctp_ctrl_sdbus_dispatch(mctp_ctrl, context)) < 0 || r == SIGNAL_EVENT) {
 			mctp_ctrl_sdbus_stop();
 			break;
 		}
