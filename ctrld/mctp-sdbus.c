@@ -98,7 +98,7 @@ typedef struct {
 } PARTIAL_DISOCVERY_MODE_PARAM;
 
 /* String map for supported bus type */
-char g_mctp_ctrl_supported_buses[MCTP_CTRL_MAX_BUS_TYPES][10] = {
+char g_mctp_ctrl_supported_buses[MCTP_CTRL_MAX_BUS_TYPES][11] = {
 	"PCIe Bus ", "SPI Bus ", "SMBus Bus "
 };
 #if DEBUG
