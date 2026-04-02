@@ -1,0 +1,123 @@
+
+
+name: Pipeline Trigger
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  trigger:
+    name: Dispatch Build
+    # Fire whenever any label is added, as long as trigger_build is present on the PR.
+    # This covers the case where build-ast2700 is added after trigger_build is already there.
+    if: contains(github.event.pull_request.labels.*.name, 'trigger_build')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write   # required to post a comment and remove label
+
+    steps:
+      - name: Dispatch to build_automation
+        run: |
+          # Record timestamp before dispatch so we can find the exact run created by this trigger
+          echo "DISPATCH_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+          # Send PR context to build_automation via repository_dispatch.
+          # Actor validation and target filtering happen inside openbmc-build.yml
+          # which runs natively in build_automation with access to all repo variables.
+          jq -n \
+            --arg actor       "${{ github.actor }}" \
+            --arg pr_branch   "${{ github.head_ref }}" \
+            --arg pr_number   "${{ github.event.pull_request.number }}" \
+            --arg base_ref    "${{ github.base_ref }}" \
+            --arg source_repo "${{ github.repository }}" \
+            --arg repo_name   "${{ github.event.repository.name }}" \
+            --arg pr_url      "${{ github.event.pull_request.html_url }}" \
+            --argjson labels '${{ toJSON(github.event.pull_request.labels.*.name) }}' \
+            '{
+              event_type: "yocto_build",
+              client_payload: {
+                actor:       $actor,
+                pr_branch:   $pr_branch,
+                pr_number:   $pr_number,
+                base_ref:    $base_ref,
+                source_repo: $source_repo,
+                repo_name:   $repo_name,
+                pr_url:      $pr_url,
+                pr_labels:   $labels
+              }
+            }' > payload.json
+
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.BUILD_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            --data @payload.json \
+            https://api.github.com/repos/ocp-hm-openbmc-opf-ami/build_automation/dispatches)
+
+          if [ "$HTTP_STATUS" = "204" ]; then
+            echo "Dispatch successful — build triggered in build_automation"
+          else
+            echo "Dispatch failed with HTTP $HTTP_STATUS"
+            cat response.json
+            exit 1
+          fi
+
+      - name: Remove trigger_build label
+        if: success()
+        run: |
+          # Remove the trigger_build label so the pipeline does not re-fire on the
+          # next label event. The developer adds it again to re-trigger a build.
+          curl -s -X DELETE \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/trigger_build"
+
+      - name: Comment on PR with build link
+        if: success()
+        run: |
+          # Poll the build_automation runs API until a run created after our dispatch
+          # timestamp appears. Retry up to 10 times with 5-second intervals (50s max).
+          # Note: querying another repo's Actions API requires the token to have Actions:read.
+          # BUILD_DISPATCH_TOKEN needs "Actions: Read-only" added to the fine-grained PAT.
+          RUN_URL=""
+          for i in $(seq 1 10); do
+            API_RESPONSE=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.BUILD_DISPATCH_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/ocp-hm-openbmc-opf-ami/build_automation/actions/runs?event=repository_dispatch&per_page=5")
+            echo "Attempt $i — API response: $API_RESPONSE" | head -c 300
+
+            RUN_URL=$(echo "$API_RESPONSE" \
+              | jq -r --arg since "$DISPATCH_TIME" \
+                  '[(.workflow_runs // [])[] | select(.created_at > $since)] | first | .html_url // ""')
+
+            if [ -n "$RUN_URL" ] && [ "$RUN_URL" != "null" ]; then
+              echo "Found run: $RUN_URL"
+              break
+            fi
+            echo "Attempt $i: run not registered yet, retrying in 5s..."
+            sleep 5
+          done
+
+          # Fall back to the general actions page if run was not found in time
+          RUN_URL="${RUN_URL:-https://github.com/ocp-hm-openbmc-opf-ami/build_automation/actions}"
+
+          # Extract run number from the URL (e.g. .../actions/runs/12345678 → 12345678)
+          RUN_NUMBER=$(echo "$RUN_URL" | grep -oP '[0-9]+$')
+          if [ -n "$RUN_NUMBER" ]; then
+            BUILD_LINK="[Run #${RUN_NUMBER}](${RUN_URL})"
+          else
+            BUILD_LINK="[View builds](${RUN_URL})"
+          fi
+
+          BODY=$(printf "**Yocto Build Dispatched**\n\n| | |\n|:--|:--|\n| Triggered by | @${{ github.actor }} |\n| Branch | \`${{ github.head_ref }} → ${{ github.base_ref }}\` |\n| Build | %s |" \
+            "$BUILD_LINK")
+
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -n --arg body "$BODY" '{body: $body}')" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
