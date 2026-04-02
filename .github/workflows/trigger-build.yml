@@ -35,7 +35,7 @@ jobs:
             --arg pr_url      "${{ github.event.pull_request.html_url }}" \
             --argjson labels '${{ toJSON(github.event.pull_request.labels.*.name) }}' \
             '{
-              event_type: "yocto_build",
+              event_type: "openbmc_build",
               client_payload: {
                 actor:       $actor,
                 pr_branch:   $pr_branch,
@@ -112,7 +112,7 @@ jobs:
             BUILD_LINK="[View builds](${RUN_URL})"
           fi
 
-          BODY=$(printf "**Yocto Build Dispatched**\n\n| | |\n|:--|:--|\n| Triggered by | @${{ github.actor }} |\n| Branch | \`${{ github.head_ref }} → ${{ github.base_ref }}\` |\n| Build | %s |" \
+          BODY=$(printf "**OpenBMC Build Dispatched**\n\n| | |\n|:--|:--|\n| Triggered by | @${{ github.actor }} |\n| Branch | \`${{ github.head_ref }} → ${{ github.base_ref }}\` |\n| Build | %s |" \
             "$BUILD_LINK")
 
           curl -s -X POST \
