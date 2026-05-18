@@ -97,28 +97,76 @@ int i2c_mutex_create(int bus_num)
 	return 0;
 }
 
-int i2c_mutex_lock()
+
+// Add timeout in milliseconds; if timeout_ms < 0, block indefinitely
+int i2c_mutex_lock(int timeout_ms)
 {
-#ifndef MCTP_IN_KERNEL
-	if (shared == NULL) {
-		MCTP_SYS_ERR("i2c_mutex_lock shared: %d (%s)\n",
-			errno, strerror(errno));
-		return -1;
-	}
-	pthread_mutex_lock(&shared->mutex);
-#endif	
-	return 0;
+#ifdef MCTP_IN_KERNEL
+       (void)timeout_ms;
+#else
+       if (shared == NULL) {
+	       MCTP_SYS_ERR("i2c_mutex_lock shared: %d (%s)\n",
+		       errno, strerror(errno));
+	       return -1;
+       }
+
+       if (timeout_ms >= 0) {
+	       struct timespec ts;
+	       if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+		       MCTP_SYS_ERR("clock_gettime failed: %d (%s)\n", errno, strerror(errno));
+		       return -1;
+	       }
+	       ts.tv_sec += timeout_ms / 1000;
+	       ts.tv_nsec += (timeout_ms % 1000) * 1000000;
+	       if (ts.tv_nsec >= 1000000000) {
+		       ts.tv_sec += ts.tv_nsec / 1000000000;
+		       ts.tv_nsec = ts.tv_nsec % 1000000000;
+	       }
+	       int ret = pthread_mutex_timedlock(&shared->mutex, &ts);
+	       if (ret != 0) {
+		       if (ret == ETIMEDOUT) {
+			       MCTP_SYS_ERR("i2c_mutex_lock timed out\n");
+		       } else {
+			       MCTP_SYS_ERR("i2c_mutex_lock error: %d (%s)\n", ret, strerror(ret));
+		       }
+		       return -1;
+	       }
+       } else {
+	       if (pthread_mutex_lock(&shared->mutex) != 0) {
+		       MCTP_SYS_ERR("i2c_mutex_lock error: %d (%s)\n", errno, strerror(errno));
+		       return -1;
+	       }
+       }
+#endif
+       return 0;
 }
+
 
 int i2c_mutex_unlock()
 {
 #ifndef MCTP_IN_KERNEL
-	if (shared == NULL) {
-		MCTP_SYS_ERR("i2c_mutex_unlock shared:  %d (%s)\n",
-			errno, strerror(errno));
-		return -1;
-	}
-	pthread_mutex_unlock(&shared->mutex);
+       if (shared == NULL) {
+	       MCTP_SYS_ERR("i2c_mutex_unlock shared:  %d (%s)\n",
+		       errno, strerror(errno));
+	       return -1;
+       }
+
+       int trylock_ret = pthread_mutex_trylock(&shared->mutex);
+       if (trylock_ret == 0) {
+	       // Mutex was not locked, unlock the extra lock
+	       pthread_mutex_unlock(&shared->mutex);
+	       MCTP_SYS_ERR("i2c_mutex_unlock: mutex was not locked by any thread\n");
+	       return -1;
+       } else if (trylock_ret == EBUSY) {
+	       // Mutex is locked, safe to unlock
+	       if (pthread_mutex_unlock(&shared->mutex) != 0) {
+		       MCTP_SYS_ERR("i2c_mutex_unlock error: %d (%s)\n", errno, strerror(errno));
+		       return -1;
+	       }
+       } else {
+	       MCTP_SYS_ERR("i2c_mutex_unlock trylock error: %d (%s)\n", trylock_ret, strerror(trylock_ret));
+	       return -1;
+       }
 #endif
-	return 0;
+       return 0;
 }

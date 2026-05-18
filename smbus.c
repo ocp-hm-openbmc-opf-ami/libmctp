@@ -280,13 +280,13 @@ static void *smbus_tx_thread(void *arg __attribute__((unused)))
 			pthread_cond_wait(&cond, &thread_mutex);
 		}
 
-		i2c_mutex_lock();
 		entry = TAILQ_FIRST(&head);
 		info = (struct smbus_tx_thread_info *)entry->data;
 		buf = info->buf;
 		len = info->len;
 		dest_eid = info->eid;
 		pthread_mutex_unlock(&thread_mutex);
+		i2c_mutex_lock(100);
 
 		struct i2c_msg msgs[2] = {
 			{
@@ -407,13 +407,13 @@ static void *smbus_tx_thread(void *arg __attribute__((unused)))
 		// free tx info
 		free(info);
 
+		i2c_mutex_unlock();
 		pthread_mutex_lock(&thread_mutex);
 		TAILQ_REMOVE(&head, entry, entries);
 		/* Reason for false positive - Checked the variable usage */
 		/* coverity[use : FALSE] */	
 		free(entry);
 		pthread_mutex_unlock(&thread_mutex);
-		i2c_mutex_unlock();
 	}
 
 	// clean up tx queue

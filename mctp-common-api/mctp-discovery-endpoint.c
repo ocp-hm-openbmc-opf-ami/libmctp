@@ -196,6 +196,10 @@ mctp_ret_codes_t mctp_endpoint_mode_discover_endpoints(const mctp_cmdline_args_t
 #ifdef MCTP_IN_KERNEL
 		eid = g_endpoint_dicovered ? g_pci_own_eid : MCTP_ADDR_ANY ;
 #endif
+		if(daemon_mode){
+			MCTP_SYS_DEBUG("%s: Discovery mode: %d\n", __func__, discovery_mode);
+			while(sd_bus_process(ctrl->bus, NULL) > 0) ;
+		}
 		/* Wait for MCTP response */
 		mctp_ret =
 			mctp_discover_request(ctrl, discovery_mode, &eid,
