@@ -125,6 +125,7 @@ int g_signal_fd = -1;
 int g_mon_fd = -1;
 #endif
 int g_disc_timer_fd = -1;
+int g_partial_disc_timer_fd = -1;
 static sd_bus *g_sdbus = NULL;
 
 mctp_eid_t local_eid;
@@ -748,6 +749,25 @@ void mctp_handle_discovery_notify()
 		return;
 	}
 	MCTP_CTRL_INFO("%s: Bump discovery timer\n", __func__);
+}
+
+void mctp_handle_partial_discovery()
+{
+	struct itimerspec timer;
+
+	/* First fire shortly after init, then re-arm every 5 seconds */
+	timer.it_value.tv_sec = 5;
+	timer.it_value.tv_nsec = 0;
+	timer.it_interval.tv_sec = 5;
+	timer.it_interval.tv_nsec = 0;
+
+	if (timerfd_settime(g_partial_disc_timer_fd, 0, &timer, NULL) == -1) {
+		MCTP_CTRL_ERR(
+			"%s: Failed to set partial discovery timer! errno: %d\n",
+			__func__, errno);
+		return;
+	}
+	MCTP_CTRL_INFO("%s: Bump partial discovery timer\n", __func__);
 }
 
 static void mctp_handle_event(mctp_ctrl_t *mctp_ctrl, uint8_t *message,
@@ -1833,7 +1853,14 @@ int main_ctrl(int argc, char *const *argv)
 				g_disc_timer_fd = timerfd_create(
 					CLOCK_MONOTONIC, TFD_NONBLOCK);
 			}
-
+			if (-1 == g_partial_disc_timer_fd) {
+				MCTP_CTRL_INFO(
+					"%s: Creating partial discovery timer for the first time\n",
+					__func__);
+				g_partial_disc_timer_fd = timerfd_create(
+					CLOCK_MONOTONIC, TFD_NONBLOCK);
+				mctp_handle_partial_discovery();
+			}
 			/* Arm the rediscovery timer in case we got any discovery notifies
 			during the discovery process */
 			if (mctp_ctrl->perform_rediscovery == true) {

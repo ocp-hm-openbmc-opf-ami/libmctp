@@ -198,6 +198,11 @@ mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t
 		g_pci_bridge_pool_start);
 
 	do {
+		if(daemon_mode){
+			MCTP_SYS_DEBUG("%s: Discovery mode: %d\n", __func__, discovery_mode);
+			while(sd_bus_process(ctrl->bus, NULL) > 0) ;
+		}
+
 		/* Wait for MCTP response */
 		mctp_ret =
 			mctp_discover_response(ctrl, discovery_mode, &eid,

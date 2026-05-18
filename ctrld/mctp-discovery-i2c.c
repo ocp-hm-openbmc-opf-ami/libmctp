@@ -1408,6 +1408,10 @@ mctp_i2c_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 		}
 #endif
 		do {
+			if(g_endpoint_discovered) {
+				MCTP_CTRL_DEBUG("Start mctp over i2c partial discovery for bus %d\n", g_i2c_bus_info.buses[i].bus);
+				while (sd_bus_process(ctrl->bus, NULL) > 0) ;
+			}
 			/* Wait for MCTP response */
 #ifdef MCTP_IN_KERNEL
 			mctp_ret = mctp_discover_response(

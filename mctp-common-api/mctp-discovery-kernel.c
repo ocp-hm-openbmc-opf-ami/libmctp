@@ -39,6 +39,7 @@
 #include "mctp-ext-sdbus.h"
 #include "mctp-discovery-endpoint.h"
 #include "mctp-discovery-busowner.h"
+#include "mctp-utils.h"
 #include "libmctp-astpcie.h"
 
 #include "mctp-netlink.h"
@@ -1364,6 +1365,7 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 	uint8_t *mctp_hdr_msg = NULL;	
 	size_t resp_msg_len;
 	int timeout = 0;
+	static bool daemon_mode = false;
 
 	struct mctp_kernel_binding *kernel_binding;
 
@@ -1397,6 +1399,11 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 		
 		mctp_endpoint_socket_init(&ctrl->sock, kernel_binding->own_eid , 0, MCTP_CTRL_TXRX_TIMEOUT_16SECS);
 		do {
+			if(daemon_mode) {
+				MCTP_SYS_DEBUG("%s: Discovery mode: %d\n", __func__, discovery_mode);
+				while(sd_bus_process(ctrl->bus, NULL) > 0) ;
+			}
+
 			/* Wait for MCTP response */
 			mctp_ret = mctp_discover_response(
 				discovery_mode, kernel_binding->eid,
@@ -1661,6 +1668,8 @@ mctp_kernel_discover_static_pool_endpoint(const mctp_cmdline_args_t *cmd,
 #endif
 
 	}
+
+	daemon_mode = true;
 
 	/* Display all UUID details */
 	MCTP_CTRL_DEBUG("%s: Obtained UUID entries\n", __func__);

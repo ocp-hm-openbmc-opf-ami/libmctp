@@ -465,10 +465,12 @@ int i2c_bus_reset_device(int bus_num, u_int8_t slave_addr)
 {
 	int ret = 0;
 
-	i2c_mutex_lock();
+	i2c_mutex_lock(100);
 	
-	if(bus_num == 0)
+	if(bus_num == 0) {
+		i2c_mutex_unlock();
 		return 0;
+	}
 
 	int out_fd = mctp_smbus_open_out_bus(NULL, bus_num);
 
@@ -516,7 +518,7 @@ int set_pool_of_endpoints(int32_t bus_num, uint8_t *target_address,
 	//uint8_t quantity_of_udid = 1; //at the moment only one CX7 card
 	uint8_t slave_address = *target_address;
 
-	i2c_mutex_lock();
+	i2c_mutex_lock(100);
 
 	int out_fd = mctp_smbus_open_out_bus(NULL, bus_num);
 	if (out_fd < 0) {

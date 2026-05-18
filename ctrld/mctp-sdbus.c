@@ -83,14 +83,11 @@ extern char *mctp_sock_path;
 extern const char *mctp_medium_type;
 
 extern int g_disc_timer_fd;
+extern int g_partial_disc_timer_fd;
 extern mctp_eid_t local_eid;
 
 extern void mctp_handle_discovery_notify();
 int mctp_ctrl_running = 1;
-_Atomic (bool) partial_discover_running = false;
-
-pthread_mutex_t mctp_ctrl_running_mtx = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  mctp_ctrl_running_cv  = PTHREAD_COND_INITIALIZER;
 
 typedef struct {
 	mctp_ctrl_t *mctp_ctrl;
@@ -135,15 +132,6 @@ static int mctp_ctrl_supported_bus_types(sd_bus *bus, const char *path,
 	return sd_bus_message_close_container(reply);
 }
 #endif
-
-static void add_ms_to_timespec(struct timespec *ts, long ms) {
-    ts->tv_nsec += (ms % 1000) * 1000000L;
-    ts->tv_sec  += ms / 1000;
-    if (ts->tv_nsec >= 1000000000L) {
-        ts->tv_sec += 1;
-        ts->tv_nsec -= 1000000000L;
-    }
-}
 
 static uint8_t mctp_ctrl_get_eid_from_sdbus_path(const char *path)
 {
@@ -1413,111 +1401,108 @@ static int mctp_ctrl_handle_timer(mctp_ctrl_t *mctp_ctrl,
 	return 0;
 }
 
-void* partial_discovery_mode(void* args)
+static int mctp_ctrl_handle_partial_discovery_timer(mctp_ctrl_t *mctp_ctrl,
+				  mctp_sdbus_context_t *context)
 {
-	PARTIAL_DISOCVERY_MODE_PARAM * partial_discovery_mode_param = (PARTIAL_DISOCVERY_MODE_PARAM * )args;
+	static int64_t t_last_run_ms = 0;
+	int64_t t_now_ms;
+	mctp_ret_codes_t mctp_err_ret = MCTP_RET_DISCOVERY_SUCCESS;
 
-	mctp_ctrl_t * mctp_ctrl = partial_discovery_mode_param->mctp_ctrl;
-	mctp_sdbus_context_t *context = partial_discovery_mode_param->context;
-	static int t_update_routing_begin = 0, t_update_routing_end;
-	t_update_routing_begin = mctp_ext_millis();
-	
-	while (mctp_ctrl_running)
-	{
-		mctp_ret_codes_t mctp_err_ret = MCTP_RET_DISCOVERY_SUCCESS;
-		t_update_routing_end = mctp_ext_millis();				
+	if (!mctp_ctrl_running)
+		return 0;
 
-		if (t_update_routing_end - t_update_routing_begin > 60*1000) {
-			t_update_routing_begin = t_update_routing_end;
-			mctp_ctrl->update_routing_table = true;
-			/* Prime the endpoints by setting all their enabled to false */
-			if (g_routing_table_entries) {
-				mctp_routing_table_t *entry = g_routing_table_entries;
-				while (entry) {
-					entry->old_valid = entry->valid;
-					entry->valid = false;
-					entry = entry->next;
-				}
-			}			
-		} else {
-			mctp_ctrl->update_routing_table = false;
-		}
-		if(mctp_ctrl->cmdline->binding_type == MCTP_BINDING_PCIE) {
-			MCTP_CTRL_DEBUG("%s Start MCTP partial discover \n", __func__);						
+	/* Rate-limit: only run partial discovery at most once per minute */
+	t_now_ms = mctp_ext_millis();
+	if (t_last_run_ms == 0) {
+		t_last_run_ms = t_now_ms;
+		return 0;
+	}
 
-			atomic_store(&partial_discover_running, true);
-			if (g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] != NULL) {
-				mctp_err_ret = 	g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] (mctp_ctrl->cmdline, mctp_ctrl);
-			} else {
-				if (mctp_ctrl->cmdline->pcie.mode == 1) {
-					mctp_err_ret = mctp_endpoint_mode_discover_endpoints((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
-							mctp_ctrl);
-				} else if (mctp_ctrl->cmdline->pcie.mode == 2) {
-					mctp_err_ret = mctp_busowner_mode_discover_endpoints((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
-							mctp_ctrl);
-				} else {
-					atomic_store(&partial_discover_running, false);
-					continue;
-				}					
-			}
-			local_eid = mctp_ctrl->local_eid;
-			atomic_store(&partial_discover_running, false);
-		} else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
+	if (t_now_ms - t_last_run_ms >= 60 * 1000) {
+		MCTP_CTRL_INFO("%s: Running partial discovery\n", __func__);
+		mctp_ctrl->update_routing_table = true;
+		t_last_run_ms = t_now_ms;
+	}
 
-			struct timespec discovery_interval;
-			clock_gettime(CLOCK_REALTIME, &discovery_interval);
-			add_ms_to_timespec(&discovery_interval, 30*1000);
-			pthread_mutex_lock(&mctp_ctrl_running_mtx);
-			int rc = pthread_cond_timedwait(&mctp_ctrl_running_cv, &mctp_ctrl_running_mtx, &discovery_interval);
-			if (rc != ETIMEDOUT) {
-				MCTP_CTRL_DEBUG("mctp_ctrl_running = 0 \n");
-				pthread_mutex_unlock(&mctp_ctrl_running_mtx);
-				continue;  
-			}
-			pthread_mutex_unlock(&mctp_ctrl_running_mtx);
-
-			if (mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC){
-				atomic_store(&partial_discover_running, true);
-				mctp_err_ret = mctp_i2c_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
-							mctp_ctrl);
-				atomic_store(&partial_discover_running, false);
-			} else {
-				continue;
-			}
-		}
-#ifdef MCTP_IN_KERNEL
-		 else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_KERNEL) {
-			sleep(30);
-			MCTP_CTRL_INFO("%s: Start KERNEL Discovery\n", __func__);
-			mctp_err_ret = mctp_kernel_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
-							mctp_ctrl);
-			if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
-				MCTP_CTRL_ERR("MCTP-Ctrl discovery unsuccessful\n");
-				//mctp_ctrl_clean_up();
-				//return EXIT_FAILURE;
-			}
-		}
-#endif
-		MCTP_CTRL_DEBUG("%s MCTP-Ctrl partial discovery successful %d\n", __func__, mctp_err_ret);
-		if (mctp_err_ret == MCTP_RET_DISCOVERY_SUCCESS) {		
-			mctp_ctrl_sdbus_object_remove_invalid_eid(mctp_ctrl->bus);					
-			/* Refresh D-Bus states */
-			mctp_sdbus_refresh_endpoints(mctp_ctrl->cmdline, context);
+	/* Drain the timerfd (if armed) so it doesn't keep firing */
+	if (context->fds[MCTP_CTRL_PARTIAL_DISC_TIMER_FD].revents & POLLIN) {
+		uint64_t ign = 0;
+		if (read(context->fds[MCTP_CTRL_PARTIAL_DISC_TIMER_FD].fd,
+			 &ign, sizeof(ign)) != (ssize_t)sizeof(ign)) {
+			MCTP_CTRL_ERR(
+				"%s: Bad read from partial disc timer FD\n",
+				__func__);
 		}
 	}
-	return (void*) NULL;
+
+	if (mctp_ctrl->update_routing_table) {
+		/* Prime the endpoints by marking all routing entries invalid */
+		if (g_routing_table_entries) {
+			mctp_routing_table_t *entry = g_routing_table_entries;
+			while (entry) {
+				entry->old_valid = entry->valid;
+				entry->valid = false;
+				entry = entry->next;
+			}
+		}
+	}
+
+	if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_PCIE) {
+		MCTP_CTRL_DEBUG("%s Start MCTP partial discover \n", __func__);
+
+		if (g_OEMMCTPHndlr[ON_PCIE_DISCOVERY] != NULL) {
+			mctp_err_ret = g_OEMMCTPHndlr[ON_PCIE_DISCOVERY](mctp_ctrl->cmdline, mctp_ctrl);
+		} else {
+			if (mctp_ctrl->cmdline->pcie.mode == 1) {
+				mctp_err_ret = mctp_endpoint_mode_discover_endpoints((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
+						mctp_ctrl);
+			} else if (mctp_ctrl->cmdline->pcie.mode == 2) {
+				mctp_err_ret = mctp_busowner_mode_discover_endpoints((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
+						mctp_ctrl);
+			} else {
+				return 0;
+			}
+		}
+		local_eid = mctp_ctrl->local_eid;
+	} else if (mctp_ctrl->cmdline->binding_type == MCTP_BINDING_SMBUS) {
+		if (mctp_ctrl->update_routing_table &&
+		    (mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_ARP ||
+		     mctp_ctrl->cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC)) {
+			mctp_err_ret = mctp_i2c_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
+						mctp_ctrl);
+		} else {
+			return 0;
+		}
+	}
+#ifdef MCTP_IN_KERNEL
+	else if (mctp_ctrl->update_routing_table && mctp_ctrl->cmdline->binding_type == MCTP_BINDING_KERNEL) {
+		MCTP_CTRL_INFO("%s: Start KERNEL Discovery\n", __func__);
+		mctp_err_ret = mctp_kernel_discover_static_pool_endpoint((const mctp_cmdline_args_t *)mctp_ctrl->cmdline,
+						mctp_ctrl);
+		if (mctp_err_ret != MCTP_RET_DISCOVERY_SUCCESS) {
+			MCTP_CTRL_ERR("MCTP-Ctrl discovery unsuccessful\n");
+			//mctp_ctrl_clean_up();
+			//return EXIT_FAILURE;
+		}
+	}
+#endif
+	MCTP_CTRL_INFO("%s MCTP-Ctrl partial discovery successful %d\n", __func__, mctp_err_ret);
+	if (mctp_err_ret == MCTP_RET_DISCOVERY_SUCCESS) {
+		mctp_ctrl_sdbus_object_remove_invalid_eid(mctp_ctrl->bus);
+		/* Refresh D-Bus states */
+		mctp_sdbus_refresh_endpoints(mctp_ctrl->cmdline, context);
+	}
+
+	/* Clear the routing-table refresh flag so it stays gated by the
+	   1-minute interval check at the top of the function. */
+	mctp_ctrl->update_routing_table = false;
+	return 0;
 }
 
 int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 			     mctp_sdbus_context_t *context)
 {
 	int polled, r;
-
-#ifndef MCTP_IN_KERNEL
-	struct timespec ts;
-	ts.tv_sec = 0;
-	ts.tv_nsec = 50* 1000000;  // 50 ms
-#endif
 
 	polled =
 		poll(context->fds, MCTP_CTRL_TOTAL_FDS, MCTP_CTRL_POLL_TIMEOUT);
@@ -1542,19 +1527,17 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 		return -1;
 	}
 
+	r = mctp_ctrl_handle_partial_discovery_timer(mctp_ctrl, context);
+	if (r < 0) {
+		MCTP_CTRL_ERR("Error handling partial discovery timer event: %d\n", r);
+		return -1;
+	}
+
 #ifndef MCTP_IN_KERNEL
-	if(!atomic_load(&partial_discover_running)){
-		r = mctp_ctrl_handle_socket(mctp_ctrl, context);
-		if (r < 0) {
-			MCTP_CTRL_ERR("Error handling socket event: %d\n", r);
-			return -1;
-		}
-	} else {
-		if(context->fds[MCTP_CTRL_SOCKET_FD].revents){
-			r = nanosleep(&ts, NULL); 
-			if (r < 0)
-				MCTP_CTRL_ERR("Error in nanosleep: %s\n", strerror(errno));
-		}
+	r = mctp_ctrl_handle_socket(mctp_ctrl, context);
+	if (r < 0) {
+		MCTP_CTRL_ERR("Error handling socket event: %d\n", r);
+		return -1;
 	}
 #endif
 
@@ -1581,35 +1564,22 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 	}
 #endif
 
-#ifdef MCTP_IN_KERNEL
-	if(!atomic_load(&partial_discover_running)){
-		int reset = mctp_check_host_reset_event();
-		if (reset) {
-			mctp_ctrl_handle_host_reset(mctp_ctrl);
-		}
-	}
-#else
 	int reset = mctp_check_host_reset_event();
 	if (reset) {
-		return -1;
+		mctp_ctrl_handle_host_reset(mctp_ctrl);
 	}
-#endif	
+
 	r = mctp_ctrl_handle_timer(mctp_ctrl, context);
 	if (r < 0) {
 		MCTP_CTRL_ERR("Error handling timer event: %d\n", r);
 		return -1;
 	}
-
 	return SDBUS_PROCESS_EVENT;
 }
 
 void mctp_ctrl_sdbus_stop(void)
 {
-
-	pthread_mutex_lock(&mctp_ctrl_running_mtx);
 	mctp_ctrl_running = 0;
-	pthread_cond_signal(&mctp_ctrl_running_cv);     // wake the waiter
-	pthread_mutex_unlock(&mctp_ctrl_running_mtx);
 }
 #ifdef MOCKUP_ENDPOINT
 /* MCTP ctrl D-Bus initialization */
@@ -1651,6 +1621,14 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 	context->fds[MCTP_CTRL_TRACE_FD].events = POLLIN;
 	context->fds[MCTP_CTRL_TRACE_FD].revents = 0;
 
+	if ((cmdline->binding_type == MCTP_BINDING_PCIE && cmdline->pcie.mode != 0) ||
+		(cmdline->binding_type == MCTP_BINDING_SMBUS && (cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC)) ||
+		(cmdline->binding_type == MCTP_BINDING_KERNEL))
+	{
+		context->fds[MCTP_CTRL_PARTIAL_DISC_TIMER_FD].fd = g_partial_disc_timer_fd;
+		context->fds[MCTP_CTRL_PARTIAL_DISC_TIMER_FD].events = POLLIN;
+		context->fds[MCTP_CTRL_PARTIAL_DISC_TIMER_FD].revents = 0;
+	}
 #ifdef MOCKUP_ENDPOINT
 	if (monfd) {
 		context->fds[MCTP_CTRL_SD_MON_FD].fd = monfd->fd_mon;
@@ -1660,20 +1638,6 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 	}
 #endif
 	MCTP_CTRL_DEBUG("%s: Entering polling loop\n", __func__);
-
-	/*Create thread for background mode*/
-	pthread_t partial_discovery_thread = 0;
-	PARTIAL_DISOCVERY_MODE_PARAM *partial_disovery_mode_param = (PARTIAL_DISOCVERY_MODE_PARAM*)malloc(sizeof(PARTIAL_DISOCVERY_MODE_PARAM));
-	if ((cmdline->binding_type == MCTP_BINDING_PCIE && cmdline->pcie.mode != 0) || 
-		(cmdline->binding_type == MCTP_BINDING_SMBUS && (cmdline->i2c.chosen_eid_type == EID_TYPE_ARP || cmdline->i2c.chosen_eid_type == EID_TYPE_STATIC)) ||
-		(cmdline->binding_type == MCTP_BINDING_KERNEL))
-	{
-		partial_disovery_mode_param->mctp_ctrl = mctp_ctrl;
-		partial_disovery_mode_param->context = context;
-		if(pthread_create(&partial_discovery_thread, NULL, partial_discovery_mode, partial_disovery_mode_param) == -1){
-			MCTP_CTRL_INFO("%s: Partail discover thread create fail\n", __func__);
-		}
-	}
 
 #ifdef ENABLE_USB
 	if (mctp_ctrl_get_binding_type(mctp_ctrl) == MCTP_BINDING_USB) {
@@ -1694,10 +1658,6 @@ int mctp_ctrl_sdbus_init(mctp_ctrl_t *mctp_ctrl, int signal_fd,
 		}
 	}
 
-	if (partial_discovery_thread > 0)
-		pthread_join(partial_discovery_thread, NULL);
-	
-	free(partial_disovery_mode_param);
 	free(context);
 	return r;
 }
