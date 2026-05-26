@@ -788,7 +788,7 @@ static void mctp_handle_event(mctp_ctrl_t *mctp_ctrl, uint8_t *message,
 	}
 	/* Only support datagram requests/events */
 	if (((message[1] & 0x80) != 0x80) || ((message[1] & 0x40) != 0x40)) {
-		MCTP_CTRL_ERR(
+		MCTP_CTRL_DEBUG(
 			"%s: MCTP message has the wrong req bit or datagram bit. Req bit: %d, Datagram bit: %d\n",
 			__func__, (message[1] & 0x80) >> 7,
 			(message[1] & 0x40) >> 6);
