@@ -1411,20 +1411,8 @@ static int mctp_ctrl_handle_partial_discovery_timer(mctp_ctrl_t *mctp_ctrl,
 	if (!mctp_ctrl_running)
 		return 0;
 
-	/* Rate-limit: only run partial discovery at most once per minute */
-	t_now_ms = mctp_ext_millis();
-	if (t_last_run_ms == 0) {
-		t_last_run_ms = t_now_ms;
-		return 0;
-	}
-
-	if (t_now_ms - t_last_run_ms >= 60 * 1000) {
-		MCTP_CTRL_INFO("%s: Running partial discovery\n", __func__);
-		mctp_ctrl->update_routing_table = true;
-		t_last_run_ms = t_now_ms;
-	}
-
-	/* Drain the timerfd (if armed) so it doesn't keep firing */
+	/* Only check the rate-limit when the timer FD fires, so that
+	   D-Bus-only poll wakeups skip this work entirely. */
 	if (context->fds[MCTP_CTRL_PARTIAL_DISC_TIMER_FD].revents & POLLIN) {
 		uint64_t ign = 0;
 		if (read(context->fds[MCTP_CTRL_PARTIAL_DISC_TIMER_FD].fd,
@@ -1433,7 +1421,22 @@ static int mctp_ctrl_handle_partial_discovery_timer(mctp_ctrl_t *mctp_ctrl,
 				"%s: Bad read from partial disc timer FD\n",
 				__func__);
 		}
+
+		/* Rate-limit: only run partial discovery at most once per minute */
+		t_now_ms = mctp_ext_millis();
+		if (t_last_run_ms == 0) {
+			t_last_run_ms = t_now_ms;
+		} else if (t_now_ms - t_last_run_ms >= 60 * 1000) {
+			MCTP_CTRL_INFO("%s: Running partial discovery\n", __func__);
+			mctp_ctrl->update_routing_table = true;
+			t_last_run_ms = t_now_ms;
+		}
 	}
+
+	/* Nothing to do — return immediately so D-Bus / socket handlers
+	   are not blocked by discovery work. */
+	if (!mctp_ctrl->update_routing_table)
+		return 0;
 
 	if (mctp_ctrl->update_routing_table) {
 		/* Prime the endpoints by marking all routing entries invalid */
@@ -1496,7 +1499,7 @@ static int mctp_ctrl_handle_partial_discovery_timer(mctp_ctrl_t *mctp_ctrl,
 	/* Clear the routing-table refresh flag so it stays gated by the
 	   1-minute interval check at the top of the function. */
 	mctp_ctrl->update_routing_table = false;
-	return 0;
+	return 1;
 }
 
 int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
@@ -1527,12 +1530,6 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 		return -1;
 	}
 
-	r = mctp_ctrl_handle_partial_discovery_timer(mctp_ctrl, context);
-	if (r < 0) {
-		MCTP_CTRL_ERR("Error handling partial discovery timer event: %d\n", r);
-		return -1;
-	}
-
 #ifndef MCTP_IN_KERNEL
 	r = mctp_ctrl_handle_socket(mctp_ctrl, context);
 	if (r < 0) {
@@ -1540,6 +1537,17 @@ int mctp_ctrl_sdbus_dispatch(mctp_ctrl_t *mctp_ctrl,
 		return -1;
 	}
 #endif
+
+	/* Run partial discovery AFTER D-Bus and socket are handled so
+	   that the heavy discovery work never blocks request processing. */
+	if ((context->fds[MCTP_CTRL_PARTIAL_DISC_TIMER_FD].revents & POLLIN) ||
+	    mctp_ctrl->update_routing_table) {
+		r = mctp_ctrl_handle_partial_discovery_timer(mctp_ctrl, context);
+		if (r < 0) {
+			MCTP_CTRL_ERR("Error handling partial discovery timer event: %d\n", r);
+			return -1;
+		}
+	}
 
 	if (context->fds[MCTP_CTRL_TRACE_FD].revents) {
 		int debug_level = mctp_handle_sys_trace_event(mctp_get_sys_trace_module(mctp_ctrl->cmdline->binding_type));

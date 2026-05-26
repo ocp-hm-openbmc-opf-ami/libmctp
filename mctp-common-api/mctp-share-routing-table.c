@@ -101,6 +101,11 @@ int mctp_add_routing_table_entry(mctp_eid_t local_eid_default, mctp_eid_t eid, u
 	if (mctp_routing_table_cache == NULL)
 		return -1;
 
+	if (mctp_routing_table_cache->offset + sizeof(struct get_routing_table_entry) > sizeof(mctp_routing_table_cache->routing_table)) {
+		MCTP_SYS_ERR("Error: routing table full for EID %d, media_type %d\n", local_eid_default, media_type);
+		return -1;
+	}
+
 	struct get_routing_table_entry *entry = (struct get_routing_table_entry *)((uint8_t *)mctp_routing_table_cache->routing_table + mctp_routing_table_cache->offset);
 	entry -> starting_eid = eid;
 	entry -> eid_range_size = 1;
@@ -122,6 +127,11 @@ int mctp_add_routing_table_bridge(mctp_eid_t local_eid_default, mctp_eid_t eid, 
 	if (mctp_routing_table_cache == NULL)
 		return -1;
 
+	if (mctp_routing_table_cache->offset + sizeof(struct get_routing_table_entry) > sizeof(mctp_routing_table_cache->routing_table)) {
+		MCTP_SYS_ERR("Error: routing table full for EID %d, media_type %d\n", local_eid_default, media_type);
+		return -1;
+	}
+
 	struct get_routing_table_entry *entry = (struct get_routing_table_entry *)((uint8_t *)mctp_routing_table_cache->routing_table + mctp_routing_table_cache->offset);
 	entry -> starting_eid = eid;
 	entry -> eid_range_size = eid_count;
@@ -141,6 +151,12 @@ int mctp_write_routing_table(mctp_eid_t eid, uint8_t media_type, uint8_t handle,
 
 	if (mctp_routing_table_cache == NULL)
 		return -1;
+
+	if (mctp_routing_table_cache->offset + len > (int)sizeof(mctp_routing_table_cache->routing_table)) {
+		MCTP_SYS_ERR("Error: routing table write overflow for EID %d, offset %d + len %d > %zu\n",
+			eid, mctp_routing_table_cache->offset, len, sizeof(mctp_routing_table_cache->routing_table));
+		return -1;
+	}
 
 	uint8_t * routing_table = mctp_routing_table_cache->routing_table;
 	memcpy((uint8_t*) routing_table + mctp_routing_table_cache -> offset, entry, len);
