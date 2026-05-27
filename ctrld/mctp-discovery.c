@@ -1409,10 +1409,10 @@ mctp_ret_codes_t mctp_discover_endpoints(const mctp_cmdline_args_t *cmd,
 				MCTP_CTRL_ERR(
 					"%s: Failed MCTP_GET_ROUTING_TABLE_ENTRIES_REQUEST\n",
 					__func__);
-				doLog(ctrl->bus,
-				      "PCIe Device Enumeration Service",
-				      "No valid routing table", EVT_CRITICAL,
-				      "Reset the baseboard");
+				// doLog(ctrl->bus,
+				//       "PCIe Device Enumeration Service",
+				//       "No valid routing table", EVT_CRITICAL,
+				//       "Reset the baseboard");
 				return MCTP_RET_DISCOVERY_FAILED;
 			}
 
