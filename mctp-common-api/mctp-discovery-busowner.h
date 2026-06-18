@@ -28,7 +28,9 @@ mctp_ret_codes_t mctp_busowner_mode_ctrl_cmd_responder(mctp_ctrl_t *ctrl,
 					       uint8_t **mctp_resp_msg,
 					       size_t *mctp_resp_len,
 					       uint8_t **mctp_hdr_msg);
-			   
+
+void mctp_busowner_reset_discovery_state();
+
 #ifdef __cplusplus
 }
 #endif
