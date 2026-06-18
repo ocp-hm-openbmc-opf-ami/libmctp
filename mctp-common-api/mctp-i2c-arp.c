@@ -726,3 +726,10 @@ int i2c_smbus_find_location(int bus_num, char *parent_path, char *parent_name,
 	closedir(dir);
 	return retval;
 }
+
+uint8_t g_endpoint_discovered = 0;
+
+void mctp_i2c_reset_discovery_state()
+{
+	g_endpoint_discovered = 0;
+}

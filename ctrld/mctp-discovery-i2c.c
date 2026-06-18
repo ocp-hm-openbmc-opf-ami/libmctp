@@ -52,7 +52,7 @@ extern const uint8_t MCTP_ROUTING_ENTRY_START;
 #include "mctp-netlink.h"
 #endif
 extern mctp_msg_type_table_t *g_msg_type_entries;
-uint8_t g_endpoint_discovered = 0;
+extern uint8_t g_endpoint_discovered;
 #define MCTP_CTRL_CMD_MAX_RETRY 3
 
 /* The EIDs and pool start information would be obtaind from commandline */

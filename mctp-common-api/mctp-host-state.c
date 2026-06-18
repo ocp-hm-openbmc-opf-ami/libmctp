@@ -4,6 +4,8 @@
 #include "mctp-utils.h"
 #include "mctp-ctrl.h"
 #include "mctp-discovery-common.h"
+#include "mctp-i2c-arp.h"
+#include "mctp-discovery-busowner.h"
 #include "mctp-sdbus.h"
 #include "mctp-ext-sdbus.h"
 #include "mctp-netlink.h"
@@ -380,7 +382,11 @@ int mctp_ctrl_handle_host_reset(mctp_ctrl_t *mctp_ctrl)
 	mctp_uuid_delete_all();
 	mctp_vdm_delete_all();
 	mctp_msg_types_delete_all();
-	
+
+	/* Reset discovery state so next discovery performs full ARP init */
+	mctp_i2c_reset_discovery_state();
+	mctp_busowner_reset_discovery_state();
+
 	/* Reset the host_power_changed flag after handling the reset */
 	host_power_changed = 0;
 	

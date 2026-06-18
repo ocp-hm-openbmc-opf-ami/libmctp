@@ -20,6 +20,7 @@ int i2c_smbus_find_location(int bus_num, char *parent_path, char *parent_name,
 uint8_t i2c_bus_scan_address(int32_t out_fd, uint8_t start_addr);
 int i2c_bus_reset_device(int bus_num, u_int8_t slave_addr);
 int i2c_smbus_detect_device(int file, uint8_t slave_addr);
+void mctp_i2c_reset_discovery_state();
 
 #ifdef __cplusplus
 }

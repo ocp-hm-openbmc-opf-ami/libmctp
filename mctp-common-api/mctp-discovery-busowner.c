@@ -138,12 +138,11 @@ static mctp_ret_codes_t mctp_discover_response(mctp_ctrl_t *ctrl,
 mctp_ret_codes_t mctp_busowner_mode_discover_endpoints(const mctp_cmdline_args_t *cmd,
 					 mctp_ctrl_t *ctrl)
 {
-	static int discovery_mode = MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST;
+	int discovery_mode = daemon_mode ? MCTP_EP_DISCOVERY_REQUEST
+	                                 : MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST;
 
-	if(g_endpoint_dicovered || discovery_mode != MCTP_PREPARE_FOR_EP_DISCOVERY_REQUEST){
-		discovery_mode = MCTP_EP_DISCOVERY_REQUEST;
+	if (daemon_mode)
 		MCTP_SYS_DEBUG("%s Start busowner mode partial discover \n", __func__);
-	}
 
 	mctp_ret_codes_t mctp_ret;
 	uint8_t entry_hdl = MCTP_ROUTING_ENTRY_START;
@@ -1052,4 +1051,10 @@ mctp_ret_codes_t mctp_busowner_mode_ctrl_cmd_responder(mctp_ctrl_t *ctrl,
 
 	return MCTP_CMD_FAILED;
 
+}
+
+void mctp_busowner_reset_discovery_state()
+{
+	g_endpoint_dicovered = 0;
+	daemon_mode = false;
 }
